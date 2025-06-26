@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>GeRot Enterprise - Admin Master</title>
+    <style>
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --success: #28a745;
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --info: #17a2b8;
+            --dark: #343a40;
+            --light: #f8f9fa;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            min-height: 100vh;
+            color: var(--dark);
+        }
+        
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .navbar h1 {
+            color: var(--primary);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-badge {
+            background: linear-gradient(135deg, var(--danger), #e85d75);
+            color: white;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .logout-btn {
+            background: var(--danger);
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        
+        .page-header {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.8));
+            backdrop-filter: blur(20px);
+            padding: 2rem;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .page-header h2 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .page-header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient);
+        }
+        
+        .stat-card.users::before { background: linear-gradient(90deg, var(--primary), var(--secondary)); }
+        .stat-card.sectors::before { background: linear-gradient(90deg, var(--success), #20c997); }
+        .stat-card.routines::before { background: linear-gradient(90deg, var(--warning), #fd7e14); }
+        .stat-card.tasks::before { background: linear-gradient(90deg, var(--info), #6f42c1); }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 1rem;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: white;
+        }
+        
+        .stat-card.users .stat-icon { background: linear-gradient(135deg, var(--primary), var(--secondary)); }
+        .stat-card.sectors .stat-icon { background: linear-gradient(135deg, var(--success), #20c997); }
+        .stat-card.routines .stat-icon { background: linear-gradient(135deg, var(--warning), #fd7e14); }
+        .stat-card.tasks .stat-icon { background: linear-gradient(135deg, var(--info), #6f42c1); }
+        
+        .stat-number {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card.users .stat-number { color: var(--primary); }
+        .stat-card.sectors .stat-number { color: var(--success); }
+        .stat-card.routines .stat-number { color: var(--warning); }
+        .stat-card.tasks .stat-number { color: var(--info); }
+        
+        .stat-label {
+            color: #666;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+        
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .card h3 {
+            color: var(--dark);
+            margin-bottom: 1.5rem;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .sectors-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .sector-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+        
+        .sector-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+        
+        .sector-info h4 {
+            color: var(--dark);
+            margin-bottom: 0.3rem;
+        }
+        
+        .sector-meta {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .sector-stats {
+            text-align: right;
+        }
+        
+        .user-count {
+            background: var(--primary);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .leader-count {
+            background: var(--success);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            margin-top: 0.3rem;
+            display: inline-block;
+        }
+        
+        .activities-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--light);
+            color: var(--primary);
+            font-size: 1.2rem;
+        }
+        
+        .activity-content {
+            flex: 1;
+        }
+        
+        .activity-action {
+            font-weight: 500;
+            color: var(--dark);
+        }
+        
+        .activity-user {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .activity-time {
+            color: #999;
+            font-size: 0.8rem;
+        }
+        
+        .excel-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .excel-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .excel-data {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+        }
+        
+        .excel-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .excel-table th,
+        .excel-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .excel-table th {
+            background: var(--light);
+            font-weight: 600;
+            color: var(--dark);
+            position: sticky;
+            top: 0;
+        }
+        
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .action-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.5rem;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .action-btn:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+        
+        .action-btn.primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-color: transparent;
+        }
+        
+        .action-btn.success {
+            background: linear-gradient(135deg, var(--success), #20c997);
+            color: white;
+            border-color: transparent;
+        }
+        
+        /* Mobile responsivo */
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .container {
+                padding: 0 1rem;
+            }
+            
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .page-header h2 {
+                font-size: 2rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <div class="logo">G</div>
+            <h1>GeRot Enterprise - Admin Master</h1>
+        </div>
+        <div class="user-info">
+            <span class="user-badge">🛡️ Admin Master</span>
+            <span>{{ user }}</span>
+            <a href="/logout" class="logout-btn">Sair</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="page-header">
+            <h2>Dashboard Executivo 📊</h2>
+            <p>Visão completa de todos os setores e operações da Portoex</p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card users">
+                <div class="stat-icon">👥</div>
+                <div class="stat-number">{{ stats.total_users }}</div>
+                <div class="stat-label">Usuários Ativos</div>
+            </div>
+            
+            <div class="stat-card sectors">
+                <div class="stat-icon">🏢</div>
+                <div class="stat-number">{{ stats.total_sectors }}</div>
+                <div class="stat-label">Setores Ativos</div>
+            </div>
+            
+            <div class="stat-card routines">
+                <div class="stat-icon">📋</div>
+                <div class="stat-number">{{ stats.routines_today }}</div>
+                <div class="stat-label">Rotinas Hoje</div>
+            </div>
+            
+            <div class="stat-card tasks">
+                <div class="stat-icon">✅</div>
+                <div class="stat-number">{{ stats.tasks_today }}</div>
+                <div class="stat-label">Tarefas Hoje</div>
+            </div>
+        </div>
+        
+        <div class="content-grid">
+            <div class="card">
+                <h3>🏢 Setores da Empresa</h3>
+                <div class="sectors-list">
+                    {% for sector in sectors %}
+                    <div class="sector-item">
+                        <div class="sector-info">
+                            <h4>{{ sector[0] }}</h4>
+                            <div class="sector-meta">ID: {{ sector[1] }}</div>
+                        </div>
+                        <div class="sector-stats">
+                            <div class="user-count">{{ sector[2] }} usuários</div>
+                            <div class="leader-count">{{ sector[3] }} líderes</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>📈 Atividades Recentes</h3>
+                <div class="activities-list">
+                    {% for activity in activities %}
+                    <div class="activity-item">
+                        <div class="activity-icon">🔔</div>
+                        <div class="activity-content">
+                            <div class="activity-action">{{ activity[0] }}</div>
+                            <div class="activity-user">{{ activity[3] }}</div>
+                            <div class="activity-time">{{ activity[2] }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="excel-section">
+            <div class="excel-header">
+                <h3>📊 Dados da Base (dados.xlsx)</h3>
+                <button onclick="refreshExcelData()" class="action-btn">🔄 Atualizar</button>
+            </div>
+            
+            {% if excel_data %}
+            <div class="excel-data">
+                <table class="excel-table">
+                    <thead>
+                        <tr>
+                            {% for key in excel_data[0].keys() %}
+                            <th>{{ key }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in excel_data %}
+                        <tr>
+                            {% for value in row.values() %}
+                            <td>{{ value }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 2rem; color: #666;">
+                📄 Arquivo dados.xlsx não encontrado ou vazio
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="card">
+            <h3>🚀 Ações Rápidas</h3>
+            <div class="quick-actions">
+                <a href="/api/sectors" class="action-btn">
+                    🏢 <span>Gerenciar Setores</span>
+                </a>
+                <a href="/api/excel_data" class="action-btn">
+                    📊 <span>API Dados Excel</span>
+                </a>
+                <a href="/leader/dashboard" class="action-btn">
+                    👨‍💼 <span>Visão Líder</span>
+                </a>
+                <a href="/team/dashboard" class="action-btn">
+                    👥 <span>Visão Equipe</span>
+                </a>
+                <a href="/api/health" class="action-btn success">
+                    💚 <span>Status Sistema</span>
+                </a>
+                <a href="javascript:location.reload()" class="action-btn primary">
+                    🔄 <span>Atualizar Dashboard</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Atualização automática do dashboard
+        function updateDashboard() {
+            fetch('/api/health')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Sistema saudável:', data.status);
+                })
+                .catch(error => console.error('Erro na atualização:', error));
+        }
+        
+        // Atualizar dados do Excel
+        function refreshExcelData() {
+            fetch('/api/excel_data')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.data.length > 0) {
+                        location.reload();
+                    } else {
+                        alert('Arquivo dados.xlsx não encontrado ou vazio');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar Excel:', error);
+                    alert('Erro ao carregar dados do Excel');
+                });
+        }
+        
+        // Atualizar a cada 30 segundos
+        setInterval(updateDashboard, 30000);
+        
+        // Animações de entrada
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.stat-card, .card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'all 0.5s ease';
+                
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        });
+        
+        // Números animados
+        function animateNumbers() {
+            const numbers = document.querySelectorAll('.stat-number');
+            numbers.forEach(num => {
+                const target = parseInt(num.textContent);
+                let current = 0;
+                const increment = target / 20;
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= target) {
+                        current = target;
+                        clearInterval(timer);
+                    }
+                    num.textContent = Math.floor(current);
+                }, 50);
+            });
+        }
+        
+        // Iniciar animação dos números após carregamento
+        setTimeout(animateNumbers, 500);
+    </script>
+</body>
+</html> 
