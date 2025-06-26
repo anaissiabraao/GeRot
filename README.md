@@ -145,4 +145,4 @@ Este projeto está sob a licença MIT. Veja o arquivo LICENSE para mais detalhes
 - GitHub: [@anaissiabraao](https://github.com/anaissiabraao)
 
 ---
-⭐ Se este projeto te ajudou, considere dar uma estrela! 
+⭐ Se este projeto te ajudou, considere dar uma estrela!
