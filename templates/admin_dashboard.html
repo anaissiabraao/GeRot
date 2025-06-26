@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeRot - Dashboard Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .navbar h1 {
+            color: #667eea;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-info .badge {
+            background: #667eea;
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background: #c82333;
+            transform: translateY(-1px);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-card .icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-card .number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card .label {
+            color: #666;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .actions-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .actions-section h2 {
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+        
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .action-btn {
+            display: block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            text-decoration: none;
+            border-radius: 10px;
+            text-align: center;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .action-btn.success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+        
+        .action-btn.info {
+            background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+        }
+        
+        .action-btn.warning {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: #333;
+        }
+        
+        .quick-stats {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .quick-stats h2 {
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+        
+        .progress-item {
+            margin-bottom: 1.5rem;
+        }
+        
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        .welcome-message {
+            background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+            padding: 2rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .welcome-message h2 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+        
+        .welcome-message p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+            
+            .navbar {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h1>🎯 GeRot - Dashboard Administrativo</h1>
+        <div class="user-info">
+            <span class="badge">👨‍💼 Admin</span>
+            <span>{{ user }}</span>
+            <a href="/logout" class="logout-btn">Sair</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="welcome-message">
+            <h2>Bem-vindo, {{ user }}! 👋</h2>
+            <p>Gerencie rotinas, usuários e monitore o desempenho da sua equipe</p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="icon">👥</div>
+                <div class="number">{{ stats.total_users }}</div>
+                <div class="label">Usuários Totais</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="icon">📋</div>
+                <div class="number">{{ stats.routines_today }}</div>
+                <div class="label">Rotinas Hoje</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="icon">✅</div>
+                <div class="number">{{ stats.tasks_today }}</div>
+                <div class="label">Tarefas Hoje</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="icon">⚡</div>
+                <div class="number">{{ "%.1f"|format((stats.tasks_today / (stats.total_users or 1)) * 100) }}%</div>
+                <div class="label">Produtividade</div>
+            </div>
+        </div>
+        
+        <div class="actions-section">
+            <h2>🚀 Ações Rápidas</h2>
+            <div class="actions-grid">
+                <a href="/api/create-sample-data" class="action-btn success">
+                    📝 Criar Dados de Exemplo
+                </a>
+                <a href="/team/dashboard" class="action-btn info">
+                    👥 Ver Dashboard da Equipe
+                </a>
+                <a href="/api/health" class="action-btn">
+                    🔍 Status do Sistema
+                </a>
+                <a href="https://github.com/anaissiabraao/GeRot" target="_blank" class="action-btn warning">
+                    📚 Documentação
+                </a>
+            </div>
+        </div>
+        
+        <div class="quick-stats">
+            <h2>📊 Estatísticas Rápidas</h2>
+            
+            <div class="progress-item">
+                <div class="progress-label">
+                    <span>Usuários Ativos</span>
+                    <span>{{ stats.total_users }}/10</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ (stats.total_users / 10 * 100) | round }}%"></div>
+                </div>
+            </div>
+            
+            <div class="progress-item">
+                <div class="progress-label">
+                    <span>Rotinas Concluídas Hoje</span>
+                    <span>{{ stats.routines_today }}/5</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ (stats.routines_today / 5 * 100) | round }}%"></div>
+                </div>
+            </div>
+            
+            <div class="progress-item">
+                <div class="progress-label">
+                    <span>Tarefas em Andamento</span>
+                    <span>{{ stats.tasks_today }}/20</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ (stats.tasks_today / 20 * 100) | round }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Atualizar estatísticas automaticamente
+        function updateStats() {
+            fetch('/api/health')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Sistema funcionando:', data.status);
+                })
+                .catch(error => console.log('Erro:', error));
+        }
+        
+        // Atualizar a cada 30 segundos
+        setInterval(updateStats, 30000);
+        
+        // Animação de entrada
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.stat-card');
+            cards.forEach((card, index) => {
+                setTimeout(() => {
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateY(20px)';
+                    card.style.transition = 'all 0.5s ease';
+                    
+                    setTimeout(() => {
+                        card.style.opacity = '1';
+                        card.style.transform = 'translateY(0)';
+                    }, 100);
+                }, index * 100);
+            });
+        });
+    </script>
+</body>
+</html> 

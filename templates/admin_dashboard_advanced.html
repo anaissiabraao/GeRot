@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>GeRot Enterprise - Dashboard Avançado</title>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#667eea">
+    
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --success: #28a745;
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --info: #17a2b8;
+            --dark: #343a40;
+            --light: #f8f9fa;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            min-height: 100vh;
+            color: var(--dark);
+        }
+        
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .notifications-btn {
+            position: relative;
+            background: var(--info);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--danger);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .sidebar {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+        
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+        }
+        
+        .stat-card.primary::before { background: var(--primary); }
+        .stat-card.success::before { background: var(--success); }
+        .stat-card.warning::before { background: var(--warning); }
+        .stat-card.info::before { background: var(--info); }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            height: 500px;
+        }
+        
+        .chart-title {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--dark);
+            text-align: center;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .activity-feed {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .activity-icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            color: white;
+        }
+        
+        .activity-icon.login { background: var(--success); }
+        .activity-icon.task { background: var(--info); }
+        .activity-icon.goal { background: var(--warning); }
+        .activity-icon.error { background: var(--danger); }
+        
+        .activity-content {
+            flex: 1;
+        }
+        
+        .activity-title {
+            font-weight: 500;
+            color: var(--dark);
+        }
+        
+        .activity-time {
+            color: #666;
+            font-size: 0.8rem;
+        }
+        
+        .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        .action-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            text-decoration: none;
+            justify-content: center;
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .excel-section {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .excel-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .excel-table th,
+        .excel-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .excel-table th {
+            background: var(--light);
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .excel-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .api-endpoints {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .endpoint-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        
+        .endpoint-method {
+            padding: 0.3rem 0.8rem;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .method-get { background: var(--success); color: white; }
+        .method-post { background: var(--warning); color: white; }
+        .method-put { background: var(--info); color: white; }
+        .method-delete { background: var(--danger); color: white; }
+        
+        .realtime-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        /* Responsivo */
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .stats-overview {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .container {
+                padding: 0 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <div class="logo">G</div>
+            <h1>GeRot Enterprise - Dashboard Avançado</h1>
+        </div>
+        
+        <div class="navbar-actions">
+            <button class="notifications-btn" onclick="toggleNotifications()">
+                🔔
+                <span class="notification-badge">3</span>
+            </button>
+            <a href="/logout" class="action-btn" style="margin-left: 1rem;">Sair</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="dashboard-grid">
+            <!-- Sidebar Esquerda -->
+            <div class="sidebar">
+                <h3>📊 Status em Tempo Real</h3>
+                <div class="realtime-status">
+                    <div class="status-indicator"></div>
+                    <span>Sistema Online</span>
+                </div>
+                
+                <div class="activity-feed">
+                    <h4>🔔 Atividades Recentes</h4>
+                    <div class="activity-item">
+                        <div class="activity-icon login">👤</div>
+                        <div class="activity-content">
+                            <div class="activity-title">Novo login: João Silva</div>
+                            <div class="activity-time">2 minutos atrás</div>
+                        </div>
+                    </div>
+                    
+                    <div class="activity-item">
+                        <div class="activity-icon task">✅</div>
+                        <div class="activity-content">
+                            <div class="activity-title">Tarefa concluída: Relatório diário</div>
+                            <div class="activity-time">5 minutos atrás</div>
+                        </div>
+                    </div>
+                    
+                    <div class="activity-item">
+                        <div class="activity-icon goal">🎯</div>
+                        <div class="activity-content">
+                            <div class="activity-title">Meta 90% atingida - Setor Comercial</div>
+                            <div class="activity-time">15 minutos atrás</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Conteúdo Principal -->
+            <div class="main-content">
+                <!-- Estatísticas Overview -->
+                <div class="stats-overview">
+                    <div class="stat-card primary">
+                        <div class="stat-number" id="totalUsers">{{ excel_data|length if excel_data else 0 }}</div>
+                        <div class="stat-label">Colaboradores</div>
+                    </div>
+                    
+                    <div class="stat-card success">
+                        <div class="stat-number" id="activeRoutines">{{ (excel_data|length * 0.85)|round if excel_data else 0 }}</div>
+                        <div class="stat-label">Rotinas Ativas</div>
+                    </div>
+                    
+                    <div class="stat-card warning">
+                        <div class="stat-number" id="completedTasks">{{ (excel_data|length * 0.72)|round if excel_data else 0 }}</div>
+                        <div class="stat-label">Tarefas Concluídas</div>
+                    </div>
+                    
+                    <div class="stat-card info">
+                        <div class="stat-number" id="productivity">87%</div>
+                        <div class="stat-label">Produtividade</div>
+                    </div>
+                </div>
+                
+                <!-- Gráficos -->
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3 class="chart-title">📊 Distribuição por Setores</h3>
+                        <div id="sectorsChart"></div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <h3 class="chart-title">📈 Produtividade Mensal</h3>
+                        <canvas id="productivityChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3 class="chart-title">🎯 Progresso das Metas</h3>
+                        <canvas id="goalsChart"></canvas>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <h3 class="chart-title">📋 Tarefas por Status</h3>
+                        <canvas id="tasksChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sidebar Direita -->
+            <div class="sidebar">
+                <h3>🚀 Ações Rápidas</h3>
+                <div class="quick-actions">
+                    <a href="/api/users" class="action-btn">👥 Usuários</a>
+                    <a href="/api/sectors" class="action-btn">🏢 Setores</a>
+                    <a href="/api/routines" class="action-btn">📋 Rotinas</a>
+                    <a href="/api/reports" class="action-btn">📊 Relatórios</a>
+                </div>
+                
+                <h4 style="margin-top: 2rem;">📡 APIs Disponíveis</h4>
+                <div class="api-endpoints">
+                    <div class="endpoint-item">
+                        <span class="endpoint-method method-get">GET</span>
+                        <span>/api/users</span>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="endpoint-method method-get">GET</span>
+                        <span>/api/sectors</span>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="endpoint-method method-get">GET</span>
+                        <span>/api/routines</span>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="endpoint-method method-get">GET</span>
+                        <span>/api/reports</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if excel_data %}
+        <div class="excel-section">
+            <h3>📊 Base de Dados (dados.xlsx)</h3>
+            <div style="max-height: 300px; overflow-y: auto;">
+                <table class="excel-table">
+                    <thead>
+                        <tr>
+                            {% for key in excel_data[0].keys() %}
+                            <th>{{ key }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in excel_data %}
+                        <tr>
+                            {% for value in row.values() %}
+                            <td>{{ value }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <script>
+        // Configurar Service Worker para Push Notifications
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(registration => {
+                    console.log('SW registrado:', registration);
+                })
+                .catch(error => {
+                    console.log('Erro no SW:', error);
+                });
+        }
+        
+        // Gráfico de Setores com Plotly
+        {% if sectors_chart %}
+        const sectorsData = {{ sectors_chart|safe }};
+        Plotly.newPlot('sectorsChart', sectorsData.data, sectorsData.layout);
+        {% else %}
+        // Dados de exemplo se não houver dados do Excel
+        const sectorsExampleData = [{
+            values: [20, 30, 25, 15, 10],
+            labels: ['Administrativo', 'Comercial', 'Operacional', 'Financeiro', 'TI'],
+            type: 'pie',
+            hole: 0.4,
+            marker: {
+                colors: ['#667eea', '#28a745', '#ffc107', '#17a2b8', '#6f42c1']
+            }
+        }];
+        
+        const sectorsLayout = {
+            title: '',
+            showlegend: true,
+            height: 400
+        };
+        
+        Plotly.newPlot('sectorsChart', sectorsExampleData, sectorsLayout);
+        {% endif %}
+        
+        // Gráfico de Produtividade com Chart.js
+        const productivityCtx = document.getElementById('productivityChart').getContext('2d');
+        new Chart(productivityCtx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                datasets: [{
+                    label: 'Produtividade (%)',
+                    data: [75, 82, 88, 85, 90, 87],
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+        
+        // Gráfico de Metas
+        const goalsCtx = document.getElementById('goalsChart').getContext('2d');
+        new Chart(goalsCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Atingidas', 'Em Progresso', 'Atrasadas'],
+                datasets: [{
+                    data: [65, 25, 10],
+                    backgroundColor: ['#28a745', '#ffc107', '#dc3545']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+        
+        // Gráfico de Tarefas
+        const tasksCtx = document.getElementById('tasksChart').getContext('2d');
+        new Chart(tasksCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Pendentes', 'Em Andamento', 'Concluídas', 'Atrasadas'],
+                datasets: [{
+                    data: [15, 23, 45, 7],
+                    backgroundColor: ['#6c757d', '#17a2b8', '#28a745', '#dc3545']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+        
+        // Atualização em tempo real
+        function updateRealTimeData() {
+            fetch('/api/health')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Status:', data.status);
+                    // Atualizar indicadores em tempo real
+                })
+                .catch(error => console.error('Erro:', error));
+        }
+        
+        // Notificações
+        function toggleNotifications() {
+            alert('🔔 Sistema de notificações ativo!\n\nVocê receberá notificações push sobre:\n• Novas tarefas\n• Metas atingidas\n• Atividades da equipe');
+        }
+        
+        // Atualizar a cada 30 segundos
+        setInterval(updateRealTimeData, 30000);
+        
+        // Animações de entrada
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.stat-card, .chart-container, .sidebar');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'all 0.5s ease';
+                
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        });
+    </script>
+</body>
+</html> 
