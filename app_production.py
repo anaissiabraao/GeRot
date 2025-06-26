@@ -14,7 +14,9 @@ import bcrypt
 import pandas as pd
 from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
-from flask_dance.contrib.google import make_google_blueprint, google
+import requests
+import secrets
+from urllib.parse import urlencode
 import json
 import plotly.graph_objs as go
 import plotly.utils
@@ -32,8 +34,8 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'gerot-production-2025-super-
 app.config['DEBUG'] = False  # Produção sempre False
 
 # Configuração OAuth Google - Produção
-app.config['GOOGLE_OAUTH_CLIENT_ID'] = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '292478756955-j8j0dfs9tu5g4o0fkkqth0c2erv6sg2j.apps.googleusercontent.com')
-app.config['GOOGLE_OAUTH_CLIENT_SECRET'] = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', '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')
+app.config['GOOGLE_OAUTH_CLIENT_ID'] = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '1003471136320-kgbh8cgr04qk18fcgc7pqe20np5a7shq.apps.googleusercontent.com')
+app.config['GOOGLE_OAUTH_CLIENT_SECRET'] = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', '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')
 
 # Configuração Push Notifications
 app.config['VAPID_PRIVATE_KEY'] = os.getenv('VAPID_PRIVATE_KEY', 'your-vapid-private-key')
@@ -47,20 +49,10 @@ if database_url.startswith('sqlite:///'):
 else:
     app.config['DATABASE'] = database_url
 
-# OAuth Google Blueprint para Produção
-google_bp = make_google_blueprint(
-    client_id=app.config['GOOGLE_OAUTH_CLIENT_ID'],
-    client_secret=app.config['GOOGLE_OAUTH_CLIENT_SECRET'],
-    scope=["openid", "email", "profile"],
-    redirect_url="https://gerot.onrender.com/auth/google/authorized",
-    storage=None,  # Usar sessão Flask padrão
-    redirect_to="google_callback"
-)
-app.register_blueprint(google_bp, url_prefix="/auth")
-
-# Configuração adicional para o Flask-Dance
-app.config['GOOGLE_OAUTH_CLIENT_ID'] = app.config.get('GOOGLE_OAUTH_CLIENT_ID')
-app.config['GOOGLE_OAUTH_CLIENT_SECRET'] = app.config.get('GOOGLE_OAUTH_CLIENT_SECRET')
+# OAuth Google Manual (sem Flask-Dance)
+GOOGLE_OAUTH_URL = 'https://accounts.google.com/o/oauth2/auth'
+GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 
 # API REST
 api = Api(app)
@@ -557,27 +549,85 @@ def login():
     
     return render_template('enterprise_login.html')
 
-@app.route('/auth/google/callback')
-def google_callback():
-    """Callback do Google OAuth"""
+@app.route('/auth/google')
+def google_auth():
+    """Iniciar autenticação Google OAuth"""
+    # Gerar state para CSRF protection
+    state = secrets.token_urlsafe(32)
+    session['oauth_state'] = state
+    
+    # Parâmetros OAuth
+    params = {
+        'client_id': app.config['GOOGLE_OAUTH_CLIENT_ID'],
+        'redirect_uri': 'https://gerot.onrender.com/auth/google/authorized',
+        'scope': 'openid email profile',
+        'response_type': 'code',
+        'state': state,
+        'access_type': 'offline',
+        'prompt': 'select_account'
+    }
+    
+    # URL de autorização
+    auth_url = f"{GOOGLE_OAUTH_URL}?{urlencode(params)}"
+    return redirect(auth_url)
+
+@app.route('/auth/google/authorized')
+def google_authorized():
+    """Callback OAuth Google"""
     try:
-        if not google.authorized:
-            flash('Falha na autorização do Google.', 'error')
+        # Verificar state CSRF
+        state = request.args.get('state')
+        if not state or state != session.get('oauth_state'):
+            flash('Erro de segurança OAuth. Tente novamente.', 'error')
             return redirect(url_for('login'))
         
-        # Buscar informações do usuário
-        resp = google.get("/oauth2/v2/userinfo")
-        if not resp.ok:
+        # Limpar state da sessão
+        session.pop('oauth_state', None)
+        
+        # Verificar código de autorização
+        code = request.args.get('code')
+        if not code:
+            flash('Autorização negada pelo Google.', 'error')
+            return redirect(url_for('login'))
+        
+        # Trocar código por token
+        token_data = {
+            'client_id': app.config['GOOGLE_OAUTH_CLIENT_ID'],
+            'client_secret': app.config['GOOGLE_OAUTH_CLIENT_SECRET'],
+            'code': code,
+            'grant_type': 'authorization_code',
+            'redirect_uri': 'https://gerot.onrender.com/auth/google/authorized'
+        }
+        
+        token_response = requests.post(GOOGLE_TOKEN_URL, data=token_data)
+        if not token_response.ok:
+            app.logger.error(f'Erro ao obter token: {token_response.text}')
+            flash('Erro ao obter token de acesso.', 'error')
+            return redirect(url_for('login'))
+        
+        token_json = token_response.json()
+        access_token = token_json.get('access_token')
+        
+        if not access_token:
+            flash('Token de acesso não recebido.', 'error')
+            return redirect(url_for('login'))
+        
+        # Obter informações do usuário
+        headers = {'Authorization': f'Bearer {access_token}'}
+        user_response = requests.get(GOOGLE_USERINFO_URL, headers=headers)
+        
+        if not user_response.ok:
+            app.logger.error(f'Erro ao obter dados do usuário: {user_response.text}')
             flash('Erro ao obter informações do usuário.', 'error')
             return redirect(url_for('login'))
         
-        google_info = resp.json()
-        google_email = google_info.get('email')
-        google_name = google_info.get('name')
-        google_id = google_info.get('id')
+        user_data = user_response.json()
+        google_email = user_data.get('email')
+        google_name = user_data.get('name')
+        google_id = user_data.get('id')
         
         # Verificar domínio autorizado
-        if not google_email.endswith('@portoex.com.br'):
+        if not google_email or not google_email.endswith('@portoex.com.br'):
             flash('Acesso permitido apenas para usuários @portoex.com.br', 'error')
             return redirect(url_for('login'))
         
@@ -606,6 +656,8 @@ def google_callback():
                 WHERE id = ?
             ''', (google_id, user[0]))
             
+            flash(f'Bem-vindo de volta, {google_name}!', 'success')
+            
         else:
             # Novo usuário, criar conta
             username = google_name.replace(' ', '.').lower()
@@ -624,24 +676,24 @@ def google_callback():
             flash(f'Bem-vindo ao GeRot, {google_name}!', 'success')
         
         conn.commit()
-        conn.close()
         
         # Log da atividade
-        cursor = get_db().cursor()
         cursor.execute('''
             INSERT INTO activity_logs (user_id, action, details, ip_address, user_agent)
             VALUES (?, 'login_google', ?, ?, ?)
         ''', (session['user_id'], f'Login via Google OAuth: {google_email}',
               request.remote_addr, request.user_agent.string))
-        get_db().commit()
+        conn.commit()
+        conn.close()
         
-        flash('Login realizado com sucesso via Google!', 'success')
         return redirect(url_for('index'))
         
     except Exception as e:
-        app.logger.error(f'Erro no callback Google: {str(e)}')
-        flash('Erro interno durante autenticação. Tente novamente.', 'error')
+        app.logger.error(f'Erro no OAuth Google: {str(e)}')
+        flash('Erro durante autenticação. Tente novamente.', 'error')
         return redirect(url_for('login'))
+
+
 
 @app.route('/logout')
 def logout():
