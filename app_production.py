@@ -74,6 +74,38 @@ def reset_database():
         print(f"Erro ao resetar banco: {e}")
         return False
 
+def clean_fake_data():
+    """Remover dados fictícios do banco"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Remover usuários fictícios
+        fake_emails = [
+            'admin@portoex.com.br',
+            'lider@portoex.com.br', 
+            'colaborador@portoex.com.br'
+        ]
+        
+        for email in fake_emails:
+            cursor.execute('DELETE FROM users WHERE email = ?', (email,))
+            print(f"Usuário fictício removido: {email}")
+        
+        # Remover setores fictícios se não houver usuários reais
+        cursor.execute('SELECT COUNT(*) FROM users WHERE is_active = 1')
+        if cursor.fetchone()[0] == 0:
+            cursor.execute('DELETE FROM sectors')
+            print("Setores fictícios removidos.")
+        
+        conn.commit()
+        conn.close()
+        print("Limpeza de dados fictícios concluída.")
+        return True
+        
+    except Exception as e:
+        print(f"Erro ao limpar dados fictícios: {e}")
+        return False
+
 def init_db():
     """Inicializar banco de dados de produção"""
     conn = get_db()
@@ -250,52 +282,16 @@ def init_db():
         conn.close()
 
 def setup_production_data(cursor):
-    """Configurar dados iniciais de produção"""
+    """Configurar apenas estrutura básica sem dados fictícios"""
     
-    # Verificar se já existe dados
-    cursor.execute('SELECT COUNT(*) FROM users')
+    # Verificar se já existem setores
+    cursor.execute('SELECT COUNT(*) FROM sectors')
     if cursor.fetchone()[0] > 0:
         return
     
-    # Setores da Portoex
-    sectors = [
-        ('Administrativo', 'Gestão administrativa e recursos humanos', 'admin@portoex.com.br', '#667eea'),
-        ('Comercial', 'Vendas e relacionamento com clientes', 'comercial@portoex.com.br', '#28a745'),
-        ('Operacional', 'Operações portuárias e logística', 'operacional@portoex.com.br', '#ffc107'),
-        ('Financeiro', 'Controladoria e finanças', 'financeiro@portoex.com.br', '#17a2b8'),
-        ('TI', 'Tecnologia da informação', 'ti@portoex.com.br', '#6f42c1'),
-        ('Comercio Exterior', 'Importação e exportação', 'comex@portoex.com.br', '#fd7e14'),
-        ('Segurança', 'Segurança portuária', 'seguranca@portoex.com.br', '#dc3545')
-    ]
-    
-    for name, desc, leader, color in sectors:
-        cursor.execute('''
-            INSERT OR IGNORE INTO sectors (name, description, leader_email, color_theme)
-            VALUES (?, ?, ?, ?)
-        ''', (name, desc, leader, color))
-    
-    # Usuários de teste
-    
-    # Admin Master
-    admin_password = bcrypt.hashpw('admin123!@#'.encode('utf-8'), bcrypt.gensalt())
-    cursor.execute('''
-        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', ('admin_master', 'admin@portoex.com.br', admin_password, 'admin_master', 1, 1))
-    
-    # Líder de Setor (Comercial)
-    leader_password = bcrypt.hashpw('lider123!@#'.encode('utf-8'), bcrypt.gensalt())
-    cursor.execute('''
-        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', ('lider_comercial', 'lider@portoex.com.br', leader_password, 'lider', 2, 1))
-    
-    # Colaborador (Operacional)
-    colaborador_password = bcrypt.hashpw('colab123!@#'.encode('utf-8'), bcrypt.gensalt())
-    cursor.execute('''
-        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', ('colaborador_ops', 'colaborador@portoex.com.br', colaborador_password, 'colaborador', 3, 1))
+    # Criar apenas setores básicos baseados na planilha Excel (se necessário)
+    # Não inserir usuários fictícios - apenas usuários reais via OAuth
+    print("Sistema inicializado sem dados fictícios. Usuários serão criados via autenticação OAuth.")
 
 def load_excel_data():
     """Carregar dados do Excel com tratamento de erros"""
@@ -478,7 +474,9 @@ class SectorsAPI(Resource):
                 'description': s[2],
                 'leader_email': s[3],
                 'color_theme': s[4],
-                'user_count': s[6]
+                'is_active': s[5],
+                'created_at': s[6],
+                'user_count': s[7]
             } for s in sectors]
         }
 
@@ -547,12 +545,163 @@ class ReportsAPI(Resource):
             'data': data,
             'chart': chart
         }
+    
+    def sectors_report(self):
+        """Relatório de setores"""
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT s.name, COUNT(u.id) as users, COUNT(r.id) as routines
+            FROM sectors s
+            LEFT JOIN users u ON s.id = u.sector_id AND u.is_active = 1
+            LEFT JOIN routines r ON s.id = r.sector_id AND r.date = ?
+            WHERE s.is_active = 1
+            GROUP BY s.id, s.name
+        ''', (date.today().isoformat(),))
+        
+        data = cursor.fetchall()
+        conn.close()
+        
+        return {
+            'title': 'Relatório de Setores',
+            'data': [{
+                'sector': d[0],
+                'users': d[1],
+                'routines_today': d[2]
+            } for d in data]
+        }
+    
+    def goals_report(self):
+        """Relatório de metas"""
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT g.title, g.target_value, g.current_value, g.unit, 
+                   s.name as sector, g.deadline
+            FROM goals g
+            LEFT JOIN sectors s ON g.sector_id = s.id
+            WHERE g.status = 'active'
+            ORDER BY g.deadline
+        ''')
+        
+        data = cursor.fetchall()
+        conn.close()
+        
+        return {
+            'title': 'Relatório de Metas',
+            'data': [{
+                'goal': d[0],
+                'target': d[1],
+                'current': d[2],
+                'unit': d[3],
+                'sector': d[4],
+                'deadline': d[5],
+                'progress': (d[2]/d[1]*100) if d[1] > 0 else 0
+            } for d in data]
+        }
+    
+    def general_report(self):
+        """Relatório geral do sistema"""
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Estatísticas gerais
+        cursor.execute('SELECT COUNT(*) FROM users WHERE is_active = 1')
+        total_users = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM sectors WHERE is_active = 1')
+        total_sectors = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM routines WHERE date = ?', (date.today().isoformat(),))
+        routines_today = cursor.fetchone()[0]
+        
+        cursor.execute('''
+            SELECT COUNT(*) FROM routines r 
+            JOIN checklists c ON r.id = c.routine_id 
+            WHERE r.date = ? AND c.completed = 1
+        ''', (date.today().isoformat(),))
+        completed_tasks = cursor.fetchone()[0]
+        
+        cursor.execute('''
+            SELECT COUNT(*) FROM routines r 
+            JOIN checklists c ON r.id = c.routine_id 
+            WHERE r.date = ?
+        ''', (date.today().isoformat(),))
+        total_tasks = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        productivity = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
+        
+        return {
+            'title': 'Relatório Geral',
+            'summary': {
+                'total_users': total_users,
+                'total_sectors': total_sectors,
+                'routines_today': routines_today,
+                'completed_tasks': completed_tasks,
+                'total_tasks': total_tasks,
+                'productivity': round(productivity, 1)
+            }
+        }
+
+class ExcelDataAPI(Resource):
+    def get(self):
+        """Retornar dados reais da planilha Excel"""
+        try:
+            excel_data = load_excel_data()
+            
+            if not excel_data:
+                return {'error': 'Planilha não encontrada ou vazia'}, 404
+            
+            # Análise dos dados
+            total_colaboradores = len(excel_data)
+            
+            # Contagem por cargo
+            cargos = {}
+            departamentos = {}
+            unidades = {}
+            
+            for item in excel_data:
+                cargo = item.get('Cargo', 'N/A')
+                departamento = item.get('Departamento', 'N/A')
+                unidade = item.get('Unidade', 'N/A')
+                
+                cargos[cargo] = cargos.get(cargo, 0) + 1
+                departamentos[departamento] = departamentos.get(departamento, 0) + 1
+                unidades[unidade] = unidades.get(unidade, 0) + 1
+            
+            # Determinar hierarquia
+            admin_master = sum(1 for item in excel_data 
+                             if item.get('Cargo', '').upper() in ['CONSULTOR', 'COORDENADOR', 'DIRETOR'])
+            lideres = sum(1 for item in excel_data 
+                         if item.get('Cargo', '').upper() == 'LIDER')
+            colaboradores = total_colaboradores - admin_master - lideres
+            
+            return {
+                'total_colaboradores': total_colaboradores,
+                'hierarquia': {
+                    'admin_master': admin_master,
+                    'lideres': lideres,
+                    'colaboradores': colaboradores
+                },
+                'por_cargo': cargos,
+                'por_departamento': departamentos,
+                'por_unidade': unidades,
+                'amostra_dados': excel_data[:5]  # Primeiros 5 registros
+            }
+            
+        except Exception as e:
+            return {'error': f'Erro ao processar dados: {str(e)}'}, 500
 
 # Registrar APIs
 api.add_resource(UsersAPI, '/api/users', '/api/users/<int:user_id>')
 api.add_resource(SectorsAPI, '/api/sectors')
 api.add_resource(RoutinesAPI, '/api/routines')
 api.add_resource(ReportsAPI, '/api/reports', '/api/reports/<string:report_type>')
+api.add_resource(ExcelDataAPI, '/api/excel-data')
 
 # Rotas principais
 @app.route('/')
@@ -984,6 +1133,27 @@ def reset_db_endpoint():
             return jsonify({
                 'status': 'error',
                 'message': 'Erro ao resetar banco de dados'
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/clean-fake-data')
+def clean_fake_data_endpoint():
+    """Endpoint para remover dados fictícios"""
+    try:
+        success = clean_fake_data()
+        if success:
+            return jsonify({
+                'status': 'success',
+                'message': 'Dados fictícios removidos com sucesso!'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Erro ao remover dados fictícios'
             }), 500
     except Exception as e:
         return jsonify({
