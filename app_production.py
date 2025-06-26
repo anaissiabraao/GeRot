@@ -47,12 +47,12 @@ if database_url.startswith('sqlite:///'):
 else:
     app.config['DATABASE'] = database_url
 
-# OAuth Google Blueprint
+# OAuth Google Blueprint para Produção
 google_bp = make_google_blueprint(
     client_id=app.config['GOOGLE_OAUTH_CLIENT_ID'],
     client_secret=app.config['GOOGLE_OAUTH_CLIENT_SECRET'],
     scope=["profile", "email"],
-    redirect_url="/google_callback"
+    redirect_url="https://gerot.onrender.com/auth/google/authorized"
 )
 app.register_blueprint(google_bp, url_prefix="/auth")
 
