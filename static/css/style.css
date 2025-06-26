@@ -278,7 +278,14 @@ body {
     border: 2px solid var(--gray-300);
     border-radius: var(--border-radius);
     background-color: white;
+    color: var(--gray-900);
+    font-size: 1rem;
     transition: border-color 0.2s;
+}
+
+.form-control::placeholder {
+    color: var(--gray-400);
+    opacity: 1;
 }
 
 .form-control:focus {
@@ -293,6 +300,8 @@ body {
     background-repeat: no-repeat;
     background-size: 1.5em 1.5em;
     padding-right: 2.5rem;
+    color: var(--gray-900);
+    background-color: white;
 }
 
 /* Grid */
@@ -644,4 +653,125 @@ body {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+/* Hierarquia do Sistema - Correção de Contraste */
+.hierarchy-section {
+    background-color: white;
+    border-radius: var(--border-radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.hierarchy-title {
+    color: var(--gray-900) !important;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.hierarchy-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    background-color: white !important;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--border-radius);
+    color: var(--gray-900) !important;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.hierarchy-item:hover {
+    background-color: var(--gray-50) !important;
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.hierarchy-item .icon {
+    margin-right: 0.75rem;
+    font-size: 1.2rem;
+    color: var(--primary-color) !important;
+}
+
+.hierarchy-item .text {
+    flex: 1;
+    color: var(--gray-900) !important;
+    font-weight: 500;
+}
+
+.hierarchy-item .badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white !important;
+}
+
+.badge.todos-setores { background-color: var(--error-color); }
+.badge.controle-setor { background-color: var(--warning-color); }
+.badge.tarefas-pessoais { background-color: var(--success-color); }
+
+/* Funcionalidades Enterprise */
+.enterprise-features {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white !important;
+    border-radius: var(--border-radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.enterprise-features h3 {
+    color: white !important;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.feature-list {
+    list-style: none;
+    padding: 0;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0;
+    color: white !important;
+    opacity: 0.9;
+}
+
+.feature-item .icon {
+    margin-right: 0.75rem;
+    color: #a7f3d0 !important;
+    font-size: 1rem;
+}
+
+/* Correções de Contraste Gerais */
+input, textarea, select {
+    color: var(--gray-900) !important;
+    background-color: white !important;
+}
+
+input::placeholder, textarea::placeholder {
+    color: var(--gray-400) !important;
+}
+
+/* Login Form Specific */
+.login-form input[type="email"],
+.login-form input[type="password"],
+.login-form input[type="text"] {
+    color: var(--gray-900) !important;
+    background-color: white !important;
+    border: 2px solid var(--gray-300);
+}
+
+.login-form input:focus {
+    border-color: var(--primary-color) !important;
+    color: var(--gray-900) !important;
 } 
