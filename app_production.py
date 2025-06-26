@@ -61,10 +61,32 @@ def get_db():
     """Conectar ao banco de dados"""
     return sqlite3.connect(app.config['DATABASE'])
 
+def reset_database():
+    """Forçar recriação do banco de dados"""
+    import os
+    try:
+        if os.path.exists(app.config['DATABASE']):
+            os.remove(app.config['DATABASE'])
+            print("Banco de dados anterior removido.")
+        init_db()
+        return True
+    except Exception as e:
+        print(f"Erro ao resetar banco: {e}")
+        return False
+
 def init_db():
     """Inicializar banco de dados de produção"""
     conn = get_db()
     cursor = conn.cursor()
+    
+    # Verificar se o banco existe testando uma tabela
+    try:
+        cursor.execute('SELECT COUNT(*) FROM users LIMIT 1')
+        print("Banco de dados já existe e está funcionando.")
+    except:
+        print("Banco de dados não existe ou está corrompido. Criando novo banco...")
+        # Se der erro, continua para criar as tabelas
+        pass
     
     # Schema completo para produção
     tables = [
@@ -211,14 +233,21 @@ def init_db():
         )'''
     ]
     
-    for table_sql in tables:
-        cursor.execute(table_sql)
-    
-    # Inserir dados iniciais
-    setup_production_data(cursor)
-    
-    conn.commit()
-    conn.close()
+    try:
+        for table_sql in tables:
+            cursor.execute(table_sql)
+        
+        # Inserir dados iniciais
+        setup_production_data(cursor)
+        
+        conn.commit()
+        print("Banco de dados inicializado com sucesso!")
+        
+    except Exception as e:
+        print(f"Erro ao inicializar banco de dados: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
 
 def setup_production_data(cursor):
     """Configurar dados iniciais de produção"""
@@ -250,23 +279,23 @@ def setup_production_data(cursor):
     # Admin Master
     admin_password = bcrypt.hashpw('admin123!@#'.encode('utf-8'), bcrypt.gensalt())
     cursor.execute('''
-        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated, full_name)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', ('admin_master', 'admin@portoex.com.br', admin_password, 'admin_master', 1, 1, 'Administrador Master'))
+        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', ('admin_master', 'admin@portoex.com.br', admin_password, 'admin_master', 1, 1))
     
     # Líder de Setor (Comercial)
     leader_password = bcrypt.hashpw('lider123!@#'.encode('utf-8'), bcrypt.gensalt())
     cursor.execute('''
-        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated, full_name)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', ('lider_comercial', 'lider@portoex.com.br', leader_password, 'leader', 2, 1, 'João Silva - Líder Comercial'))
+        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', ('lider_comercial', 'lider@portoex.com.br', leader_password, 'lider', 2, 1))
     
     # Colaborador (Operacional)
     colaborador_password = bcrypt.hashpw('colab123!@#'.encode('utf-8'), bcrypt.gensalt())
     cursor.execute('''
-        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated, full_name)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', ('colaborador_ops', 'colaborador@portoex.com.br', colaborador_password, 'user', 3, 1, 'Maria Santos - Operacional'))
+        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', ('colaborador_ops', 'colaborador@portoex.com.br', colaborador_password, 'colaborador', 3, 1))
 
 def load_excel_data():
     """Carregar dados do Excel com tratamento de erros"""
@@ -675,10 +704,28 @@ def google_authorized():
         cursor = conn.cursor()
         
         # Buscar usuário no banco de dados
-        cursor.execute('''
-            SELECT id, username, role, sector_id FROM users 
-            WHERE email = ? OR google_id = ?
-        ''', (google_email, google_id))
+        try:
+            cursor.execute('''
+                SELECT id, username, role, sector_id FROM users 
+                WHERE email = ? OR google_id = ?
+            ''', (google_email, google_id))
+        except sqlite3.OperationalError as e:
+            if "no such table: users" in str(e):
+                # Banco não foi inicializado, tentar criar
+                print("Tabela users não existe. Tentando recriar banco...")
+                cursor.close()
+                conn.close()
+                init_db()
+                
+                # Tentar novamente
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, username, role, sector_id FROM users 
+                    WHERE email = ? OR google_id = ?
+                ''', (google_email, google_id))
+            else:
+                raise e
         
         user = cursor.fetchone()
         
@@ -881,20 +928,68 @@ def team_dashboard():
 # API Health Check
 @app.route('/api/health')
 def health_check():
-    """Health check da API Production"""
-    return jsonify({
-        'status': 'healthy',
-        'service': 'GeRot Production',
-        'version': '2.0.0',
-        'timestamp': datetime.now().isoformat(),
-        'features': [
-            'OAuth Google',
-            'Push Notifications',
-            'Advanced Charts',
-            'REST APIs',
-            'PWA Support'
-        ]
-    })
+    """Health check completo incluindo banco de dados"""
+    try:
+        # Testar conexão com banco
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        db_status = 'ok'
+        try:
+            cursor.execute('SELECT COUNT(*) FROM users LIMIT 1')
+            user_count = cursor.fetchone()[0]
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e):
+                db_status = 'tables_missing'
+                user_count = 0
+            else:
+                db_status = 'error'
+                user_count = 0
+        
+        conn.close()
+        
+        return jsonify({
+            'status': 'healthy',
+            'service': 'GeRot Production',
+            'version': '2.0.0',
+            'timestamp': datetime.now().isoformat(),
+            'database': db_status,
+            'users_count': user_count,
+            'features': [
+                'OAuth Google',
+                'Push Notifications', 
+                'Advanced Charts',
+                'REST APIs',
+                'PWA Support',
+                'Excel Auth'
+            ]
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/reset-db')
+def reset_db_endpoint():
+    """Endpoint para forçar reset do banco (apenas para debug)"""
+    try:
+        success = reset_database()
+        if success:
+            return jsonify({
+                'status': 'success',
+                'message': 'Banco de dados resetado com sucesso!'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Erro ao resetar banco de dados'
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
 
 # Service Worker para Push Notifications
 @app.route('/sw.js')
