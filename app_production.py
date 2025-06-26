@@ -247,12 +247,28 @@ def setup_production_data(cursor):
             VALUES (?, ?, ?, ?)
         ''', (name, desc, leader, color))
     
+    # Usuários de teste
+    
     # Admin Master
     admin_password = bcrypt.hashpw('admin123!@#'.encode('utf-8'), bcrypt.gensalt())
     cursor.execute('''
-        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', ('admin_master', 'admin@portoex.com.br', admin_password, 'admin_master', 1, 1))
+        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated, full_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', ('admin_master', 'admin@portoex.com.br', admin_password, 'admin_master', 1, 1, 'Administrador Master'))
+    
+    # Líder de Setor (Comercial)
+    leader_password = bcrypt.hashpw('lider123!@#'.encode('utf-8'), bcrypt.gensalt())
+    cursor.execute('''
+        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated, full_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', ('lider_comercial', 'lider@portoex.com.br', leader_password, 'leader', 2, 1, 'João Silva - Líder Comercial'))
+    
+    # Colaborador (Operacional)
+    colaborador_password = bcrypt.hashpw('colab123!@#'.encode('utf-8'), bcrypt.gensalt())
+    cursor.execute('''
+        INSERT OR IGNORE INTO users (username, email, password, role, sector_id, domain_validated, full_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', ('colaborador_ops', 'colaborador@portoex.com.br', colaborador_password, 'user', 3, 1, 'Maria Santos - Operacional'))
 
 def load_excel_data():
     """Carregar dados do Excel com tratamento de erros"""
