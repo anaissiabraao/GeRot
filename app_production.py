@@ -51,10 +51,16 @@ else:
 google_bp = make_google_blueprint(
     client_id=app.config['GOOGLE_OAUTH_CLIENT_ID'],
     client_secret=app.config['GOOGLE_OAUTH_CLIENT_SECRET'],
-    scope=["profile", "email"],
-    redirect_url="https://gerot.onrender.com/auth/google/authorized"
+    scope=["openid", "email", "profile"],
+    redirect_url="https://gerot.onrender.com/auth/google/authorized",
+    storage=None,  # Usar sessão Flask padrão
+    redirect_to="google_callback"
 )
 app.register_blueprint(google_bp, url_prefix="/auth")
+
+# Configuração adicional para o Flask-Dance
+app.config['GOOGLE_OAUTH_CLIENT_ID'] = app.config.get('GOOGLE_OAUTH_CLIENT_ID')
+app.config['GOOGLE_OAUTH_CLIENT_SECRET'] = app.config.get('GOOGLE_OAUTH_CLIENT_SECRET')
 
 # API REST
 api = Api(app)
@@ -551,6 +557,92 @@ def login():
     
     return render_template('enterprise_login.html')
 
+@app.route('/auth/google/callback')
+def google_callback():
+    """Callback do Google OAuth"""
+    try:
+        if not google.authorized:
+            flash('Falha na autorização do Google.', 'error')
+            return redirect(url_for('login'))
+        
+        # Buscar informações do usuário
+        resp = google.get("/oauth2/v2/userinfo")
+        if not resp.ok:
+            flash('Erro ao obter informações do usuário.', 'error')
+            return redirect(url_for('login'))
+        
+        google_info = resp.json()
+        google_email = google_info.get('email')
+        google_name = google_info.get('name')
+        google_id = google_info.get('id')
+        
+        # Verificar domínio autorizado
+        if not google_email.endswith('@portoex.com.br'):
+            flash('Acesso permitido apenas para usuários @portoex.com.br', 'error')
+            return redirect(url_for('login'))
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Buscar ou criar usuário
+        cursor.execute('''
+            SELECT id, username, role, sector_id FROM users 
+            WHERE email = ? OR google_id = ?
+        ''', (google_email, google_id))
+        
+        user = cursor.fetchone()
+        
+        if user:
+            # Usuário existe, fazer login
+            session['user_id'] = user[0]
+            session['username'] = user[1]
+            session['email'] = google_email
+            session['role'] = user[2]
+            session['sector_id'] = user[3]
+            
+            # Atualizar informações Google
+            cursor.execute('''
+                UPDATE users SET google_id = ?, last_login = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (google_id, user[0]))
+            
+        else:
+            # Novo usuário, criar conta
+            username = google_name.replace(' ', '.').lower()
+            cursor.execute('''
+                INSERT INTO users (username, email, google_id, role, domain_validated)
+                VALUES (?, ?, ?, 'colaborador', 1)
+            ''', (username, google_email, google_id))
+            
+            user_id = cursor.lastrowid
+            session['user_id'] = user_id
+            session['username'] = username
+            session['email'] = google_email
+            session['role'] = 'colaborador'
+            session['sector_id'] = None
+            
+            flash(f'Bem-vindo ao GeRot, {google_name}!', 'success')
+        
+        conn.commit()
+        conn.close()
+        
+        # Log da atividade
+        cursor = get_db().cursor()
+        cursor.execute('''
+            INSERT INTO activity_logs (user_id, action, details, ip_address, user_agent)
+            VALUES (?, 'login_google', ?, ?, ?)
+        ''', (session['user_id'], f'Login via Google OAuth: {google_email}',
+              request.remote_addr, request.user_agent.string))
+        get_db().commit()
+        
+        flash('Login realizado com sucesso via Google!', 'success')
+        return redirect(url_for('index'))
+        
+    except Exception as e:
+        app.logger.error(f'Erro no callback Google: {str(e)}')
+        flash('Erro interno durante autenticação. Tente novamente.', 'error')
+        return redirect(url_for('login'))
+
 @app.route('/logout')
 def logout():
     """Logout do usuário"""
@@ -762,6 +854,28 @@ def service_worker():
 def manifest():
     """Manifesto PWA"""
     return app.send_static_file('manifest.json')
+
+# Error handlers
+@app.errorhandler(500)
+def internal_error(error):
+    """Handler para erro interno do servidor"""
+    app.logger.error(f'Erro interno: {str(error)}')
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head><title>Erro Interno</title></head>
+    <body>
+        <h1>Erro interno do servidor</h1>
+        <p>Ocorreu um erro interno. Tente novamente em alguns minutos.</p>
+        <a href="/login">Voltar ao Login</a>
+    </body>
+    </html>
+    ''', 500
+
+@app.errorhandler(404) 
+def not_found_error(error):
+    """Handler para página não encontrada"""
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     print("🚀 GeRot Production - Sistema Empresarial de Rotinas")
