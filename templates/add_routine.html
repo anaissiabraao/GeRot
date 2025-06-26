@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Adicionar Rotina</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script>
+    function addTaskField() {
+        var container = document.getElementById('tasks-container');
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.name = 'tasks';
+        input.className = 'form-control mb-2';
+        input.placeholder = 'Tarefa do checklist';
+        container.appendChild(input);
+    }
+    </script>
+</head>
+<body class="bg-light">
+<div class="container mt-5">
+    <h2>Adicionar Rotina</h2>
+    <form method="post">
+        <div class="mb-3">
+            <label for="description" class="form-label">Descrição da Rotina</label>
+            <input type="text" class="form-control" id="description" name="description" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Checklist</label>
+            <div id="tasks-container">
+                <input type="text" name="tasks" class="form-control mb-2" placeholder="Tarefa do checklist">
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addTaskField()">Adicionar Tarefa</button>
+        </div>
+        <button type="submit" class="btn btn-primary">Salvar Rotina</button>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-link">Voltar</a>
+    </form>
+</div>
+</body>
+</html>
