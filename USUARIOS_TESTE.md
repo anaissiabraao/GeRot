@@ -1,53 +1,129 @@
-# 🔐 Usuários de Teste - GeRot Enterprise
+# 👥 Usuários de Teste Reais - GeRot Enterprise
 
-## Credenciais para Acesso
+## 🎯 Usuários Baseados na Planilha Excel
 
-### 1️⃣ **Admin Master**
-- **Usuário**: `admin_master`
-- **Senha**: `admin123!@#`
-- **Email**: `admin@portoex.com.br`
-- **Permissões**: Acesso total ao sistema, todos os setores
+### 1️⃣ **Admin Master (Diretor)**
+- **Email Google**: `admin.teste@gmail.com`
+- **Nome**: ADMIN TESTE MASTER
+- **Cargo**: DIRETOR
+- **Departamento**: ADMINISTRATIVO
+- **Permissões**: Acesso total ao sistema, dashboard avançado
+- **Dashboard**: `/admin/dashboard`
+- **APIs**: Acesso a todos os endpoints
+
+### 2️⃣ **Admin Master (Coordenador)**
+- **Email Google**: `coordenador.teste@gmail.com`
+- **Nome**: COORDENADOR TESTE ADMIN
+- **Cargo**: COORDENADOR
+- **Departamento**: ADMINISTRATIVO
+- **Permissões**: Acesso total ao sistema
 - **Dashboard**: `/admin/dashboard`
 
-### 2️⃣ **Líder de Setor**
-- **Usuário**: `lider_comercial`
-- **Senha**: `lider123!@#`
-- **Email**: `lider@portoex.com.br`
-- **Setor**: Comercial
-- **Permissões**: Gerenciar equipe do setor, criar rotinas, relatórios
+### 3️⃣ **Admin Master (Consultor)**
+- **Email Google**: `consultor.teste@gmail.com`
+- **Nome**: CONSULTOR TESTE TI
+- **Cargo**: CONSULTOR
+- **Departamento**: TI
+- **Permissões**: Acesso total ao sistema
+- **Dashboard**: `/admin/dashboard`
+
+### 4️⃣ **Líder de Setor**
+- **Email Google**: `lider.teste@gmail.com`
+- **Nome**: LIDER TESTE COMERCIAL
+- **Cargo**: LIDER
+- **Departamento**: COMERCIAL
+- **Permissões**: Gerenciar equipe do setor, relatórios setoriais
 - **Dashboard**: `/leader/dashboard`
 
-### 3️⃣ **Colaborador**
-- **Usuário**: `colaborador_ops`
-- **Senha**: `colab123!@#`
-- **Email**: `colaborador@portoex.com.br`
-- **Setor**: Operacional
-- **Permissões**: Executar tarefas, marcar como concluídas
+### 5️⃣ **Colaborador**
+- **Email Google**: `colaborador.teste@gmail.com`
+- **Nome**: COLABORADOR TESTE OPS
+- **Cargo**: MOTORISTA
+- **Departamento**: OPERACAO
+- **Permissões**: Dashboard pessoal, rotinas próprias
 - **Dashboard**: `/team/dashboard`
 
-## 🌐 OAuth Google
-- **Domínio permitido**: `@portoex.com.br`
-- **Client ID**: `292478756955-j8j0dfs9tu5g4o0fkkqth0c2erv6sg2j.apps.googleusercontent.com`
+## 🔐 Como Fazer Login
 
-## 🚀 URLs de Acesso
-- **Produção Local**: `http://localhost:5000`
-- **Login**: `http://localhost:5000/login`
-- **Admin Dashboard**: `http://localhost:5000/admin/dashboard`
-- **API Health**: `http://localhost:5000/api/health`
+### Método OAuth Google (Recomendado)
+1. Acesse: https://gerot.onrender.com
+2. Clique em "**Entrar com Google**"
+3. Use uma conta Google associada aos emails acima
+4. Sistema validará na planilha Excel automaticamente
 
-## ⚙️ Comandos de Deploy
+### URLs de Teste
+- **Produção**: `https://gerot.onrender.com`
+- **Login**: `https://gerot.onrender.com/login`
+- **Health Check**: `https://gerot.onrender.com/api/health`
+
+## 📊 APIs Disponíveis para Teste
+
+### Dados Reais (Sem Ficções)
+- **`/api/users`**: Usuários reais da planilha
+- **`/api/excel-data`**: Dados completos da planilha Excel
+- **`/api/sectors`**: Setores baseados em departamentos
+- **`/api/routines`**: Rotinas criadas pelos usuários
+- **`/api/reports`**: Relatórios com dados reais
+
+### Exemplos de Teste
 ```bash
-# Local
-python app_production.py
+# Verificar usuários reais
+curl https://gerot.onrender.com/api/users
 
-# Render Deploy
-git add .
-git commit -m "Deploy GeRot Enterprise"
-git push origin master
+# Dados da planilha Excel
+curl https://gerot.onrender.com/api/excel-data
+
+# Status do sistema
+curl https://gerot.onrender.com/api/health
 ```
 
-## 📱 PWA Features
-- ✅ Manifesto configurado
-- ✅ Service Worker ativo
-- ✅ Push Notifications
-- ✅ Instalação nativa iOS/Android 
+## 🛠️ Gerenciamento de Usuários de Teste
+
+### Adicionar/Remover Usuários
+```bash
+# Criar usuários de teste
+python create_test_users.py create
+
+# Listar usuários disponíveis
+python create_test_users.py list
+
+# Remover usuários de teste
+python create_test_users.py remove
+```
+
+## 🎨 Interfaces para Testar
+
+### Admin Master Dashboard
+- **URL**: `/admin/dashboard`
+- **Features**: Gráficos avançados, gestão completa, dados da planilha Excel
+- **Usuários**: admin.teste@gmail.com, coordenador.teste@gmail.com, consultor.teste@gmail.com
+
+### Leader Dashboard
+- **URL**: `/leader/dashboard`
+- **Features**: Gestão de equipe, relatórios setoriais, metas
+- **Usuário**: lider.teste@gmail.com
+
+### Team Dashboard  
+- **URL**: `/team/dashboard`
+- **Features**: Rotinas pessoais, tarefas, progresso individual
+- **Usuário**: colaborador.teste@gmail.com
+
+## 🔒 Segurança e Autenticação
+
+- ✅ **OAuth Google** com validação na planilha Excel
+- ✅ **CSRF Protection** com tokens seguros
+- ✅ **Logs de Auditoria** completos
+- ✅ **Permissões por Cargo** baseadas na planilha
+- ✅ **Dados Reais** sem informações fictícias
+
+## 📝 Observações
+
+1. **Emails Reais**: Use emails Google reais que você controla
+2. **Planilha Excel**: Usuários são validados contra `dados.xlsx`
+3. **Backup Automático**: Sistema faz backup antes de modificações
+4. **Limpeza**: Use `python create_test_users.py remove` para limpar
+
+---
+
+**Última atualização**: 26/06/2025  
+**Versão**: 2.0 (Dados Reais) 
