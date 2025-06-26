@@ -272,13 +272,51 @@ def load_excel_data():
     """Carregar dados do Excel com tratamento de erros"""
     try:
         if os.path.exists('dados.xlsx'):
-            df = pd.read_excel('dados.xlsx', sheet_name='Colaboradores')
+            df = pd.read_excel('dados.xlsx')
             return df.to_dict('records')
         else:
             return []
     except Exception as e:
         print(f"Erro ao carregar Excel: {e}")
         return []
+
+def get_user_from_excel(email):
+    """Buscar usuário na planilha Excel por email pessoal e determinar permissões"""
+    try:
+        excel_data = load_excel_data()
+        
+        for record in excel_data:
+            # Verificar se o email pessoal da planilha corresponde ao email do Google
+            excel_email = str(record.get('Email', '')).strip().lower()
+            
+            if excel_email == email.lower():
+                name = record.get('Nome Completo', '')
+                cargo = record.get('Cargo', '').upper()
+                departamento = record.get('Departamento', '')
+                unidade = record.get('Unidade', '')
+                
+                # Determinar role baseado no cargo
+                if cargo in ['CONSULTOR', 'COORDENADOR', 'DIRETOR']:
+                    role = 'admin_master'
+                elif cargo == 'LIDER':
+                    role = 'lider'
+                else:
+                    role = 'colaborador'
+                
+                return {
+                    'found': True,
+                    'name': name,
+                    'cargo': cargo,
+                    'role': role,
+                    'departamento': departamento,
+                    'unidade': unidade
+                }
+        
+        return {'found': False}
+        
+    except Exception as e:
+        print(f"Erro ao buscar usuário no Excel: {e}")
+        return {'found': False}
 
 def create_chart(chart_type, data, title):
     """Criar gráficos com Plotly"""
@@ -626,15 +664,17 @@ def google_authorized():
         google_name = user_data.get('name')
         google_id = user_data.get('id')
         
-        # Verificar domínio autorizado
-        if not google_email or not google_email.endswith('@portoex.com.br'):
-            flash('Acesso permitido apenas para usuários @portoex.com.br', 'error')
+        # Verificar se o usuário existe na planilha Excel
+        excel_user = get_user_from_excel(google_email)
+        
+        if not excel_user['found']:
+            flash('Acesso permitido apenas para usuários cadastrados na base de dados da empresa. Verifique se está usando o email pessoal correto.', 'error')
             return redirect(url_for('login'))
         
         conn = get_db()
         cursor = conn.cursor()
         
-        # Buscar ou criar usuário
+        # Buscar usuário no banco de dados
         cursor.execute('''
             SELECT id, username, role, sector_id FROM users 
             WHERE email = ? OR google_id = ?
@@ -643,11 +683,16 @@ def google_authorized():
         user = cursor.fetchone()
         
         if user:
-            # Usuário existe, fazer login
+            # Usuário existe, atualizar role se necessário
+            if user[2] != excel_user['role']:
+                cursor.execute('''
+                    UPDATE users SET role = ? WHERE id = ?
+                ''', (excel_user['role'], user[0]))
+            
             session['user_id'] = user[0]
             session['username'] = user[1]
             session['email'] = google_email
-            session['role'] = user[2]
+            session['role'] = excel_user['role']  # Usar role da planilha
             session['sector_id'] = user[3]
             
             # Atualizar informações Google
@@ -656,24 +701,24 @@ def google_authorized():
                 WHERE id = ?
             ''', (google_id, user[0]))
             
-            flash(f'Bem-vindo de volta, {google_name}!', 'success')
+            flash(f'Bem-vindo de volta, {excel_user["name"]}! Cargo: {excel_user["cargo"]}', 'success')
             
         else:
-            # Novo usuário, criar conta
-            username = google_name.replace(' ', '.').lower()
+            # Novo usuário, criar conta com dados da planilha
+            username = excel_user['name'].replace(' ', '.').lower()
             cursor.execute('''
                 INSERT INTO users (username, email, google_id, role, domain_validated)
-                VALUES (?, ?, ?, 'colaborador', 1)
-            ''', (username, google_email, google_id))
+                VALUES (?, ?, ?, ?, 1)
+            ''', (username, google_email, google_id, excel_user['role']))
             
             user_id = cursor.lastrowid
             session['user_id'] = user_id
             session['username'] = username
             session['email'] = google_email
-            session['role'] = 'colaborador'
+            session['role'] = excel_user['role']
             session['sector_id'] = None
             
-            flash(f'Bem-vindo ao GeRot, {google_name}!', 'success')
+            flash(f'Bem-vindo ao GeRot, {excel_user["name"]}! Cargo: {excel_user["cargo"]}', 'success')
         
         conn.commit()
         
@@ -681,7 +726,7 @@ def google_authorized():
         cursor.execute('''
             INSERT INTO activity_logs (user_id, action, details, ip_address, user_agent)
             VALUES (?, 'login_google', ?, ?, ?)
-        ''', (session['user_id'], f'Login via Google OAuth: {google_email}',
+        ''', (session['user_id'], f'Login via Google OAuth: {google_email} - Cargo: {excel_user["cargo"]} - Role: {excel_user["role"]}',
               request.remote_addr, request.user_agent.string))
         conn.commit()
         conn.close()
@@ -692,8 +737,6 @@ def google_authorized():
         app.logger.error(f'Erro no OAuth Google: {str(e)}')
         flash('Erro durante autenticação. Tente novamente.', 'error')
         return redirect(url_for('login'))
-
-
 
 @app.route('/logout')
 def logout():
