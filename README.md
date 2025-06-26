@@ -141,7 +141,7 @@ Este projeto está sob a licença MIT. Veja o arquivo LICENSE para mais detalhes
 
 ## 👨‍💻 Autor
 
-**Ana Isabel Abraão**
+**Abraão Anaissi**
 - GitHub: [@anaissiabraao](https://github.com/anaissiabraao)
 
 ---
