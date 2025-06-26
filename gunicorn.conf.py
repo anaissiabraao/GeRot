@@ -11,17 +11,17 @@ timeout = 30
 keepalive = 2
 
 # Aplicação
-wsgi_app = "app_new:app"
+wsgi_app = "app_production:app"
 
-# Logging
-accesslog = "logs/access.log"
-errorlog = "logs/error.log"
+# Logging - usando stdout/stderr para funcionar no Render
+accesslog = "-"
+errorlog = "-"
 loglevel = "info"
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
 
 # Processo
 daemon = False
-pidfile = "gerot.pid"
+pidfile = None
 user = None
 group = None
 tmp_upload_dir = None
