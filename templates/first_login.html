@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Primeira Configuração - GeRot Enterprise</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #5855e6;
+            --bg-main: #0f0f23;
+            --bg-card: #1a1a35;
+            --bg-input: #252550;
+            --text-primary: #ffffff;
+            --text-light: #a8a8c8;
+            --border: #2a2a45;
+            --success: #22c55e;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--bg-main) 0%, #1a1a35 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .setup-container {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .logo {
+            background: linear-gradient(135deg, var(--primary), #8b5cf6);
+            color: white;
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0 auto 1.5rem;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+        
+        .subtitle {
+            color: var(--text-light);
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+        
+        .welcome-card {
+            background: var(--bg-input);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            border-left: 4px solid var(--warning);
+        }
+        
+        .welcome-card h3 {
+            color: var(--warning);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+        
+        .welcome-card p {
+            color: var(--text-light);
+            line-height: 1.5;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 1rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        
+        .btn-primary {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary), #8b5cf6);
+            color: white;
+            border: none;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border: 1px solid transparent;
+        }
+        
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--error);
+            color: #fca5a5;
+        }
+        
+        .alert-success {
+            background: rgba(34, 197, 94, 0.1);
+            border-color: var(--success);
+            color: #86efac;
+        }
+        
+        .alert-info {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: var(--warning);
+            color: #fcd34d;
+        }
+        
+        .password-requirements {
+            background: var(--bg-input);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+        
+        .password-requirements h4 {
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .requirements-list {
+            list-style: none;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+        
+        .requirements-list li {
+            margin-bottom: 0.3rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+        
+        .requirements-list li::before {
+            content: "•";
+            color: var(--primary);
+            position: absolute;
+            left: 0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--bg-input);
+            border-radius: 2px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #8b5cf6);
+            width: 60%;
+            transition: width 0.3s ease;
+        }
+        
+        @media (max-width: 480px) {
+            .setup-container {
+                padding: 1.5rem;
+                margin: 1rem;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="logo">GeRot</div>
+        <h1>Configuração Inicial</h1>
+        <p class="subtitle">Bem-vindo ao GeRot Enterprise</p>
+        
+        <div class="welcome-card">
+            <h3>🎉 Primeiro Acesso</h3>
+            <p>Olá, <strong>{{ user.nome_completo }}</strong>! Para sua segurança, você precisa definir uma nova senha antes de acessar o sistema.</p>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="password-requirements">
+                <h4>📋 Requisitos da Senha:</h4>
+                <ul class="requirements-list">
+                    <li>Mínimo de 6 caracteres</li>
+                    <li>Recomendado: combinação de letras e números</li>
+                    <li>Evite senhas muito simples como "123456"</li>
+                </ul>
+            </div>
+            
+            <div class="form-group">
+                <label for="new_password">Nova Senha:</label>
+                <input type="password" id="new_password" name="new_password" 
+                       placeholder="Digite sua nova senha" required minlength="6">
+            </div>
+            
+            <div class="form-group">
+                <label for="confirm_password">Confirmar Senha:</label>
+                <input type="password" id="confirm_password" name="confirm_password" 
+                       placeholder="Digite novamente sua nova senha" required minlength="6">
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+            <small style="color: var(--text-light); margin-top: 0.5rem; display: block;">
+                Passo 1 de 1: Configuração de Senha
+            </small>
+            
+            <button type="submit" class="btn-primary">
+                🔐 Definir Senha e Continuar
+            </button>
+        </form>
+        
+        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+            <p style="color: var(--text-light); font-size: 0.9rem;">
+                <strong>Suas informações:</strong><br>
+                Cargo: {{ user.cargo_original }}<br>
+                Departamento: {{ user.departamento }}<br>
+                Role: {{ user.role }}
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        // Validação em tempo real
+        const newPasswordInput = document.getElementById('new_password');
+        const confirmPasswordInput = document.getElementById('confirm_password');
+        const progressFill = document.querySelector('.progress-fill');
+        
+        function updateProgress() {
+            const password = newPasswordInput.value;
+            const confirm = confirmPasswordInput.value;
+            
+            let progress = 0;
+            if (password.length >= 6) progress += 50;
+            if (password === confirm && confirm.length > 0) progress += 50;
+            
+            progressFill.style.width = progress + '%';
+        }
+        
+        newPasswordInput.addEventListener('input', updateProgress);
+        confirmPasswordInput.addEventListener('input', updateProgress);
+        
+        // Animação de entrada
+        document.querySelector('.setup-container').style.animation = 'fadeInUp 0.6s ease-out';
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html> 

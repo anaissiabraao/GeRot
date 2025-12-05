@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatórios Coordenador - GeRot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #10B981;
+            --secondary-color: #34D399;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+            min-height: 100vh;
+        }
+
+        .page-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 2rem;
+        }
+
+        .sector-card {
+            border-left: 5px solid var(--primary-color);
+            transition: all 0.3s ease;
+        }
+
+        .sector-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        .stat-badge {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .navbar-custom {
+            background: linear-gradient(135deg, #1E293B 0%, #334155 100%);
+            box-shadow: var(--card-shadow);
+        }
+
+        .person-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .person-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+        }
+
+        .person-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            margin-right: 1rem;
+        }
+
+        .chart-container {
+            height: 300px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-cogs me-2"></i>GeRot
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/coordinator/dashboard">
+                    <i class="fas fa-home me-1"></i>Dashboard
+                </a>
+                <a class="btn btn-outline-light ms-2" href="/logout">Sair</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <div class="page-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="mb-2">
+                        <i class="fas fa-chart-line me-3"></i>Relatórios de Coordenação
+                    </h1>
+                    <p class="mb-0">Análise completa dos setores sob sua coordenação</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="/coordinator/dashboard" class="btn btn-light">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar ao Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Resumo Geral -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-building fa-2x text-primary mb-2"></i>
+                        <h5 class="card-title">{{ coordenador_setores|length }}</h5>
+                        <p class="card-text text-muted">Setores Gerenciados</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-users fa-2x text-success mb-2"></i>
+                        <h5 class="card-title">
+                            {% set total_colaboradores = 0 %}
+                            {% for setor, dados in relatorio_setores.items() %}
+                                {% set total_colaboradores = total_colaboradores + dados.total_colaboradores %}
+                            {% endfor %}
+                            {{ total_colaboradores }}
+                        </h5>
+                        <p class="card-text text-muted">Total Colaboradores</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-crown fa-2x text-warning mb-2"></i>
+                        <h5 class="card-title">
+                            {% set total_lideres = 0 %}
+                            {% for setor, dados in relatorio_setores.items() %}
+                                {% set total_lideres = total_lideres + dados.total_lideres %}
+                            {% endfor %}
+                            {{ total_lideres }}
+                        </h5>
+                        <p class="card-text text-muted">Total Líderes</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-chart-bar fa-2x text-info mb-2"></i>
+                        <h5 class="card-title">
+                            {{ "%.1f"|format((total_colaboradores + total_lideres) / coordenador_setores|length) if coordenador_setores|length > 0 else 0 }}
+                        </h5>
+                        <p class="card-text text-muted">Média por Setor</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Relatórios por Setor -->
+        {% for setor, dados in relatorio_setores.items() %}
+        <div class="sector-card card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-building me-2"></i>{{ setor }}
+                </h5>
+                <div>
+                    <span class="stat-badge me-2">
+                        {{ dados.total_colaboradores + dados.total_lideres }} pessoas
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Estatísticas do Setor -->
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-chart-pie me-2"></i>Distribuição
+                                </h6>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Líderes:</span>
+                                    <span class="fw-bold">{{ dados.total_lideres }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Colaboradores:</span>
+                                    <span class="fw-bold">{{ dados.total_colaboradores }}</span>
+                                </div>
+                                <hr>
+                                <div class="d-flex justify-content-between">
+                                    <span class="fw-bold">Total:</span>
+                                    <span class="fw-bold text-primary">{{ dados.total_colaboradores + dados.total_lideres }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Líderes do Setor -->
+                    <div class="col-md-4">
+                        <h6 class="mb-3">
+                            <i class="fas fa-crown me-2"></i>Líderes ({{ dados.total_lideres }})
+                        </h6>
+                        {% if dados.lideres %}
+                            {% for lider in dados.lideres %}
+                                <div class="person-card">
+                                    <div class="d-flex align-items-center">
+                                        <div class="person-avatar" style="width: 40px; height: 40px; font-size: 0.9rem;">
+                                            {{ lider['Nome Completo'].split(' ')[0][0] }}{{ lider['Nome Completo'].split(' ')[-1][0] if lider['Nome Completo'].split(' ')|length > 1 else '' }}
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold">{{ lider['Nome Completo'] }}</div>
+                                            <div class="small text-muted">{{ lider.get('Cargo', 'N/A') }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-3 text-muted">
+                                <i class="fas fa-user-slash fa-2x mb-2"></i>
+                                <p>Nenhum líder</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Colaboradores do Setor -->
+                    <div class="col-md-4">
+                        <h6 class="mb-3">
+                            <i class="fas fa-users me-2"></i>Colaboradores ({{ dados.total_colaboradores }})
+                        </h6>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            {% if dados.colaboradores %}
+                                {% for colaborador in dados.colaboradores %}
+                                    <div class="person-card">
+                                        <div class="d-flex align-items-center">
+                                            <div class="person-avatar" style="width: 35px; height: 35px; font-size: 0.8rem;">
+                                                {{ colaborador['Nome Completo'].split(' ')[0][0] }}{{ colaborador['Nome Completo'].split(' ')[-1][0] if colaborador['Nome Completo'].split(' ')|length > 1 else '' }}
+                                            </div>
+                                            <div>
+                                                <div class="fw-semibold small">{{ colaborador['Nome Completo'] }}</div>
+                                                <div class="small text-muted">{{ colaborador.get('Cargo', 'N/A') }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center py-3 text-muted">
+                                    <i class="fas fa-user-slash fa-2x mb-2"></i>
+                                    <p>Nenhum colaborador</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráfico do Setor -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <h6 class="mb-3">
+                            <i class="fas fa-chart-bar me-2"></i>Análise Visual - {{ setor }}
+                        </h6>
+                        <div class="chart-container">
+                            <div class="text-center">
+                                <i class="fas fa-chart-pie fa-3x mb-3"></i>
+                                <p>Gráfico interativo em desenvolvimento</p>
+                                <p class="small">Total: {{ dados.total_colaboradores + dados.total_lideres }} pessoas no setor {{ setor }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Análise Consolidada -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-analytics me-2"></i>Análise Consolidada
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="mb-3">Distribuição por Setor</h6>
+                        <div class="chart-container">
+                            <div class="text-center">
+                                <i class="fas fa-chart-donut fa-3x mb-3"></i>
+                                <p>Gráfico de distribuição por setor</p>
+                                <div class="row">
+                                    {% for setor, dados in relatorio_setores.items() %}
+                                        <div class="col-6 mb-2">
+                                            <div class="d-flex justify-content-between">
+                                                <span>{{ setor }}:</span>
+                                                <span class="fw-bold">{{ dados.total_colaboradores + dados.total_lideres }}</span>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="mb-3">Hierarquia Organizacional</h6>
+                        <div class="chart-container">
+                            <div class="text-center">
+                                <i class="fas fa-sitemap fa-3x mb-3"></i>
+                                <p>Organograma simplificado</p>
+                                <div class="small">
+                                    <div class="mb-2">
+                                        <strong>Coordenador:</strong> Você
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Setores:</strong> {{ coordenador_setores|join(', ') }}
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Total Líderes:</strong> {{ total_lideres }}
+                                    </div>
+                                    <div>
+                                        <strong>Total Colaboradores:</strong> {{ total_colaboradores }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Animação dos cards
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.sector-card, .person-card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        });
+    </script>
+</body>
+</html> 

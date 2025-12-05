@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Metas - Líder</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+        }
+        .header-info {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .team-item, .meta-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .team-item h4, .meta-item h4 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+        .team-meta, .meta-meta {
+            color: #666;
+            font-size: 0.9rem;
+            margin: 5px 0;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s;
+        }
+        .progress-text {
+            font-size: 0.8rem;
+            color: #666;
+            text-align: right;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .status-ativa {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-concluida {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .priority-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .priority-alta {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .priority-media {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .priority-baixa {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        @media (max-width: 768px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Dashboard de Metas - Líder</h1>
+            <div class="header-info">
+                Bem-vindo, {{ session.get('nome_completo', 'Líder') }}! Gerencie metas e acompanhe o progresso dos seus times.
+            </div>
+            <div>
+                <a href="{{ url_for('leader_dashboard') }}" class="btn btn-secondary">← Dashboard Principal</a>
+                <a href="{{ url_for('leader_criar_meta') }}" class="btn btn-success">+ Nova Meta</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Estatísticas -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ teams|length }}</div>
+                <div class="stat-label">Times Liderados</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ metas|length }}</div>
+                <div class="stat-label">Metas Ativas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">
+                    {% set total_membros = teams|sum(attribute='total_membros') %}
+                    {{ total_membros }}
+                </div>
+                <div class="stat-label">Total de Membros</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">
+                    {% if metas %}
+                        {{ (metas|sum(attribute='progresso_geral') / metas|length)|round|int }}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </div>
+                <div class="stat-label">Progresso Médio</div>
+            </div>
+        </div>
+
+        <div class="content-grid">
+            <!-- Times -->
+            <div class="card">
+                <h3>👥 Meus Times</h3>
+                {% if teams %}
+                    {% for team in teams %}
+                    <div class="team-item">
+                        <h4>{{ team.name }}</h4>
+                        <div class="team-meta">
+                            <strong>Membros:</strong> {{ team.total_membros }} pessoas
+                        </div>
+                        {% if team.description %}
+                        <div class="team-meta">
+                            <strong>Descrição:</strong> {{ team.description }}
+                        </div>
+                        {% endif %}
+                        <div style="margin-top: 10px;">
+                            <a href="{{ url_for('admin_team_members', team_id=team.id) }}" class="btn">Gerenciar</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <h3>Nenhum time encontrado</h3>
+                        <p>Você ainda não foi definido como líder de nenhum time.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Metas -->
+            <div class="card">
+                <h3>🎯 Metas Ativas</h3>
+                {% if metas %}
+                    {% for meta in metas %}
+                    <div class="meta-item">
+                        <h4>{{ meta.titulo }}</h4>
+                        <div class="meta-meta">
+                            <strong>Time:</strong> {{ meta.team_name }}
+                        </div>
+                        <div class="meta-meta">
+                            <strong>Tipo:</strong> {{ meta.tipo.title() }}
+                        </div>
+                        <div class="meta-meta">
+                            <strong>Período:</strong> {{ meta.data_inicio.strftime('%d/%m/%Y') }} - {{ meta.data_fim.strftime('%d/%m/%Y') }}
+                        </div>
+                        
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {{ meta.progresso_geral }}%"></div>
+                        </div>
+                        <div class="progress-text">{{ meta.progresso_geral }}% concluído</div>
+                        
+                        <div style="margin-top: 10px;">
+                            <span class="status-badge status-{{ meta.status }}">{{ meta.status.title() }}</span>
+                            <a href="{{ url_for('leader_tarefas', meta_id=meta.id) }}" class="btn" style="margin-left: 10px;">Gerenciar Tarefas</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <h3>Nenhuma meta ativa</h3>
+                        <p>Crie metas para seus times e acompanhe o progresso.</p>
+                        <a href="{{ url_for('leader_criar_meta') }}" class="btn btn-success">Criar Primeira Meta</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Calendário de Metas -->
+        <div class="card" style="margin-top: 20px;">
+            <h3>📅 Calendário de Metas</h3>
+            <div style="text-align: center; padding: 40px;">
+                <h4>Calendário em Desenvolvimento</h4>
+                <p>Em breve: Visualização de metas por semana e mês com porcentagens de progresso.</p>
+                <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin-top: 20px;">
+                    <h5>Funcionalidades Planejadas:</h5>
+                    <ul style="text-align: left; max-width: 400px; margin: 0 auto;">
+                        <li>📊 Gráficos de progresso semanal</li>
+                        <li>📈 Relatórios mensais automáticos</li>
+                        <li>🎯 Metas por objetivo e prazo</li>
+                        <li>📋 Dashboard de evolução individual</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

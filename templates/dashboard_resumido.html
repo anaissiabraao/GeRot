@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Resumido - Progresso por Colaborador</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+        }
+        .header-info {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .prioridades-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .prioridade-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .prioridade-alta {
+            border-left: 4px solid #dc3545;
+        }
+        .prioridade-media {
+            border-left: 4px solid #ffc107;
+        }
+        .prioridade-baixa {
+            border-left: 4px solid #28a745;
+        }
+        .colaboradores-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        .colaborador-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            transition: transform 0.3s;
+        }
+        .colaborador-card:hover {
+            transform: translateY(-2px);
+        }
+        .colaborador-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .colaborador-nome {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+            margin: 0;
+        }
+        .colaborador-departamento {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        .progress-text {
+            font-size: 0.9rem;
+            color: #666;
+            text-align: right;
+            margin-bottom: 10px;
+        }
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .stat-item-number {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-item-label {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        .prioridades-row {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .prioridade-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .prioridade-badge.alta {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .prioridade-badge.media {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .prioridade-badge.baixa {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+        .performance-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .performance-excelente {
+            background: #d4edda;
+            color: #155724;
+        }
+        .performance-bom {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .performance-regular {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .performance-ruim {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        @media (max-width: 768px) {
+            .colaboradores-grid {
+                grid-template-columns: 1fr;
+            }
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Dashboard Resumido - Progresso por Colaborador</h1>
+            <div class="header-info">
+                Bem-vindo, {{ session.get('nome_completo', 'Usuário') }}! 
+                Acompanhe o progresso e atingimento de metas dos colaboradores.
+            </div>
+            <div>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← Dashboard Principal</a>
+                {% if session.get('role') == 'admin_master' %}
+                <a href="{{ url_for('admin_master_dashboard') }}" class="btn">👑 Admin Master</a>
+                {% elif session.get('role') == 'coordenador' %}
+                <a href="{{ url_for('coordinator_dashboard') }}" class="btn">🎯 Coordenador</a>
+                {% elif session.get('role') == 'lider' %}
+                <a href="{{ url_for('leader_dashboard') }}" class="btn">👥 Líder</a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}" class="btn btn-danger">🚪 Sair</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Estatísticas Gerais -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ stats_gerais.total_colaboradores or 0 }}</div>
+                <div class="stat-label">Total Colaboradores</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ stats_gerais.total_metas_ativas or 0 }}</div>
+                <div class="stat-label">Metas Ativas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ stats_gerais.total_tarefas_ativas or 0 }}</div>
+                <div class="stat-label">Tarefas Ativas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ stats_gerais.total_tarefas_concluidas or 0 }}</div>
+                <div class="stat-label">Tarefas Concluídas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ "%.1f"|format(stats_gerais.progresso_geral_medio or 0) }}%</div>
+                <div class="stat-label">Progresso Médio Geral</div>
+            </div>
+        </div>
+
+        <!-- Taxa de Prioridade -->
+        <div class="prioridades-grid">
+            <div class="prioridade-card prioridade-alta">
+                <div class="stat-number">{{ prioridades.alta_prioridade or 0 }}</div>
+                <div class="stat-label">🔴 Alta Prioridade</div>
+            </div>
+            <div class="prioridade-card prioridade-media">
+                <div class="stat-number">{{ prioridades.media_prioridade or 0 }}</div>
+                <div class="stat-label">🟡 Média Prioridade</div>
+            </div>
+            <div class="prioridade-card prioridade-baixa">
+                <div class="stat-number">{{ prioridades.baixa_prioridade or 0 }}</div>
+                <div class="stat-label">🟢 Baixa Prioridade</div>
+            </div>
+        </div>
+
+        <!-- Colaboradores -->
+        {% if colaboradores %}
+        <div class="colaboradores-grid">
+            {% for colaborador in colaboradores %}
+            <div class="colaborador-card">
+                <div class="colaborador-header">
+                    <div>
+                        <h3 class="colaborador-nome">{{ colaborador.nome_completo }}</h3>
+                        <div class="colaborador-departamento">{{ colaborador.departamento }}</div>
+                    </div>
+                    <div>
+                        {% set progresso = colaborador.progresso_medio or 0 %}
+                        {% if progresso >= 80 %}
+                            <span class="performance-indicator performance-excelente">Excelente</span>
+                        {% elif progresso >= 60 %}
+                            <span class="performance-indicator performance-bom">Bom</span>
+                        {% elif progresso >= 40 %}
+                            <span class="performance-indicator performance-regular">Regular</span>
+                        {% else %}
+                            <span class="performance-indicator performance-ruim">Precisa Melhorar</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="progress-text">Progresso Médio: {{ "%.1f"|format(colaborador.progresso_medio or 0) }}%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ colaborador.progresso_medio or 0 }}%">
+                        {{ "%.0f"|format(colaborador.progresso_medio or 0) }}%
+                    </div>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <div class="stat-item-number">{{ colaborador.total_metas or 0 }}</div>
+                        <div class="stat-item-label">Metas</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-item-number">{{ colaborador.total_tarefas or 0 }}</div>
+                        <div class="stat-item-label">Tarefas</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-item-number">{{ colaborador.tarefas_concluidas or 0 }}</div>
+                        <div class="stat-item-label">Concluídas</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-item-number">
+                            {% if colaborador.total_tarefas and colaborador.total_tarefas > 0 %}
+                                {{ "%.0f"|format((colaborador.tarefas_concluidas or 0) * 100 / colaborador.total_tarefas) }}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </div>
+                        <div class="stat-item-label">Taxa Conclusão</div>
+                    </div>
+                </div>
+
+                <div class="prioridades-row">
+                    <span class="prioridade-badge alta">🔴 {{ colaborador.tarefas_alta_prioridade or 0 }} Alta</span>
+                    <span class="prioridade-badge media">🟡 {{ colaborador.tarefas_media_prioridade or 0 }} Média</span>
+                    <span class="prioridade-badge baixa">🟢 {{ colaborador.tarefas_baixa_prioridade or 0 }} Baixa</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h3>Nenhum colaborador encontrado</h3>
+            <p>Não há colaboradores atribuídos aos seus times ou não há dados para exibir.</p>
+        </div>
+        {% endif %}
+
+        <!-- Informações sobre o Sistema -->
+        <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-top: 30px;">
+            <h3>ℹ️ Como Interpretar os Dados</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                <div>
+                    <h4>📊 Indicadores de Performance</h4>
+                    <p><strong>Excelente:</strong> 80%+ de progresso médio</p>
+                    <p><strong>Bom:</strong> 60-79% de progresso médio</p>
+                    <p><strong>Regular:</strong> 40-59% de progresso médio</p>
+                    <p><strong>Precisa Melhorar:</strong> <40% de progresso médio</p>
+                </div>
+                <div>
+                    <h4>🎯 Taxa de Prioridade</h4>
+                    <p><strong>🔴 Alta:</strong> Tarefas críticas e urgentes</p>
+                    <p><strong>🟡 Média:</strong> Tarefas importantes</p>
+                    <p><strong>🟢 Baixa:</strong> Tarefas de rotina</p>
+                </div>
+                <div>
+                    <h4>📈 Métricas Importantes</h4>
+                    <p><strong>Taxa de Conclusão:</strong> % de tarefas concluídas</p>
+                    <p><strong>Progresso Médio:</strong> Média de progresso das tarefas</p>
+                    <p><strong>Distribuição de Prioridades:</strong> Balanceamento de urgências</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

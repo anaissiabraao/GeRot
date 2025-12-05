@@ -1,1254 +1,1070 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-GeRot Production - Sistema Empresarial de Gerenciamento de Rotinas
-Versão de Produção com todas as funcionalidades implementadas
-"""
+"""Aplicação GeRot focada em visibilidade de dashboards e agenda diária."""
 
-from flask import Flask, render_template, redirect, url_for, session, jsonify, request, flash
+from __future__ import annotations
+
+from flask import (
+    Flask,
+    render_template,
+    redirect,
+    url_for,
+    session,
+    jsonify,
+    request,
+    flash,
+)
 from flask_cors import CORS
 from flask_restful import Api, Resource
 import os
-import sqlite3
-import bcrypt
-import pandas as pd
-from datetime import datetime, date, timedelta
-from dotenv import load_dotenv
-import requests
 import secrets
-from urllib.parse import urlencode
-import json
-import plotly.graph_objs as go
-import plotly.utils
-from pywebpush import webpush, WebPushException
+from pathlib import Path
+import bcrypt
+import psycopg2
+import psycopg2.extras
+from datetime import datetime, date, timedelta
+from functools import wraps
+from typing import Dict, List, Tuple
 
-# Carregar variáveis de ambiente
-load_dotenv()
+from openpyxl import load_workbook
 
-# Criar aplicação Flask
+from utils.planner_client import PlannerClient, PlannerIntegrationError
+
+
 app = Flask(__name__)
-CORS(app)  # Habilitar CORS para APIs
-
-# Configuração de Produção
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'gerot-production-2025-super-secret')
-app.config['DEBUG'] = False  # Produção sempre False
-
-# Configuração OAuth Google - Produção
-app.config['GOOGLE_OAUTH_CLIENT_ID'] = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '1003471136320-kgbh8cgr04qk18fcgc7pqe20np5a7shq.apps.googleusercontent.com')
-app.config['GOOGLE_OAUTH_CLIENT_SECRET'] = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', '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')
-
-# Configuração Push Notifications
-app.config['VAPID_PRIVATE_KEY'] = os.getenv('VAPID_PRIVATE_KEY', 'your-vapid-private-key')
-app.config['VAPID_PUBLIC_KEY'] = os.getenv('VAPID_PUBLIC_KEY', 'your-vapid-public-key')
-app.config['VAPID_CLAIMS'] = {"sub": "mailto:admin@portoex.com.br"}
-
-# Configurar banco de dados
-database_url = os.getenv('DATABASE_URL', 'gerot_production.db')
-if database_url.startswith('sqlite:///'):
-    app.config['DATABASE'] = database_url.replace('sqlite:///', '')
-else:
-    app.config['DATABASE'] = database_url
-
-# OAuth Google Manual (sem Flask-Dance)
-GOOGLE_OAUTH_URL = 'https://accounts.google.com/o/oauth2/auth'
-GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
-GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
-
-# API REST
+CORS(app)
 api = Api(app)
 
+# --------------------------------------------------------------------------- #
+# Configuração base
+# --------------------------------------------------------------------------- #
+app.config["SECRET_KEY"] = os.getenv(
+    "SECRET_KEY", "gerot-production-2025-super-secret"
+)
+app.config["DEBUG"] = True
+
+DATABASE_URL = (
+    os.getenv("DATABASE_URL")
+    or os.getenv("DIRECT_URL")
+    or os.getenv("SUPABASE_DB_URL")
+)
+
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL não configurada. Defina a string de conexão do Supabase."
+    )
+
+app.config["DATABASE_URL"] = DATABASE_URL
+
+BASE_DIR = Path(__file__).resolve().parent
+PLANILHA_USUARIOS = BASE_DIR / "dados.xlsx"
+ADMIN_CARGOS = {"CONSULTOR", "COORDENADOR", "DIRETOR"}
+
+DEFAULT_DASHBOARDS = [
+    {
+        "slug": "comercial_sc",
+        "title": "Comercial SC",
+        "description": "Relatório Vendas PortoEx - unidade SC.",
+        "category": "Comercial",
+        "embed_url": "https://app.powerbi.com/view?r=eyJrIjoiNDAwZTA5YjgtZWVlMC00MzQ2LWJmYmQtYTZiZDVlMDhlZTEyIiwidCI6IjM4MjViNTlkLTY1ZGMtNDM1Zi04N2M4LTkyM2QzMzkxYzMyOCJ9",
+        "display_order": 1,
+    },
+    {
+        "slug": "comercial_sp",
+        "title": "Comercial SP",
+        "description": "Relatório Vendas PortoEx - filial São Paulo.",
+        "category": "Comercial",
+        "embed_url": "https://app.powerbi.com/view?r=eyJrIjoiYjMyZTc5MzktNGFhYi00ZjE1LWFjMDctYjY2ODM4NTlhMWRmIiwidCI6IjM4MjViNTlkLTY1ZGMtNDM1Zi04N2M4LTkyM2QzMzkxYzMyOCJ9",
+        "display_order": 2,
+    },
+    {
+        "slug": "controladoria_target",
+        "title": "Controladoria e Target Operação",
+        "description": "Visão consolidada da controladoria e operação.",
+        "category": "Controladoria",
+        "embed_url": "https://app.powerbi.com/view?r=eyJrIjoiMzhjODY4OGYtY2UxMy00ZjkyLTkzNDEtOTcxZWIzNDY2ZGJlIiwidCI6IjM4MjViNTlkLTY1ZGMtNDM1Zi04N2M4LTkyM2QzMzkxYzMyOCJ9",
+        "display_order": 3,
+    },
+    {
+        "slug": "cotacao_sc",
+        "title": "Cotação SC",
+        "description": "Painel de cotações da filial Santa Catarina.",
+        "category": "Cotação",
+        "embed_url": "https://app.powerbi.com/view?r=eyJrIjoiNDcwMmM0NGUtOGJkZC00NmIyLTk3M2QtOTNjOWEzMDY5MjkwIiwidCI6IjM4MjViNTlkLTY1ZGMtNDM1Zi04N2M4LTkyM2QzMzkxYzMyOCJ9",
+        "display_order": 4,
+    },
+    {
+        "slug": "cotacao_sp",
+        "title": "Cotação SP",
+        "description": "Painel de cotações da filial São Paulo.",
+        "category": "Cotação",
+        "embed_url": "https://app.powerbi.com/view?r=eyJrIjoiYmNkMWQxMjUtZjExNC00ZGE5LWIxYTEtYzlmNzI3M2I3Mjg1IiwidCI6IjM4MjViNTlkLTY1ZGMtNDM1Zi04N2M4LTkyM2QzMzkxYzMyOCJ9",
+        "display_order": 5,
+    },
+    {
+        "slug": "gr_leandro",
+        "title": "Gestão Regional - Leandro",
+        "description": "Indicadores táticos da regional do Leandro.",
+        "category": "Operações",
+        "embed_url": "https://app.powerbi.com/view?r=eyJrIjoiYjI4YTIzMDEtZmRmOC00N2Y3LTkzNmQtMGEwYzE1N2VhMDViIiwidCI6IjM4MjViNTlkLTY1ZGMtNDM1Zi04N2M4LTkyM2QzMzkxYzMyOCJ9",
+        "display_order": 6,
+    },
+    {
+        "slug": "financeiro_fluxo",
+        "title": "Financeiro - Fluxo de Caixa",
+        "description": "Inadimplência e fluxo de caixa diário.",
+        "category": "Financeiro",
+        "embed_url": "https://app.powerbi.com/view?r=eyJrIjoiNzFlZWVkZjUtNTdiYy00ZjJiLTk3OTEtNzhiYzFhMzk3MmY3IiwidCI6IjM4MjViNTlkLTY1ZGMtNDM1Zi04N2M4LTkyM2QzMzkxYzMyOCJ9",
+        "display_order": 7,
+    },
+]
+
+PLANNER_CONFIG = {
+    "tenant_id": os.getenv("MS_TENANT_ID"),
+    "client_id": os.getenv("MS_CLIENT_ID"),
+    "client_secret": os.getenv("MS_CLIENT_SECRET"),
+    "plan_id": os.getenv("MS_PLANNER_PLAN_ID"),
+    "bucket_id": os.getenv("MS_PLANNER_BUCKET_ID"),
+}
+
+planner_client = PlannerClient(**PLANNER_CONFIG)
+
+
+# --------------------------------------------------------------------------- #
+# Decorators e utilidades
+# --------------------------------------------------------------------------- #
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Você precisa estar logado para acessar esta página.", "error")
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get("role") != "admin":
+            flash("Acesso restrito aos administradores.", "error")
+            return redirect(url_for("team_dashboard"))
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+def is_admin_session() -> bool:
+    return session.get("role") == "admin"
+
+
+def _as_bytes(value):
+    if value is None:
+        return None
+    if isinstance(value, memoryview):
+        return value.tobytes()
+    if isinstance(value, str):
+        return value.encode("utf-8")
+    return value
+
+
 def get_db():
-    """Conectar ao banco de dados"""
-    return sqlite3.connect(app.config['DATABASE'])
+    return psycopg2.connect(
+        app.config["DATABASE_URL"],
+        cursor_factory=psycopg2.extras.RealDictCursor,
+    )
 
-def reset_database():
-    """Forçar recriação do banco de dados"""
-    import os
-    try:
-        if os.path.exists(app.config['DATABASE']):
-            os.remove(app.config['DATABASE'])
-            print("Banco de dados anterior removido.")
-        init_db()
-        return True
-    except Exception as e:
-        print(f"Erro ao resetar banco: {e}")
-        return False
 
-def clean_fake_data():
-    """Remover dados fictícios do banco"""
+def ensure_schema() -> None:
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users_new (
+            id BIGSERIAL PRIMARY KEY,
+            username TEXT NOT NULL UNIQUE,
+            password BYTEA NOT NULL,
+            nome_completo TEXT NOT NULL,
+            cargo_original TEXT,
+            departamento TEXT,
+            role TEXT NOT NULL DEFAULT 'usuario',
+            email TEXT,
+            unidade TEXT,
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            first_login BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ,
+            last_login TIMESTAMPTZ
+        );
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS users_new_email_unique
+            ON users_new (LOWER(email));
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS users_new_username_lower_unique
+            ON users_new (LOWER(username));
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS dashboards (
+            id BIGSERIAL PRIMARY KEY,
+            slug TEXT UNIQUE NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            category TEXT,
+            embed_url TEXT NOT NULL,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_dashboards (
+            id BIGSERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL REFERENCES users_new(id) ON DELETE CASCADE,
+            dashboard_id BIGINT NOT NULL REFERENCES dashboards(id) ON DELETE CASCADE,
+            created_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (user_id, dashboard_id)
+        );
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS planner_sync_logs (
+            id BIGSERIAL PRIMARY KEY,
+            user_id BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+            user_name TEXT,
+            dashboard_count INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL,
+            message TEXT,
+            task_id TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        """
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def seed_dashboards() -> None:
+    conn = get_db()
+    cursor = conn.cursor()
+
+    for dash in DEFAULT_DASHBOARDS:
+        cursor.execute(
+            """
+            INSERT INTO dashboards (slug, title, description, category, embed_url, display_order, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, 1)
+            ON CONFLICT(slug) DO UPDATE SET
+                title=excluded.title,
+                description=excluded.description,
+                category=excluded.category,
+                embed_url=excluded.embed_url,
+                display_order=excluded.display_order,
+                updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                dash["slug"],
+                dash["title"],
+                dash["description"],
+                dash["category"],
+                dash["embed_url"],
+                dash["display_order"],
+            ),
+        )
+
+    conn.commit()
+    conn.close()
+
+
+def normalize_roles() -> None:
     try:
         conn = get_db()
         cursor = conn.cursor()
-        
-        # Remover usuários fictícios
-        fake_emails = [
-            'admin@portoex.com.br',
-            'lider@portoex.com.br', 
-            'colaborador@portoex.com.br'
-        ]
-        
-        for email in fake_emails:
-            cursor.execute('DELETE FROM users WHERE email = ?', (email,))
-            print(f"Usuário fictício removido: {email}")
-        
-        # Remover setores fictícios se não houver usuários reais
-        cursor.execute('SELECT COUNT(*) FROM users WHERE is_active = 1')
-        if cursor.fetchone()[0] == 0:
-            cursor.execute('DELETE FROM sectors')
-            print("Setores fictícios removidos.")
-        
+        cursor.execute(
+            """
+            UPDATE users_new
+            SET role = 'admin'
+            WHERE role IN ('admin', 'admin_master')
+            """
+        )
+        cursor.execute(
+            """
+            UPDATE users_new
+            SET role = 'usuario'
+            WHERE role NOT IN ('admin')
+            """
+        )
         conn.commit()
-        conn.close()
-        print("Limpeza de dados fictícios concluída.")
-        return True
-        
-    except Exception as e:
-        print(f"Erro ao limpar dados fictícios: {e}")
-        return False
-
-def init_db():
-    """Inicializar banco de dados de produção"""
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    # Verificar se o banco existe testando uma tabela
-    try:
-        cursor.execute('SELECT COUNT(*) FROM users LIMIT 1')
-        print("Banco de dados já existe e está funcionando.")
-    except:
-        print("Banco de dados não existe ou está corrompido. Criando novo banco...")
-        # Se der erro, continua para criar as tabelas
-        pass
-    
-    # Schema completo para produção
-    tables = [
-        # Usuários
-        '''CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            email TEXT UNIQUE,
-            password TEXT,
-            google_id TEXT,
-            role TEXT NOT NULL DEFAULT 'colaborador',
-            sector_id INTEGER,
-            avatar_url TEXT,
-            phone TEXT,
-            is_active BOOLEAN DEFAULT 1,
-            domain_validated BOOLEAN DEFAULT 0,
-            last_login TIMESTAMP,
-            push_subscription TEXT,
-            preferences TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (sector_id) REFERENCES sectors(id)
-        )''',
-        
-        # Setores
-        '''CREATE TABLE IF NOT EXISTS sectors (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            description TEXT,
-            leader_email TEXT,
-            color_theme TEXT DEFAULT '#667eea',
-            is_active BOOLEAN DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )''',
-        
-        # Rotinas
-        '''CREATE TABLE IF NOT EXISTS routines (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            sector_id INTEGER,
-            title TEXT NOT NULL,
-            description TEXT,
-            date TEXT NOT NULL,
-            start_time TEXT,
-            end_time TEXT,
-            priority INTEGER DEFAULT 1,
-            estimated_duration INTEGER,
-            actual_duration INTEGER,
-            created_by INTEGER,
-            status TEXT DEFAULT 'active',
-            recurrence_type TEXT DEFAULT 'none',
-            recurrence_days TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (sector_id) REFERENCES sectors(id),
-            FOREIGN KEY (created_by) REFERENCES users(id)
-        )''',
-        
-        # Checklists
-        '''CREATE TABLE IF NOT EXISTS checklists (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            routine_id INTEGER,
-            task TEXT NOT NULL,
-            completed BOOLEAN DEFAULT 0,
-            priority INTEGER DEFAULT 1,
-            estimated_time INTEGER,
-            actual_time INTEGER,
-            completed_at TIMESTAMP,
-            completed_by INTEGER,
-            notes TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (routine_id) REFERENCES routines(id),
-            FOREIGN KEY (completed_by) REFERENCES users(id)
-        )''',
-        
-        # Metas
-        '''CREATE TABLE IF NOT EXISTS goals (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sector_id INTEGER,
-            user_id INTEGER,
-            title TEXT NOT NULL,
-            description TEXT,
-            target_value REAL,
-            current_value REAL DEFAULT 0,
-            unit TEXT,
-            deadline DATE,
-            category TEXT,
-            priority INTEGER DEFAULT 1,
-            created_by INTEGER,
-            status TEXT DEFAULT 'active',
-            progress_tracking TEXT DEFAULT 'manual',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (sector_id) REFERENCES sectors(id),
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (created_by) REFERENCES users(id)
-        )''',
-        
-        # Notificações
-        '''CREATE TABLE IF NOT EXISTS notifications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            title TEXT NOT NULL,
-            message TEXT NOT NULL,
-            type TEXT DEFAULT 'info',
-            read_status BOOLEAN DEFAULT 0,
-            action_url TEXT,
-            data TEXT,
-            sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            read_at TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )''',
-        
-        # Logs de atividades
-        '''CREATE TABLE IF NOT EXISTS activity_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            action TEXT NOT NULL,
-            entity_type TEXT,
-            entity_id INTEGER,
-            details TEXT,
-            ip_address TEXT,
-            user_agent TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )''',
-        
-        # Relatórios
-        '''CREATE TABLE IF NOT EXISTS reports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            type TEXT NOT NULL,
-            sector_id INTEGER,
-            created_by INTEGER,
-            parameters TEXT,
-            data TEXT,
-            chart_config TEXT,
-            scheduled BOOLEAN DEFAULT 0,
-            schedule_frequency TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (sector_id) REFERENCES sectors(id),
-            FOREIGN KEY (created_by) REFERENCES users(id)
-        )'''
-    ]
-    
-    try:
-        for table_sql in tables:
-            cursor.execute(table_sql)
-        
-        # Inserir dados iniciais
-        setup_production_data(cursor)
-        
-        conn.commit()
-        print("Banco de dados inicializado com sucesso!")
-        
-    except Exception as e:
-        print(f"Erro ao inicializar banco de dados: {e}")
-        conn.rollback()
+    except Exception as exc:
+        print(f"[normalize_roles] Aviso: {exc}")
     finally:
         conn.close()
+        
 
-def setup_production_data(cursor):
-    """Configurar apenas estrutura básica sem dados fictícios"""
-    
-    # Verificar se já existem setores
-    cursor.execute('SELECT COUNT(*) FROM sectors')
-    if cursor.fetchone()[0] > 0:
+def _determine_role_from_cargo(cargo: str | None) -> str:
+    cargo_normalizado = (cargo or "").strip().upper()
+    return "admin" if cargo_normalizado in ADMIN_CARGOS else "usuario"
+
+
+def import_users_from_excel() -> None:
+    if not PLANILHA_USUARIOS.exists():
+        app.logger.warning(
+            "[IMPORTACAO] Arquivo dados.xlsx não encontrado em %s",
+            PLANILHA_USUARIOS,
+        )
         return
-    
-    # Criar apenas setores básicos baseados na planilha Excel (se necessário)
-    # Não inserir usuários fictícios - apenas usuários reais via OAuth
-    print("Sistema inicializado sem dados fictícios. Usuários serão criados via autenticação OAuth.")
 
-def load_excel_data():
-    """Carregar dados do Excel com tratamento de erros"""
     try:
-        if os.path.exists('dados.xlsx'):
-            df = pd.read_excel('dados.xlsx')
-            return df.to_dict('records')
-        else:
-            return []
-    except Exception as e:
-        print(f"Erro ao carregar Excel: {e}")
-        return []
+        workbook = load_workbook(
+            filename=str(PLANILHA_USUARIOS), read_only=True, data_only=True
+        )
+    except Exception as exc:
+        app.logger.error(
+            "[IMPORTACAO] Falha ao abrir planilha de usuários: %s", exc
+        )
+        return
 
-def get_user_from_excel(email):
-    """Buscar usuário na planilha Excel por email pessoal e determinar permissões"""
-    try:
-        excel_data = load_excel_data()
-        
-        for record in excel_data:
-            # Verificar se o email pessoal da planilha corresponde ao email do Google
-            excel_email = str(record.get('Email', '')).strip().lower()
-            
-            if excel_email == email.lower():
-                name = record.get('Nome Completo', '')
-                cargo = record.get('Cargo', '').upper()
-                departamento = record.get('Departamento', '')
-                unidade = record.get('Unidade', '')
-                
-                # Determinar role baseado no cargo
-                if cargo in ['CONSULTOR', 'COORDENADOR', 'DIRETOR']:
-                    role = 'admin_master'
-                elif cargo == 'LIDER':
-                    role = 'lider'
-                else:
-                    role = 'colaborador'
-                
-                return {
-                    'found': True,
-                    'name': name,
-                    'cargo': cargo,
-                    'role': role,
-                    'departamento': departamento,
-                    'unidade': unidade
-                }
-        
-        return {'found': False}
-        
-    except Exception as e:
-        print(f"Erro ao buscar usuário no Excel: {e}")
-        return {'found': False}
+    conn = None
+    inserted = updated = skipped = 0
 
-def create_chart(chart_type, data, title):
-    """Criar gráficos com Plotly"""
-    try:
-        if chart_type == 'bar':
-            fig = go.Figure(data=[go.Bar(x=data['x'], y=data['y'])])
-        elif chart_type == 'pie':
-            fig = go.Figure(data=[go.Pie(labels=data['labels'], values=data['values'])])
-        elif chart_type == 'line':
-            fig = go.Figure(data=[go.Scatter(x=data['x'], y=data['y'], mode='lines+markers')])
-        else:
-            return None
-        
-        fig.update_layout(title=title, height=400)
-        return json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
-    except Exception as e:
-        print(f"Erro ao criar gráfico: {e}")
-        return None
-
-def send_push_notification(user_id, title, message, action_url=None):
-    """Enviar notificação push"""
     try:
         conn = get_db()
         cursor = conn.cursor()
-        
-        # Buscar subscription do usuário
-        cursor.execute('SELECT push_subscription FROM users WHERE id = ?', (user_id,))
-        result = cursor.fetchone()
-        
-        if result and result[0]:
-            subscription = json.loads(result[0])
-            
-            payload = {
-                "title": title,
-                "body": message,
-                "icon": "/static/icons/icon-192x192.png",
-                "badge": "/static/icons/badge-72x72.png",
-                "url": action_url or "/"
-            }
-            
-            webpush(
-                subscription_info=subscription,
-                data=json.dumps(payload),
-                vapid_private_key=app.config['VAPID_PRIVATE_KEY'],
-                vapid_claims=app.config['VAPID_CLAIMS']
+        for row in workbook.active.iter_rows(min_row=2, values_only=True):
+            if not row:
+                skipped += 1
+                continue
+
+            values = list(row)
+            while len(values) < 5:
+                values.append(None)
+
+            nome, email, cargo, unidade, departamento = values[:5]
+            email = (email or "").strip()
+            if not email:
+                skipped += 1
+                continue
+
+            nome = (nome or "").strip() or email
+            cargo = (cargo or "").strip()
+            unidade = (unidade or "").strip()
+            departamento = (departamento or "").strip()
+            role = _determine_role_from_cargo(cargo)
+            username = email.lower()
+
+            cursor.execute(
+                "SELECT id FROM users_new WHERE LOWER(email) = LOWER(%s)", (email,)
             )
-            
-            # Salvar notificação no banco
-            cursor.execute('''
-                INSERT INTO notifications (user_id, title, message, action_url)
-                VALUES (?, ?, ?, ?)
-            ''', (user_id, title, message, action_url))
-            
+            existing = cursor.fetchone()
+
+            if existing:
+                cursor.execute(
+                    """
+                    UPDATE users_new
+                    SET nome_completo = %s,
+                        cargo_original = %s,
+                        departamento = %s,
+                        unidade = %s,
+                        role = %s,
+                        updated_at = NOW()
+                    WHERE id = %s
+                    """,
+                    (
+                        nome,
+                        cargo or None,
+                        departamento or None,
+                        unidade or None,
+                        role,
+                        existing["id"],
+                    ),
+                )
+                updated += 1
+            else:
+                temp_password = secrets.token_urlsafe(16)
+                password_hash = bcrypt.hashpw(
+                    temp_password.encode("utf-8"), bcrypt.gensalt()
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO users_new (
+                        username,
+                        password,
+                        nome_completo,
+                        cargo_original,
+                        departamento,
+                        role,
+                        email,
+                        unidade,
+                        first_login
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+                    """,
+                    (
+                        username,
+                        psycopg2.Binary(password_hash),
+                        nome,
+                        cargo or None,
+                        departamento or None,
+                        role,
+                        email,
+                        unidade or None,
+                    ),
+                )
+                inserted += 1
+
+        conn.commit()
+        app.logger.info(
+            "[IMPORTACAO] Usuários sincronizados. Inseridos=%s | Atualizados=%s | Ignorados=%s",
+            inserted,
+            updated,
+            skipped,
+        )
+    except Exception as exc:
+        if conn:
+            conn.rollback()
+        app.logger.exception(
+            "[IMPORTACAO] Erro ao sincronizar usuários da planilha: %s", exc
+        )
+    finally:
+        if conn:
+            conn.close()
+        workbook.close()
+
+
+ensure_schema()
+seed_dashboards()
+normalize_roles()
+import_users_from_excel()
+
+
+# --------------------------------------------------------------------------- #
+# Funções auxiliares de dados
+# --------------------------------------------------------------------------- #
+def fetch_dashboards(active_only: bool = True) -> List[Dict]:
+    conn = get_db()
+    cursor = conn.cursor()
+    query = "SELECT * FROM dashboards"
+    if active_only:
+        query += " WHERE is_active = 1"
+    query += " ORDER BY display_order, title"
+    cursor.execute(query)
+    dashboards = cursor.fetchall()
+    conn.close()
+    return dashboards
+
+
+def fetch_users() -> List[Dict]:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT id, nome_completo, username, email, role
+        FROM users_new
+        WHERE is_active = 1
+        ORDER BY nome_completo
+        """
+    )
+    users = cursor.fetchall()
+    conn.close()
+    return users
+
+
+def get_user_dashboard_map() -> Dict[int, Dict[str, List]]:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT ud.user_id, d.id as dashboard_id, d.title, d.category
+        FROM user_dashboards ud
+        JOIN dashboards d ON d.id = ud.dashboard_id
+        WHERE d.is_active = 1
+        ORDER BY d.display_order, d.title
+        """
+    )
+    data: Dict[int, Dict[str, List]] = {}
+    for row in cursor.fetchall():
+        entry = data.setdefault(row["user_id"], {"ids": set(), "items": []})
+        entry["ids"].add(row["dashboard_id"])
+        entry["items"].append({"title": row["title"], "category": row["category"]})
+
+    conn.close()
+
+    for entry in data.values():
+        entry["items"].sort(key=lambda i: i["title"])
+        entry["ids"] = list(entry["ids"])
+
+    return data
+
+
+def save_user_dashboards(user_id: int, dashboard_ids: List[int], actor_id: int) -> None:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM user_dashboards WHERE user_id = %s", (user_id,))
+    if dashboard_ids:
+        cursor.executemany(
+            """
+            INSERT INTO user_dashboards (user_id, dashboard_id, created_by)
+            VALUES (%s, %s, %s)
+            """,
+            [(user_id, dash_id, actor_id) for dash_id in dashboard_ids],
+        )
+    conn.commit()
+    conn.close()
+
+
+def log_planner_sync(
+    user_id: int,
+    user_name: str,
+    dashboard_count: int,
+    status: str,
+    message: str,
+    task_id: str | None = None,
+) -> None:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO planner_sync_logs (user_id, user_name, dashboard_count, status, message, task_id)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        (user_id, user_name, dashboard_count, status, message, task_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_recent_planner_logs(limit: int = 8) -> List[Dict]:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT user_name, dashboard_count, status, message, task_id, created_at
+        FROM planner_sync_logs
+        ORDER BY created_at DESC
+        LIMIT %s
+        """,
+        (limit,),
+    )
+    logs = cursor.fetchall()
+    conn.close()
+    return logs
+
+
+def sync_dashboards_to_planner() -> Tuple[int, List[str]]:
+    if not planner_client.is_configured:
+        raise PlannerIntegrationError(
+            "Configure MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, "
+            "MS_PLANNER_PLAN_ID e MS_PLANNER_BUCKET_ID para usar esta função."
+        )
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT u.id as user_id, u.nome_completo, u.email,
+               d.title, d.category, d.embed_url
+        FROM user_dashboards ud
+        JOIN users_new u ON u.id = ud.user_id
+        JOIN dashboards d ON d.id = ud.dashboard_id
+        WHERE u.is_active = 1 AND d.is_active = 1
+        ORDER BY u.nome_completo, d.display_order, d.title
+        """
+    )
+
+    assignments: Dict[int, Dict[str, List[Dict[str, str]]]] = {}
+    for row in cursor.fetchall():
+        user_entry = assignments.setdefault(
+            row["user_id"],
+            {"name": row["nome_completo"], "email": row["email"], "dashboards": []},
+        )
+        user_entry["dashboards"].append(
+            {
+                "title": row["title"],
+                "category": row["category"],
+                "url": row["embed_url"],
+            }
+        )
+
+    conn.close()
+
+    if not assignments:
+        raise PlannerIntegrationError("Nenhum usuário possui dashboards atribuídos.")
+
+    successes = 0
+    errors: List[str] = []
+    today = date.today().strftime("%d/%m/%Y")
+    start_time = datetime.utcnow().replace(hour=11, minute=0, second=0, microsecond=0)
+    due_time = start_time + timedelta(hours=6)
+
+    for user_id, payload in assignments.items():
+        dashboards = payload["dashboards"]
+        if not dashboards:
+            continue
+
+        title = f"Agenda de dashboards - {payload['name']} ({today})"
+        description_lines = [
+            f"Agenda automática gerada em {datetime.now().strftime('%d/%m/%Y %H:%M')}.",
+            "",
+            "Dashboards liberados para hoje:",
+        ]
+        for idx, dash in enumerate(dashboards, start=1):
+            description_lines.append(
+                f"{idx}. {dash['title']} ({dash['category']}) - {dash['url']}"
+            )
+
+        description = "\n".join(description_lines)
+
+        try:
+            task = planner_client.create_dashboard_task(
+                title=title,
+                description=description,
+                start_time=start_time,
+                due_time=due_time,
+            )
+            log_planner_sync(
+                user_id=user_id,
+                user_name=payload["name"],
+                dashboard_count=len(dashboards),
+                status="success",
+                message="Tarefa criada e agenda enviada.",
+                task_id=task.get("id"),
+            )
+            successes += 1
+        except PlannerIntegrationError as exc:
+            errors.append(f"{payload['name']}: {exc}")
+            log_planner_sync(
+                user_id=user_id,
+                user_name=payload["name"],
+                dashboard_count=len(dashboards),
+                status="error",
+                message=str(exc),
+            )
+
+    return successes, errors
+
+
+# --------------------------------------------------------------------------- #
+# Funções de autenticação
+# --------------------------------------------------------------------------- #
+def authenticate_user(identifier: str, password: str):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, username, password, nome_completo, cargo_original,
+                   departamento, role, email, first_login
+            FROM users_new
+            WHERE (LOWER(username) = LOWER(%s) OR LOWER(email) = LOWER(%s))
+              AND is_active = 1
+            """,
+            (identifier, identifier),
+        )
+        user = cursor.fetchone()
+        conn.close()
+        
+        if user and bcrypt.checkpw(password.encode("utf-8"), _as_bytes(user["password"])):
+            role = "admin" if user["role"] == "admin" else "usuario"
+            return {
+                "id": user["id"],
+                "username": user["username"],
+                "nome_completo": user["nome_completo"],
+                "cargo_original": user["cargo_original"],
+                "departamento": user["departamento"],
+                "role": role,
+                "email": user["email"],
+                "first_login": user["first_login"],
+            }
+        return None
+    except Exception as exc:
+        print(f"Erro na autenticação: {exc}")
+        return None
+
+
+def update_user_password(user_id: int, new_password: str) -> bool:
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        password_hash = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt())
+        cursor.execute(
+            """
+            UPDATE users_new
+            SET password = %s, first_login = FALSE, updated_at = CURRENT_TIMESTAMP,
+                last_login = CURRENT_TIMESTAMP
+            WHERE id = %s
+            """,
+            (psycopg2.Binary(password_hash), user_id),
+        )
         conn.commit()
         conn.close()
         return True
-    except Exception as e:
-        print(f"Erro ao enviar push: {e}")
+    except Exception as exc:
+        print(f"Erro ao atualizar senha: {exc}")
         return False
+            
+            
+def get_user_by_id(user_id: int):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, username, nome_completo, cargo_original,
+                   departamento, role, email, is_active
+            FROM users_new
+            WHERE id = %s
+            """,
+            (user_id,),
+        )
+        user = cursor.fetchone()
+        conn.close()
+        if user:
+            return dict(user)
+        return None
+    except Exception as exc:
+        print(f"Erro ao buscar usuário: {exc}")
+        return None
 
-# APIs REST Completas
+
+# --------------------------------------------------------------------------- #
+# Rotas principais
+# --------------------------------------------------------------------------- #
+@app.route("/")
+def index():
+    if "user_id" in session:
+        return (
+            redirect(url_for("admin_dashboard"))
+            if is_admin_session()
+            else redirect(url_for("team_dashboard"))
+        )
+    return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        if "new_password" in request.form:
+            user_id = session.get("temp_user_id")
+            new_password = request.form.get("new_password", "").strip()
+            confirm_password = request.form.get("confirm_password", "").strip()
+
+            if not user_id:
+                flash("Sessão expirada. Faça login novamente.", "error")
+                return redirect(url_for("login"))
+
+            if len(new_password) < 6:
+                flash("A nova senha deve ter pelo menos 6 caracteres.", "error")
+                user = get_user_by_id(user_id)
+                return render_template("first_login.html", user=user)
+
+            if new_password != confirm_password:
+                flash("As senhas não coincidem.", "error")
+                user = get_user_by_id(user_id)
+                return render_template("first_login.html", user=user)
+
+            if update_user_password(user_id, new_password):
+                user = get_user_by_id(user_id)
+                if user:
+                    session.update(
+                        {
+                            "user_id": user["id"],
+                            "username": user["username"],
+                            "role": user["role"],
+                            "email": user.get("email", ""),
+                            "nome_completo": user["nome_completo"],
+                            "departamento": user["departamento"],
+                        }
+                    )
+                    session.pop("temp_user_id", None)
+                    flash(
+                        f"Senha atualizada! Bem-vindo, {user['nome_completo']}!",
+                        "success",
+                    )
+                    return redirect(url_for("index"))
+                flash("Não foi possível carregar o usuário.", "error")
+            else:
+                flash("Erro ao atualizar senha. Tente novamente.", "error")
+                user = get_user_by_id(user_id)
+                return render_template("first_login.html", user=user)
+
+        identifier = (
+            request.form.get("username") or request.form.get("email", "")
+        ).strip()
+        password = request.form.get("password", "").strip()
+
+        if identifier and password:
+            user = authenticate_user(identifier, password)
+            if user:
+                if user["first_login"]:
+                    session["temp_user_id"] = user["id"]
+                    flash(
+                        f"Bem-vindo, {user['nome_completo']}! Defina uma nova senha.",
+                        "info",
+                    )
+                    return render_template("first_login.html", user=user)
+
+                session.update(
+                    {
+                        "user_id": user["id"],
+                        "username": user["username"],
+                        "role": user["role"],
+                        "email": user.get("email", ""),
+                        "nome_completo": user["nome_completo"],
+                        "departamento": user["departamento"],
+                    }
+                )
+                flash(f"Bem-vindo de volta, {user['nome_completo']}!", "success")
+                return redirect(url_for("index"))
+            flash("Usuário ou senha incorretos!", "error")
+        else:
+            flash("Por favor, informe usuário/email e senha.", "error")
+
+    return render_template("enterprise_login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("Logout realizado com sucesso!", "success")
+    return redirect(url_for("login"))
+
+
+@app.route("/profile")
+@login_required
+def profile():
+    user = get_user_by_id(session["user_id"])
+    if not user:
+        flash("Não foi possível carregar seu perfil.", "error")
+        return redirect(url_for("index"))
+    return render_template("profile.html", user=user)
+
+
+@app.route("/profile/change-password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    if request.method == "POST":
+        current_password = request.form.get("current_password", "").strip()
+        new_password = request.form.get("new_password", "").strip()
+        confirm_password = request.form.get("confirm_password", "").strip()
+
+        if not current_password or not new_password or not confirm_password:
+            flash("Preencha todos os campos.", "error")
+            return render_template("change_password.html")
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT password FROM users_new WHERE id = %s", (session["user_id"],)
+        )
+        result = cursor.fetchone()
+        conn.close()
+
+        if not result or not bcrypt.checkpw(
+            current_password.encode("utf-8"), _as_bytes(result["password"])
+        ):
+            flash("Senha atual incorreta.", "error")
+            return render_template("change_password.html")
+
+        if len(new_password) < 6:
+            flash("A nova senha deve conter pelo menos 6 caracteres.", "error")
+            return render_template("change_password.html")
+
+        if new_password != confirm_password:
+            flash("As senhas não coincidem.", "error")
+            return render_template("change_password.html")
+
+        if update_user_password(session["user_id"], new_password):
+            flash("Senha alterada com sucesso!", "success")
+            return redirect(url_for("profile"))
+
+        flash("Erro ao alterar senha. Tente novamente.", "error")
+
+    return render_template("change_password.html")
+
+
+@app.route("/admin/dashboard")
+@login_required
+@admin_required
+def admin_dashboard():
+    users = fetch_users()
+    dashboards = fetch_dashboards()
+    dashboard_map = get_user_dashboard_map()
+    for user in users:
+        dashboard_map.setdefault(user["id"], {"ids": [], "items": []})
+
+    selected_user_id = request.args.get("user_id", type=int)
+    if selected_user_id is None and users:
+        selected_user_id = users[0]["id"]
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM users_new WHERE is_active = 1")
+    total_users = cursor.fetchone()[0]
+    cursor.execute(
+        "SELECT COUNT(*) FROM users_new WHERE is_active = 1 AND role = 'admin'"
+    )
+    total_admins = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM dashboards WHERE is_active = 1")
+    active_dashboards = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM user_dashboards")
+    total_assignments = cursor.fetchone()[0]
+    cursor.execute(
+        "SELECT status, created_at FROM planner_sync_logs ORDER BY created_at DESC LIMIT 1"
+    )
+    last_sync = cursor.fetchone()
+    conn.close()
+
+    stats = {
+        "total_users": total_users,
+        "total_admins": total_admins,
+        "active_dashboards": active_dashboards,
+        "total_assignments": total_assignments,
+        "last_sync": last_sync["created_at"] if last_sync else None,
+        "last_sync_status": last_sync["status"] if last_sync else None,
+    }
+
+    return render_template(
+        "admin_dashboard.html",
+        stats=stats,
+        users=users,
+        dashboards=dashboards,
+        selected_user_id=selected_user_id,
+        user_dashboards=dashboard_map,
+        planner_enabled=planner_client.is_configured,
+        planner_logs=get_recent_planner_logs(),
+    )
+
+
+@app.route("/admin/dashboard/permissions", methods=["POST"])
+@login_required
+@admin_required
+def update_dashboard_permissions():
+    user_id = request.form.get("user_id", type=int)
+    if not user_id:
+        flash("Selecione um usuário.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    dashboard_ids = request.form.getlist("dashboards")
+    dashboard_ids_int = [int(d_id) for d_id in dashboard_ids]
+    save_user_dashboards(user_id, dashboard_ids_int, session["user_id"])
+    flash("Visibilidade atualizada com sucesso!", "success")
+    return redirect(url_for("admin_dashboard", user_id=user_id))
+
+
+@app.route("/admin/planner/sync", methods=["POST"])
+@login_required
+@admin_required
+def admin_planner_sync():
+    try:
+        success_count, errors = sync_dashboards_to_planner()
+        if success_count:
+            flash(
+                f"Agenda enviada para {success_count} usuário(s) no Planner.",
+                "success",
+            )
+        if errors:
+            flash("Falha para: " + "; ".join(errors), "error")
+    except PlannerIntegrationError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/team/dashboard")
+@app.route("/dashboards")
+@login_required
+def team_dashboard():
+    show_all = is_admin_session() and request.args.get("all") == "1"
+    conn = None
+
+    if show_all and is_admin_session():
+        dashboards = fetch_dashboards()
+    else:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT d.title, d.description, d.category, d.embed_url
+            FROM dashboards d
+            JOIN user_dashboards ud ON ud.dashboard_id = d.id
+            WHERE ud.user_id = %s AND d.is_active = 1
+            ORDER BY d.display_order, d.title
+            """,
+            (session["user_id"],),
+        )
+        dashboards = cursor.fetchall()
+        conn.close()
+
+    today_label = datetime.now().strftime("%d/%m/%Y")
+    return render_template(
+        "team_dashboard.html",
+        user=session.get("nome_completo", "Usuário"),
+        dashboards=dashboards,
+        today=today_label,
+        show_all=show_all,
+        is_admin=is_admin_session(),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# API pública básica
+# --------------------------------------------------------------------------- #
 class UsersAPI(Resource):
     def get(self, user_id=None):
-        if user_id:
-            return self.get_user(user_id)
-        return self.get_all_users()
-    
-    def get_user(self, user_id):
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('''
-            SELECT u.*, s.name as sector_name
-            FROM users u
-            LEFT JOIN sectors s ON u.sector_id = s.id
-            WHERE u.id = ?
-        ''', (user_id,))
-        user = cursor.fetchone()
-        conn.close()
-        
-        if user:
-            return {
-                'id': user[0],
-                'username': user[1],
-                'email': user[2],
-                'role': user[4],
-                'sector_name': user[-1]
-            }
-        return {'error': 'Usuário não encontrado'}, 404
-    
-    def get_all_users(self):
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT u.id, u.username, u.email, u.role, s.name as sector_name
-            FROM users u
-            LEFT JOIN sectors s ON u.sector_id = s.id
-            WHERE u.is_active = 1
-        ''')
-        users = cursor.fetchall()
-        conn.close()
-        
-        return {
-            'users': [{
-                'id': u[0],
-                'username': u[1],
-                'email': u[2],
-                'role': u[3],
-                'sector': u[4]
-            } for u in users]
-        }
-
-class SectorsAPI(Resource):
-    def get(self):
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT s.*, COUNT(u.id) as user_count
-            FROM sectors s
-            LEFT JOIN users u ON s.id = u.sector_id
-            WHERE s.is_active = 1
-            GROUP BY s.id
-        ''')
-        sectors = cursor.fetchall()
-        conn.close()
-        
-        return {
-            'sectors': [{
-                'id': s[0],
-                'name': s[1],
-                'description': s[2],
-                'leader_email': s[3],
-                'color_theme': s[4],
-                'is_active': s[5],
-                'created_at': s[6],
-                'user_count': s[7]
-            } for s in sectors]
-        }
-
-class RoutinesAPI(Resource):
-    def get(self):
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT r.*, u.username, s.name as sector_name
-            FROM routines r
-            JOIN users u ON r.user_id = u.id
-            JOIN sectors s ON r.sector_id = s.id
-            WHERE r.date = ?
-            ORDER BY r.priority DESC
-        ''', (date.today().isoformat(),))
-        routines = cursor.fetchall()
-        conn.close()
-        
-        return {
-            'routines': [{
-                'id': r[0],
-                'title': r[3],
-                'description': r[4],
-                'username': r[-2],
-                'sector': r[-1],
-                'priority': r[8]
-            } for r in routines]
-        }
-
-class ReportsAPI(Resource):
-    def get(self, report_type=None):
-        if report_type == 'productivity':
-            return self.productivity_report()
-        elif report_type == 'sectors':
-            return self.sectors_report()
-        elif report_type == 'goals':
-            return self.goals_report()
-        return self.general_report()
-    
-    def productivity_report(self):
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        # Dados de produtividade
-        cursor.execute('''
-            SELECT s.name, COUNT(r.id) as routines, 
-                   SUM(CASE WHEN r.status = 'completed' THEN 1 ELSE 0 END) as completed
-            FROM sectors s
-            LEFT JOIN routines r ON s.id = r.sector_id 
-            AND r.date >= ?
-            GROUP BY s.id, s.name
-        ''', ((date.today() - timedelta(days=30)).isoformat(),))
-        
-        data = cursor.fetchall()
-        conn.close()
-        
-        chart_data = {
-            'x': [d[0] for d in data],
-            'y': [d[2]/d[1]*100 if d[1] > 0 else 0 for d in data]
-        }
-        
-        chart = create_chart('bar', chart_data, 'Produtividade por Setor (30 dias)')
-        
-        return {
-            'title': 'Relatório de Produtividade',
-            'data': data,
-            'chart': chart
-        }
-    
-    def sectors_report(self):
-        """Relatório de setores"""
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT s.name, COUNT(u.id) as users, COUNT(r.id) as routines
-            FROM sectors s
-            LEFT JOIN users u ON s.id = u.sector_id AND u.is_active = 1
-            LEFT JOIN routines r ON s.id = r.sector_id AND r.date = ?
-            WHERE s.is_active = 1
-            GROUP BY s.id, s.name
-        ''', (date.today().isoformat(),))
-        
-        data = cursor.fetchall()
-        conn.close()
-        
-        return {
-            'title': 'Relatório de Setores',
-            'data': [{
-                'sector': d[0],
-                'users': d[1],
-                'routines_today': d[2]
-            } for d in data]
-        }
-    
-    def goals_report(self):
-        """Relatório de metas"""
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT g.title, g.target_value, g.current_value, g.unit, 
-                   s.name as sector, g.deadline
-            FROM goals g
-            LEFT JOIN sectors s ON g.sector_id = s.id
-            WHERE g.status = 'active'
-            ORDER BY g.deadline
-        ''')
-        
-        data = cursor.fetchall()
-        conn.close()
-        
-        return {
-            'title': 'Relatório de Metas',
-            'data': [{
-                'goal': d[0],
-                'target': d[1],
-                'current': d[2],
-                'unit': d[3],
-                'sector': d[4],
-                'deadline': d[5],
-                'progress': (d[2]/d[1]*100) if d[1] > 0 else 0
-            } for d in data]
-        }
-    
-    def general_report(self):
-        """Relatório geral do sistema"""
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        # Estatísticas gerais
-        cursor.execute('SELECT COUNT(*) FROM users WHERE is_active = 1')
-        total_users = cursor.fetchone()[0]
-        
-        cursor.execute('SELECT COUNT(*) FROM sectors WHERE is_active = 1')
-        total_sectors = cursor.fetchone()[0]
-        
-        cursor.execute('SELECT COUNT(*) FROM routines WHERE date = ?', (date.today().isoformat(),))
-        routines_today = cursor.fetchone()[0]
-        
-        cursor.execute('''
-            SELECT COUNT(*) FROM routines r 
-            JOIN checklists c ON r.id = c.routine_id 
-            WHERE r.date = ? AND c.completed = 1
-        ''', (date.today().isoformat(),))
-        completed_tasks = cursor.fetchone()[0]
-        
-        cursor.execute('''
-            SELECT COUNT(*) FROM routines r 
-            JOIN checklists c ON r.id = c.routine_id 
-            WHERE r.date = ?
-        ''', (date.today().isoformat(),))
-        total_tasks = cursor.fetchone()[0]
-        
-        conn.close()
-        
-        productivity = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
-        
-        return {
-            'title': 'Relatório Geral',
-            'summary': {
-                'total_users': total_users,
-                'total_sectors': total_sectors,
-                'routines_today': routines_today,
-                'completed_tasks': completed_tasks,
-                'total_tasks': total_tasks,
-                'productivity': round(productivity, 1)
-            }
-        }
-
-class ExcelDataAPI(Resource):
-    def get(self):
-        """Retornar dados reais da planilha Excel"""
         try:
-            excel_data = load_excel_data()
-            
-            if not excel_data:
-                return {'error': 'Planilha não encontrada ou vazia'}, 404
-            
-            # Análise dos dados
-            total_colaboradores = len(excel_data)
-            
-            # Contagem por cargo
-            cargos = {}
-            departamentos = {}
-            unidades = {}
-            
-            for item in excel_data:
-                cargo = item.get('Cargo', 'N/A')
-                departamento = item.get('Departamento', 'N/A')
-                unidade = item.get('Unidade', 'N/A')
-                
-                cargos[cargo] = cargos.get(cargo, 0) + 1
-                departamentos[departamento] = departamentos.get(departamento, 0) + 1
-                unidades[unidade] = unidades.get(unidade, 0) + 1
-            
-            # Determinar hierarquia
-            admin_master = sum(1 for item in excel_data 
-                             if item.get('Cargo', '').upper() in ['CONSULTOR', 'COORDENADOR', 'DIRETOR'])
-            lideres = sum(1 for item in excel_data 
-                         if item.get('Cargo', '').upper() == 'LIDER')
-            colaboradores = total_colaboradores - admin_master - lideres
-            
-            return {
-                'total_colaboradores': total_colaboradores,
-                'hierarquia': {
-                    'admin_master': admin_master,
-                    'lideres': lideres,
-                    'colaboradores': colaboradores
-                },
-                'por_cargo': cargos,
-                'por_departamento': departamentos,
-                'por_unidade': unidades,
-                'amostra_dados': excel_data[:5]  # Primeiros 5 registros
-            }
-            
-        except Exception as e:
-            return {'error': f'Erro ao processar dados: {str(e)}'}, 500
+            if user_id:
+                cursor.execute(
+                    "SELECT id, username, nome_completo, role, departamento FROM users_new WHERE id = %s",
+                    (user_id,),
+                )
+                user = cursor.fetchone()
+                if not user:
+                    return jsonify({"error": "User not found"}), 404
+                return jsonify({"user": dict(user)})
 
-# Registrar APIs
-api.add_resource(UsersAPI, '/api/users', '/api/users/<int:user_id>')
-api.add_resource(SectorsAPI, '/api/sectors')
-api.add_resource(RoutinesAPI, '/api/routines')
-api.add_resource(ReportsAPI, '/api/reports', '/api/reports/<string:report_type>')
-api.add_resource(ExcelDataAPI, '/api/excel-data')
-
-# Rotas principais
-@app.route('/')
-def index():
-    if 'user_id' in session:
-        role = session.get('role')
-        if role == 'admin_master':
-            return redirect(url_for('admin_dashboard'))
-        elif role == 'lider':
-            return redirect(url_for('leader_dashboard'))
-        else:
-            return redirect(url_for('team_dashboard'))
-    return redirect(url_for('login'))
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    """Login do usuário"""
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        email = request.form.get('email')
-        
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        # Buscar por username ou email
-        if email:
-            cursor.execute('''
-                SELECT id, password, role, sector_id, email, username 
-                FROM users WHERE email = ? AND is_active = 1
-            ''', (email,))
-        else:
-            cursor.execute('''
-                SELECT id, password, role, sector_id, email, username 
-                FROM users WHERE username = ? AND is_active = 1
-            ''', (username,))
-        
-        user = cursor.fetchone()
-        
-        if user and bcrypt.checkpw(password.encode('utf-8'), user[1]):
-            # Login bem-sucedido
-            session['user_id'] = user[0]
-            session['username'] = user[5]
-            session['email'] = user[4]
-            session['role'] = user[2]
-            session['sector_id'] = user[3]
-            
-            # Atualizar último login
-            cursor.execute('''
-                UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?
-            ''', (user[0],))
-            
-            conn.commit()
-            
-            flash('Login realizado com sucesso!', 'success')
+            cursor.execute(
+                "SELECT id, username, nome_completo, role, departamento FROM users_new WHERE is_active = 1"
+            )
+            users = [dict(row) for row in cursor.fetchall()]
+            return jsonify({"users": users})
+        finally:
             conn.close()
-            return redirect(url_for('index'))
-        else:
-            flash('Credenciais inválidas.', 'error')
-            conn.close()
-    
-    return render_template('enterprise_login.html')
 
-@app.route('/auth/google')
-def google_auth():
-    """Iniciar autenticação Google OAuth"""
-    # Gerar state para CSRF protection
-    state = secrets.token_urlsafe(32)
-    session['oauth_state'] = state
-    
-    # Parâmetros OAuth
-    params = {
-        'client_id': app.config['GOOGLE_OAUTH_CLIENT_ID'],
-        'redirect_uri': 'https://gerot.onrender.com/auth/google/authorized',
-        'scope': 'openid email profile',
-        'response_type': 'code',
-        'state': state,
-        'access_type': 'offline',
-        'prompt': 'select_account'
-    }
-    
-    # URL de autorização
-    auth_url = f"{GOOGLE_OAUTH_URL}?{urlencode(params)}"
-    return redirect(auth_url)
 
-@app.route('/auth/google/authorized')
-def google_authorized():
-    """Callback OAuth Google"""
-    try:
-        # Verificar state CSRF
-        state = request.args.get('state')
-        if not state or state != session.get('oauth_state'):
-            flash('Erro de segurança OAuth. Tente novamente.', 'error')
-            return redirect(url_for('login'))
-        
-        # Limpar state da sessão
-        session.pop('oauth_state', None)
-        
-        # Verificar código de autorização
-        code = request.args.get('code')
-        if not code:
-            flash('Autorização negada pelo Google.', 'error')
-            return redirect(url_for('login'))
-        
-        # Trocar código por token
-        token_data = {
-            'client_id': app.config['GOOGLE_OAUTH_CLIENT_ID'],
-            'client_secret': app.config['GOOGLE_OAUTH_CLIENT_SECRET'],
-            'code': code,
-            'grant_type': 'authorization_code',
-            'redirect_uri': 'https://gerot.onrender.com/auth/google/authorized'
-        }
-        
-        token_response = requests.post(GOOGLE_TOKEN_URL, data=token_data)
-        if not token_response.ok:
-            app.logger.error(f'Erro ao obter token: {token_response.text}')
-            flash('Erro ao obter token de acesso.', 'error')
-            return redirect(url_for('login'))
-        
-        token_json = token_response.json()
-        access_token = token_json.get('access_token')
-        
-        if not access_token:
-            flash('Token de acesso não recebido.', 'error')
-            return redirect(url_for('login'))
-        
-        # Obter informações do usuário
-        headers = {'Authorization': f'Bearer {access_token}'}
-        user_response = requests.get(GOOGLE_USERINFO_URL, headers=headers)
-        
-        if not user_response.ok:
-            app.logger.error(f'Erro ao obter dados do usuário: {user_response.text}')
-            flash('Erro ao obter informações do usuário.', 'error')
-            return redirect(url_for('login'))
-        
-        user_data = user_response.json()
-        google_email = user_data.get('email')
-        google_name = user_data.get('name')
-        google_id = user_data.get('id')
-        
-        # Verificar se o usuário existe na planilha Excel
-        excel_user = get_user_from_excel(google_email)
-        
-        if not excel_user['found']:
-            flash('Acesso permitido apenas para usuários cadastrados na base de dados da empresa. Verifique se está usando o email pessoal correto.', 'error')
-            return redirect(url_for('login'))
-        
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        # Buscar usuário no banco de dados
-        try:
-            cursor.execute('''
-                SELECT id, username, role, sector_id FROM users 
-                WHERE email = ? OR google_id = ?
-            ''', (google_email, google_id))
-        except sqlite3.OperationalError as e:
-            if "no such table: users" in str(e):
-                # Banco não foi inicializado, tentar criar
-                print("Tabela users não existe. Tentando recriar banco...")
-                cursor.close()
-                conn.close()
-                init_db()
-                
-                # Tentar novamente
-                conn = get_db()
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT id, username, role, sector_id FROM users 
-                    WHERE email = ? OR google_id = ?
-                ''', (google_email, google_id))
-            else:
-                raise e
-        
-        user = cursor.fetchone()
-        
-        if user:
-            # Usuário existe, atualizar role se necessário
-            if user[2] != excel_user['role']:
-                cursor.execute('''
-                    UPDATE users SET role = ? WHERE id = ?
-                ''', (excel_user['role'], user[0]))
-            
-            session['user_id'] = user[0]
-            session['username'] = user[1]
-            session['email'] = google_email
-            session['role'] = excel_user['role']  # Usar role da planilha
-            session['sector_id'] = user[3]
-            
-            # Atualizar informações Google
-            cursor.execute('''
-                UPDATE users SET google_id = ?, last_login = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ''', (google_id, user[0]))
-            
-            flash(f'Bem-vindo de volta, {excel_user["name"]}! Cargo: {excel_user["cargo"]}', 'success')
-            
-        else:
-            # Novo usuário, criar conta com dados da planilha
-            username = excel_user['name'].replace(' ', '.').lower()
-            cursor.execute('''
-                INSERT INTO users (username, email, google_id, role, domain_validated)
-                VALUES (?, ?, ?, ?, 1)
-            ''', (username, google_email, google_id, excel_user['role']))
-            
-            user_id = cursor.lastrowid
-            session['user_id'] = user_id
-            session['username'] = username
-            session['email'] = google_email
-            session['role'] = excel_user['role']
-            session['sector_id'] = None
-            
-            flash(f'Bem-vindo ao GeRot, {excel_user["name"]}! Cargo: {excel_user["cargo"]}', 'success')
-        
-        conn.commit()
-        
-        # Log da atividade
-        cursor.execute('''
-            INSERT INTO activity_logs (user_id, action, details, ip_address, user_agent)
-            VALUES (?, 'login_google', ?, ?, ?)
-        ''', (session['user_id'], f'Login via Google OAuth: {google_email} - Cargo: {excel_user["cargo"]} - Role: {excel_user["role"]}',
-              request.remote_addr, request.user_agent.string))
-        conn.commit()
-        conn.close()
-        
-        return redirect(url_for('index'))
-        
-    except Exception as e:
-        app.logger.error(f'Erro no OAuth Google: {str(e)}')
-        flash('Erro durante autenticação. Tente novamente.', 'error')
-        return redirect(url_for('login'))
+api.add_resource(UsersAPI, "/api/users", "/api/users/<int:user_id>")
 
-@app.route('/logout')
-def logout():
-    """Logout do usuário"""
-    session.clear()
-    flash('Logout realizado com sucesso!', 'success')
-    return redirect(url_for('login'))
 
-@app.route('/admin/dashboard')
-def admin_dashboard():
-    """Dashboard admin master com gráficos avançados"""
-    if 'user_id' not in session or session.get('role') != 'admin_master':
-        return redirect(url_for('login'))
-    
-    # Carregar dados para gráficos
-    excel_data = load_excel_data()
-    
-    # Criar gráfico de setores
-    if excel_data:
-        sector_counts = {}
-        for item in excel_data:
-            sector = item.get('Setor', 'Outros')
-            sector_counts[sector] = sector_counts.get(sector, 0) + 1
-        
-        chart_data = {
-            'labels': list(sector_counts.keys()),
-            'values': list(sector_counts.values())
-        }
-        sectors_chart = create_chart('pie', chart_data, 'Distribuição por Setores')
-    else:
-        sectors_chart = None
-    
-    return render_template('admin_dashboard_advanced.html',
-                         excel_data=excel_data[:20],
-                         sectors_chart=sectors_chart)
+# --------------------------------------------------------------------------- #
+# Tratamento de erros
+# --------------------------------------------------------------------------- #
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template("errors/404.html"), 404
 
-@app.route('/leader/dashboard')
-def leader_dashboard():
-    """Dashboard do líder"""
-    if 'user_id' not in session or session.get('role') != 'lider':
-        return redirect(url_for('login'))
-    
-    conn = get_db()
-    cursor = conn.cursor()
-    sector_id = session.get('sector_id')
-    
-    # Estatísticas do setor
-    cursor.execute('''
-        SELECT COUNT(*) FROM users 
-        WHERE sector_id = ? AND is_active = 1 AND role = 'colaborador'
-    ''', (sector_id,))
-    team_members = cursor.fetchone()[0]
-    
-    cursor.execute('''
-        SELECT COUNT(*) FROM routines 
-        WHERE sector_id = ? AND date = ?
-    ''', (sector_id, date.today().isoformat()))
-    sector_routines_today = cursor.fetchone()[0]
-    
-    # Colaboradores do setor
-    cursor.execute('''
-        SELECT id, username, email, last_login
-        FROM users 
-        WHERE sector_id = ? AND role = 'colaborador' AND is_active = 1
-        ORDER BY username
-    ''', (sector_id,))
-    team_data = cursor.fetchall()
-    
-    # Metas do setor
-    cursor.execute('''
-        SELECT title, target_value, current_value, unit, deadline
-        FROM goals 
-        WHERE sector_id = ? AND status = 'active'
-        ORDER BY deadline
-    ''', (sector_id,))
-    goals_data = cursor.fetchall()
-    
-    conn.close()
-    
-    stats = {
-        'team_members': team_members,
-        'routines_today': sector_routines_today,
-        'goals_count': len(goals_data)
-    }
-    
-    return render_template('leader_dashboard.html',
-                         user=session['username'],
-                         stats=stats,
-                         team=team_data,
-                         goals=goals_data)
 
-@app.route('/team/dashboard')
-def team_dashboard():
-    """Dashboard da equipe (colaboradores)"""
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    # Buscar tarefas de hoje
-    cursor.execute('''
-        SELECT c.id, c.task, c.completed, c.priority, r.title as routine_title
-        FROM checklists c 
-        JOIN routines r ON c.routine_id = r.id 
-        WHERE r.user_id = ? AND r.date = ?
-        ORDER BY c.priority DESC, c.id
-    ''', (session['user_id'], date.today().isoformat()))
-    
-    tasks_data = cursor.fetchall()
-    
-    # Estatísticas
-    total_tasks = len(tasks_data)
-    completed_tasks = len([t for t in tasks_data if t[2]])
-    pending_tasks = total_tasks - completed_tasks
-    
-    conn.close()
-    
-    # Formatar tarefas para o template
-    tasks = [
-        {
-            'id': t[0],
-            'task': t[1],
-            'completed': bool(t[2]),
-            'priority': t[3],
-            'routine_title': t[4]
-        } for t in tasks_data
-    ]
-    
-    stats = {
-        'total_tasks': total_tasks,
-        'completed_tasks': completed_tasks,
-        'pending_tasks': pending_tasks
-    }
-    
-    return render_template('team_dashboard.html',
-                         user=session['username'],
-                         today=date.today().strftime('%d/%m/%Y'),
-                         stats=stats,
-                         tasks=tasks)
-
-# API Health Check
-@app.route('/api/health')
-def health_check():
-    """Health check completo incluindo banco de dados"""
-    try:
-        # Testar conexão com banco
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        db_status = 'ok'
-        try:
-            cursor.execute('SELECT COUNT(*) FROM users LIMIT 1')
-            user_count = cursor.fetchone()[0]
-        except sqlite3.OperationalError as e:
-            if "no such table" in str(e):
-                db_status = 'tables_missing'
-                user_count = 0
-            else:
-                db_status = 'error'
-                user_count = 0
-        
-        conn.close()
-        
-        return jsonify({
-            'status': 'healthy',
-            'service': 'GeRot Production',
-            'version': '2.0.0',
-            'timestamp': datetime.now().isoformat(),
-            'database': db_status,
-            'users_count': user_count,
-            'features': [
-                'OAuth Google',
-                'Push Notifications', 
-                'Advanced Charts',
-                'REST APIs',
-                'PWA Support',
-                'Excel Auth'
-            ]
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'error': str(e)
-        }), 500
-
-@app.route('/api/reset-db')
-def reset_db_endpoint():
-    """Endpoint para forçar reset do banco (apenas para debug)"""
-    try:
-        success = reset_database()
-        if success:
-            return jsonify({
-                'status': 'success',
-                'message': 'Banco de dados resetado com sucesso!'
-            })
-        else:
-            return jsonify({
-                'status': 'error',
-                'message': 'Erro ao resetar banco de dados'
-            }), 500
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'error': str(e)
-        }), 500
-
-@app.route('/api/clean-fake-data')
-def clean_fake_data_endpoint():
-    """Endpoint para remover dados fictícios"""
-    try:
-        success = clean_fake_data()
-        if success:
-            return jsonify({
-                'status': 'success',
-                'message': 'Dados fictícios removidos com sucesso!'
-            })
-        else:
-            return jsonify({
-                'status': 'error',
-                'message': 'Erro ao remover dados fictícios'
-            }), 500
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'error': str(e)
-        }), 500
-
-# Service Worker para Push Notifications
-@app.route('/sw.js')
-def service_worker():
-    response = app.make_response('''
-        const CACHE_NAME = 'gerot-v1';
-        const urlsToCache = [
-            '/',
-            '/static/css/style.css',
-            '/static/js/app.js'
-        ];
-
-        self.addEventListener('install', function(event) {
-            event.waitUntil(
-                caches.open(CACHE_NAME)
-                    .then(function(cache) {
-                        return cache.addAll(urlsToCache);
-                    })
-            );
-        });
-
-        self.addEventListener('push', function(event) {
-            const data = event.data.json();
-            const options = {
-                body: data.body,
-                icon: data.icon,
-                badge: data.badge,
-                actions: [
-                    {action: 'open', title: 'Abrir'},
-                    {action: 'close', title: 'Fechar'}
-                ]
-            };
-
-            event.waitUntil(
-                self.registration.showNotification(data.title, options)
-            );
-        });
-
-        self.addEventListener('notificationclick', function(event) {
-            event.notification.close();
-            if (event.action === 'open') {
-                event.waitUntil(
-                    clients.openWindow(event.notification.data.url || '/')
-                );
-            }
-        });
-    ''')
-    response.headers['Content-Type'] = 'application/javascript'
-    return response
-
-@app.route('/manifest.json')
-def manifest():
-    """Manifesto PWA"""
-    return app.send_static_file('manifest.json')
-
-# Error handlers
 @app.errorhandler(500)
 def internal_error(error):
-    """Handler para erro interno do servidor"""
-    app.logger.error(f'Erro interno: {str(error)}')
-    return f'''
-    <!DOCTYPE html>
-    <html>
-    <head><title>Erro Interno</title></head>
-    <body>
-        <h1>Erro interno do servidor</h1>
-        <p>Ocorreu um erro interno. Tente novamente em alguns minutos.</p>
-        <a href="/login">Voltar ao Login</a>
-    </body>
-    </html>
-    ''', 500
+    return render_template("errors/500.html"), 500
 
-@app.errorhandler(404) 
-def not_found_error(error):
-    """Handler para página não encontrada"""
-    return redirect(url_for('login'))
 
-if __name__ == '__main__':
-    print("🚀 GeRot Production - Sistema Empresarial de Rotinas")
-    print("🌐 Produção: OAuth Google + Push Notifications + Gráficos")
-    print("📊 APIs REST: /api/users, /api/sectors, /api/routines, /api/reports")
-    print("📱 PWA: Service Worker + Push Notifications")
-    
-    init_db()
-    
-    # Configuração para produção
-    port = int(os.environ.get('PORT', 5000))
-    app.run(
-        host='0.0.0.0',
-        port=port,
-        debug=False
-    ) 
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)
+

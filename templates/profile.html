@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Perfil - GeRot Enterprise</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #5855e6;
+            --bg-main: #0f0f23;
+            --bg-card: #1a1a35;
+            --bg-input: #252550;
+            --text-primary: #ffffff;
+            --text-light: #a8a8c8;
+            --border: #2a2a45;
+            --success: #22c55e;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--bg-main) 0%, #1a1a35 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .header h1 {
+            color: var(--text-primary);
+            font-size: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-back {
+            background: var(--bg-card);
+            color: var(--text-light);
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-back:hover {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .profile-card {
+            background: var(--bg-card);
+            border-radius: 15px;
+            padding: 2rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .avatar-section {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: white;
+            margin: 0 auto 1rem;
+            border: 4px solid var(--border);
+        }
+        
+        .role-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-top: 1rem;
+        }
+        
+        .role-admin { background: #dc3545; color: white; }
+        .role-user { background: #0ea5e9; color: white; }
+        
+        .info-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+        
+        .info-item {
+            padding: 1.5rem;
+            background: var(--bg-input);
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .info-item h3 {
+            color: var(--primary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-item p {
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        
+        .actions-section {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+        }
+        
+        .actions-section h3 {
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .action-buttons {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .btn-action {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.25rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-action:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
+        }
+        
+        .btn-action .icon {
+            font-size: 1.5rem;
+            opacity: 0.7;
+        }
+        
+        .btn-action .content h4 {
+            margin-bottom: 0.25rem;
+            font-size: 1rem;
+        }
+        
+        .btn-action .content p {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin: 0;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .stat-card {
+            background: var(--bg-input);
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: var(--text-light);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border: 1px solid transparent;
+        }
+        
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--error);
+            color: #fca5a5;
+        }
+        
+        .alert-success {
+            background: rgba(34, 197, 94, 0.1);
+            border-color: var(--success);
+            color: #86efac;
+        }
+        
+        @media (max-width: 768px) {
+            .profile-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👤 Meu Perfil</h1>
+            <a href="{{ url_for('index') }}" class="btn-back">
+                ← Voltar ao Dashboard
+            </a>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="profile-grid">
+            <!-- Seção do Avatar e Info Básica -->
+            <div class="profile-card">
+                <div class="avatar-section">
+                    <div class="avatar">
+                        {{ user.nome_completo[0].upper() }}
+                    </div>
+                    <h2>{{ user.nome_completo }}</h2>
+                    <p style="color: var(--text-light);">@{{ user.username }}</p>
+                    <div class="role-badge {{ 'role-admin' if user.role == 'admin' else 'role-user' }}">
+                        {% if user.role == 'admin' %}
+                            👑 Administrador
+                        {% else %}
+                            👤 Usuário
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="actions-section">
+                    <h3>⚙️ Ações</h3>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('change_password') }}" class="btn-action">
+                            <span class="icon">🔐</span>
+                            <div class="content">
+                                <h4>Alterar Senha</h4>
+                                <p>Trocar sua senha de acesso</p>
+                            </div>
+                        </a>
+                        
+                        <a href="{{ url_for('logout') }}" class="btn-action" style="border-color: var(--error);">
+                            <span class="icon">🚪</span>
+                            <div class="content">
+                                <h4>Sair do Sistema</h4>
+                                <p>Fazer logout da conta</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Informações Detalhadas -->
+            <div class="profile-card">
+                <h3 style="margin-bottom: 1.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                    📋 Informações Profissionais
+                </h3>
+                
+                <div class="info-grid">
+                    <div class="info-item">
+                        <h3>👤 Nome Completo</h3>
+                        <p>{{ user.nome_completo }}</p>
+                    </div>
+                    
+                    <div class="info-item">
+                        <h3>💼 Cargo</h3>
+                        <p>{{ user.cargo_original }}</p>
+                    </div>
+                    
+                    <div class="info-item">
+                        <h3>🏢 Departamento</h3>
+                        <p>{{ user.departamento }}</p>
+                    </div>
+                    
+                    <div class="info-item">
+                        <h3>🔑 Usuário</h3>
+                        <p>{{ user.username }}</p>
+                    </div>
+                    
+                    {% if user.email %}
+                    <div class="info-item">
+                        <h3>📧 Email</h3>
+                        <p>{{ user.email }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="info-item">
+                        <h3>✅ Status</h3>
+                        <p>
+                            {% if user.is_active %}
+                                <span style="color: var(--success);">● Ativo</span>
+                            {% else %}
+                                <span style="color: var(--error);">● Inativo</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Estatísticas (placeholder para futuras implementações) -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">Tarefas Concluídas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">Projetos Ativos</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ 'Admin' if user.role == 'admin' else 'Usuário' }}</div>
+                        <div class="stat-label">Nível de Acesso</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Informações do Sistema -->
+        <div class="profile-card">
+            <h3 style="margin-bottom: 1rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                🔧 Informações do Sistema
+            </h3>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                <div class="info-item">
+                    <h3>🌐 Sistema</h3>
+                    <p>GeRot Enterprise v1.0</p>
+                </div>
+                
+                <div class="info-item">
+                    <h3>🏢 Empresa</h3>
+                    <p>Portoex Solutions</p>
+                </div>
+                
+                <div class="info-item">
+                    <h3>📅 Último Login</h3>
+                    <p>Agora</p>
+                </div>
+                
+                <div class="info-item">
+                    <h3>🔐 ID do Usuário</h3>
+                    <p>#{{ user.id }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Animação de entrada
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.profile-card');
+            cards.forEach((card, index) => {
+                card.style.animation = `fadeInUp 0.6s ease-out ${index * 0.1}s both`;
+            });
+        });
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html> 

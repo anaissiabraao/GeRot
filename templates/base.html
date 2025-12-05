@@ -17,7 +17,7 @@
     <header class="header">
         <div class="container">
             <nav class="navbar">
-                <a href="{{ url_for('auth.login') if not session.user_id else (url_for('admin.dashboard') if session.role == 'manager' else url_for('team.dashboard')) }}" class="logo">
+                <a href="{{ url_for('auth.login') if not session.user_id else (url_for('admin.dashboard') if session.role == 'manager' else url_for('team_dashboard')) }}" class="logo">
                     <i class="fas fa-calendar-check"></i> GeRot
                 </a>
                 

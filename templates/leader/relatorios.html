@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}Relatórios - GeRot{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="page-title">📊 Relatórios e Métricas</h1>
+    
+    <!-- Cards de Estatísticas -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📈</div>
+            <div class="stat-content">
+                <h3>Taxa de Produtividade</h3>
+                <div class="stat-value">{{ stats.productivity_rate }}%</div>
+                <div class="progress-bar">
+                    <div class="progress" style="width: {{ stats.productivity_rate }}%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-content">
+                <h3>Tarefas Concluídas</h3>
+                <div class="stat-value">{{ stats.completed_tasks }}/{{ stats.total_tasks }}</div>
+                <div class="progress-bar">
+                    <div class="progress" style="width: {{ (stats.completed_tasks / (stats.total_tasks or 1)) * 100 }}%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-content">
+                <h3>Metas Alcançadas</h3>
+                <div class="stat-value">{{ stats.goals_achieved }}/{{ stats.total_goals }}</div>
+                <div class="progress-bar">
+                    <div class="progress" style="width: {{ (stats.goals_achieved / (stats.total_goals or 1)) * 100 }}%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-content">
+                <h3>Membros Ativos</h3>
+                <div class="stat-value">{{ stats.active_members }}</div>
+                <div class="progress-bar">
+                    <div class="progress" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráficos e Tabelas -->
+    <div class="reports-grid">
+        <!-- Desempenho da Equipe -->
+        <div class="card">
+            <h2>🏆 Desempenho da Equipe</h2>
+            
+            {% if membros %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Membro</th>
+                            <th>Total Tarefas</th>
+                            <th>Concluídas</th>
+                            <th>Pendentes</th>
+                            <th>Desempenho</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for membro in membros %}
+                        <tr>
+                            <td>{{ membro.nome_completo }}</td>
+                            <td>{{ membro.total_tasks }}</td>
+                            <td>{{ membro.completed_tasks }}</td>
+                            <td>{{ membro.pending_tasks }}</td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress" style="width: {{ (membro.completed_tasks / (membro.total_tasks or 1)) * 100 }}%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="icon">📊</div>
+                <h3>Sem Dados Disponíveis</h3>
+                <p>Ainda não há dados de desempenho para exibir.</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Filtros e Exportação -->
+        <div class="card">
+            <h2>🔍 Filtros e Exportação</h2>
+            
+            <form class="filters-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="date_range">Período</label>
+                        <select id="date_range" name="date_range">
+                            <option value="today">Hoje</option>
+                            <option value="week">Última Semana</option>
+                            <option value="month">Último Mês</option>
+                            <option value="custom">Personalizado</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="member">Membro</label>
+                        <select id="member" name="member">
+                            <option value="">Todos</option>
+                            {% for membro in membros %}
+                            <option value="{{ membro.id }}">{{ membro.nome_completo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row custom-date" style="display: none;">
+                    <div class="form-group">
+                        <label for="start_date">Data Início</label>
+                        <input type="date" id="start_date" name="start_date">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="end_date">Data Fim</label>
+                        <input type="date" id="end_date" name="end_date">
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Filtrar
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="exportarRelatorio()">
+                        <i class="fas fa-file-excel"></i> Exportar Excel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    gap: 1rem;
+}
+
+.stat-icon {
+    font-size: 2rem;
+}
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-content h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #6c757d;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin: 0.5rem 0;
+}
+
+.progress-bar {
+    height: 6px;
+    background: #e9ecef;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress {
+    height: 100%;
+    background: #007bff;
+    transition: width 0.3s ease;
+}
+
+.reports-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.filters-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th,
+.table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table th {
+    background: #f8f9fa;
+    font-weight: 600;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+}
+
+.empty-state .icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 992px) {
+    .reports-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+document.getElementById('date_range').addEventListener('change', function() {
+    const customDate = document.querySelector('.custom-date');
+    customDate.style.display = this.value === 'custom' ? 'grid' : 'none';
+});
+
+function exportarRelatorio() {
+    // Implementar exportação
+    alert('Exportando relatório...');
+}
+</script>
+{% endblock %} 
