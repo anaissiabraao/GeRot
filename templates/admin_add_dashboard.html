@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if dashboard %}Editar{% else %}Adicionar{% endif %} Dashboard BI - GeRot Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #111c33;
+            --card-alt: #172544;
+            --primary: #60a5fa;
+            --primary-dark: #2563eb;
+            --accent: #a855f7;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+            --success: #22c55e;
+            --danger: #ef4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: radial-gradient(circle at top, #1e293b, #020617 55%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 2rem 1rem 4rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header h1 {
+            color: var(--text);
+            font-size: 1.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--muted);
+            color: var(--text);
+        }
+
+        .btn-outline:hover {
+            background: var(--card-alt);
+            border-color: var(--primary);
+        }
+
+        .flash-messages {
+            margin-bottom: 1.5rem;
+        }
+
+        .flash {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            border-left: 4px solid;
+        }
+
+        .flash.success {
+            background: rgba(34, 197, 94, 0.1);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .flash.error {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .form-card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 0.25rem;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .form-group textarea {
+            min-height: 150px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+        }
+
+        .example-box {
+            background: var(--bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .example-box code {
+            color: var(--primary);
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <i class="fas fa-chart-line"></i>
+                {% if dashboard %}Editar{% else %}Adicionar{% endif %} Dashboard BI
+            </h1>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="form-card">
+            <form method="POST">
+                {% if dashboard %}
+                    <input type="hidden" name="dashboard_id" value="{{ dashboard.id }}">
+                {% endif %}
+
+                <div class="form-group">
+                    <label for="title">Nome do Dashboard:</label>
+                    <input type="text" id="title" name="title" 
+                           value="{{ dashboard.title if dashboard else '' }}" 
+                           placeholder="Ex: Cotação SP" required>
+                    <small>Nome que aparecerá na lista de dashboards</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Descrição (opcional):</label>
+                    <input type="text" id="description" name="description" 
+                           value="{{ dashboard.description if dashboard else '' }}" 
+                           placeholder="Breve descrição do dashboard">
+                </div>
+
+                <div class="form-group">
+                    <label for="category">Categoria (opcional):</label>
+                    <input type="text" id="category" name="category" 
+                           value="{{ dashboard.category if dashboard else '' }}" 
+                           placeholder="Ex: Financeiro, Operacional, etc.">
+                </div>
+
+                <div class="form-group">
+                    <label for="display_order">Ordem de Exibição:</label>
+                    <input type="number" id="display_order" name="display_order" 
+                           value="{{ dashboard.display_order if dashboard else 0 }}" 
+                           min="0" step="1">
+                    <small>Número menor aparece primeiro (0 = primeiro)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="embed_code">Código de Incorporação (iframe):</label>
+                    <textarea id="embed_code" name="embed_code" 
+                              placeholder='<iframe title="COTAÇÃO - SP" width="600" height="373.5" src="https://app.powerbi.com/view?r=..." frameborder="0" allowFullScreen="true"></iframe>' 
+                              required>{% if dashboard %}<iframe title="{{ dashboard.title }}" width="600" height="373.5" src="{{ dashboard.embed_url }}" frameborder="0" allowFullScreen="true"></iframe>{% endif %}</textarea>
+                    <small>Cole o código completo do iframe do Power BI</small>
+                    <div class="example-box">
+                        <strong>Exemplo:</strong><br>
+                        <code>&lt;iframe title="COTAÇÃO - SP" width="600" height="373.5" src="https://app.powerbi.com/view?r=eyJrIjoi..." frameborder="0" allowFullScreen="true"&gt;&lt;/iframe&gt;</code>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> {% if dashboard %}Atualizar{% else %}Adicionar{% endif %} Dashboard
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
+
