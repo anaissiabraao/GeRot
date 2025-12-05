@@ -380,13 +380,13 @@
                     </thead>
                     <tbody>
                         {% for user in users %}
-                            {% set info = user_dashboards[user.id] %}
+                            {% set info = user_dashboards.get(user.id, {"ids": [], "items": []}) %}
                             <tr>
                                 <td>{{ user.nome_completo }}</td>
                                 <td>{{ 'Admin' if user.role == 'admin' else 'Usuário' }}</td>
                                 <td>
-                                    {% if info.items %}
-                                        {% for dash in info.items %}
+                                    {% if info.get("items") %}
+                                        {% for dash in info["items"] %}
                                             <span class="pill">{{ dash.title }}</span>
                                         {% endfor %}
                                     {% else %}
