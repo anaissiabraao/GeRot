@@ -1,0 +1,33 @@
+# Bytecode / cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE / tooling
+.idea/
+.vscode/
+
+# Logs / temp
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local configs / secrets
+.env
+
+# Data / exports
+*.sqlite3
+*.db
+*.xlsx
+~$*.xlsx
+
+# Render / deployment artifacts
+/terminals/
+
