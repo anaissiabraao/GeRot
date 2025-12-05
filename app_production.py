@@ -350,25 +350,19 @@ def create_admin_user() -> None:
             conn.commit()
             app.logger.info("[ADMIN] Usuário admin anaissiabraao criado com sucesso")
         else:
-            # Atualiza o usuário existente para garantir que é admin e resetar senha
-            temp_password = "admin123"  # Senha temporária
-            password_hash = bcrypt.hashpw(
-                temp_password.encode("utf-8"), bcrypt.gensalt()
-            )
+            # Atualiza o usuário existente para garantir que é admin (sem resetar senha)
             cursor.execute(
                 """
                 UPDATE users_new
                 SET nome_usuario = 'anaissiabraao',
                     role = 'admin',
-                    is_active = true,
-                    password = %s,
-                    first_login = true
+                    is_active = true
                 WHERE id = %s
                 """,
-                (psycopg2.Binary(password_hash), existing["id"]),
+                (existing["id"],),
             )
             conn.commit()
-            app.logger.info("[ADMIN] Usuário admin anaissiabraao atualizado (senha resetada)")
+            app.logger.info("[ADMIN] Usuário admin anaissiabraao atualizado (sem resetar senha)")
         
         conn.close()
     except Exception as exc:
@@ -1197,6 +1191,119 @@ def update_dashboard_permissions():
     save_user_dashboards(user_id, dashboard_ids_int, session["user_id"])
     flash("Visibilidade atualizada com sucesso!", "success")
     return redirect(url_for("admin_dashboard", user_id=user_id))
+
+
+@app.route("/admin/users")
+@login_required
+@admin_required
+def admin_users():
+    """Página de gerenciamento de usuários"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            """
+            SELECT id, username, nome_completo, email, nome_usuario, role, 
+                   departamento, is_active, first_login, created_at
+            FROM users_new
+            ORDER BY nome_completo
+            """
+        )
+        users = [dict(row) for row in cursor.fetchall()]
+        
+        cursor.execute(
+            """
+            SELECT DISTINCT departamento 
+            FROM users_new 
+            WHERE departamento IS NOT NULL
+            ORDER BY departamento
+            """
+        )
+        departments = [row["departamento"] for row in cursor.fetchall()]
+        
+        return render_template(
+            "admin_users.html",
+            users=users,
+            departments=departments
+        )
+    finally:
+        conn.close()
+
+
+@app.route("/admin/users/<int:user_id>/update", methods=["POST"])
+@login_required
+@admin_required
+def update_user(user_id):
+    """Atualiza dados do usuário"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Verifica se o usuário existe
+        cursor.execute("SELECT id FROM users_new WHERE id = %s", (user_id,))
+        if not cursor.fetchone():
+            flash("Usuário não encontrado.", "error")
+            return redirect(url_for("admin_users"))
+        
+        # Coleta dados do formulário
+        new_email = request.form.get("email", "").strip()
+        new_nome_usuario = request.form.get("nome_usuario", "").strip()
+        new_role = request.form.get("role", "usuario").strip()
+        new_password = request.form.get("password", "").strip()
+        reset_first_login = request.form.get("reset_first_login") == "on"
+        
+        # Valida email
+        if new_email and not new_email.lower().endswith("@portoex.com.br"):
+            flash("O email deve terminar com @portoex.com.br", "error")
+            return redirect(url_for("admin_users"))
+        
+        # Atualiza campos
+        updates = []
+        params = []
+        
+        if new_email:
+            updates.append("email = %s")
+            params.append(new_email.lower())
+        
+        if new_nome_usuario:
+            updates.append("nome_usuario = %s")
+            params.append(new_nome_usuario.lower())
+        
+        if new_role in ["admin", "usuario"]:
+            updates.append("role = %s")
+            params.append(new_role)
+        
+        if new_password:
+            password_hash = bcrypt.hashpw(
+                new_password.encode("utf-8"), bcrypt.gensalt()
+            )
+            updates.append("password = %s")
+            params.append(psycopg2.Binary(password_hash))
+            updates.append("first_login = FALSE")
+        
+        if reset_first_login:
+            updates.append("first_login = TRUE")
+        
+        if updates:
+            updates.append("updated_at = CURRENT_TIMESTAMP")
+            params.append(user_id)
+            
+            query = f"UPDATE users_new SET {', '.join(updates)} WHERE id = %s"
+            cursor.execute(query, params)
+            conn.commit()
+            flash("Usuário atualizado com sucesso!", "success")
+        else:
+            flash("Nenhuma alteração foi feita.", "info")
+        
+        return redirect(url_for("admin_users"))
+    except Exception as exc:
+        conn.rollback()
+        app.logger.error(f"Erro ao atualizar usuário: {exc}", exc_info=True)
+        flash(f"Erro ao atualizar usuário: {exc}", "error")
+        return redirect(url_for("admin_users"))
+    finally:
+        conn.close()
 
 
 @app.route("/admin/planner/sync", methods=["POST"])

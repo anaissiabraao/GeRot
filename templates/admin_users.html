@@ -3,196 +3,368 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciar Usuários - Admin Master</title>
+    <title>Gerenciar Usuários - GeRot Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
+        :root {
+            --bg: #0f172a;
+            --card: #111c33;
+            --primary: #60a5fa;
+            --primary-dark: #2563eb;
+            --accent: #a855f7;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f97316;
         }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: radial-gradient(circle at top, #1e293b, #020617 55%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 2rem 1rem 4rem;
+        }
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
         }
+
         .header {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            margin-bottom: 1.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
+
         .header h1 {
-            color: #333;
-            margin: 0;
+            color: var(--text);
+            font-size: 1.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
+
         .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            background: #667eea;
-            color: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
             text-decoration: none;
-            border-radius: 5px;
-            margin: 5px;
-            transition: background 0.3s;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
         }
-        .btn:hover {
-            background: #5a6fd8;
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
         }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--muted);
+            color: var(--text);
+        }
+
+        .btn-outline:hover {
+            background: var(--card-alt);
+            border-color: var(--primary);
+        }
+
         .btn-success {
-            background: #28a745;
+            background: var(--success);
+            color: white;
         }
-        .btn-success:hover {
-            background: #218838;
-        }
-        .btn-danger {
-            background: #dc3545;
-        }
-        .btn-danger:hover {
-            background: #c82333;
-        }
+
         .btn-warning {
-            background: #ffc107;
-            color: #333;
+            background: var(--warning);
+            color: white;
         }
-        .btn-warning:hover {
-            background: #e0a800;
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
         }
+
+        .flash-messages {
+            margin-bottom: 1.5rem;
+        }
+
+        .flash {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            border-left: 4px solid;
+        }
+
+        .flash.success {
+            background: rgba(34, 197, 94, 0.1);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .flash.error {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .flash.info {
+            background: rgba(96, 165, 250, 0.1);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
         .users-table {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            background: var(--card);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             overflow: hidden;
         }
+
         table {
             width: 100%;
             border-collapse: collapse;
         }
+
         th, td {
-            padding: 12px;
+            padding: 1rem;
             text-align: left;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
+
         th {
-            background: #f8f9fa;
-            font-weight: bold;
-            color: #333;
+            background: var(--card-alt);
+            font-weight: 600;
+            color: var(--text);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
+
         tr:hover {
-            background: #f8f9fa;
+            background: rgba(255,255,255,0.05);
         }
-        .status-active {
-            color: #28a745;
-            font-weight: bold;
-        }
-        .status-inactive {
-            color: #dc3545;
-            font-weight: bold;
-        }
+
         .role-badge {
-            padding: 4px 8px;
+            padding: 0.25rem 0.75rem;
             border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: bold;
-        }
-        .role-admin_master {
-            background: #dc3545;
-            color: white;
-        }
-        .role-admin {
-            background: #6f42c1;
-            color: white;
-        }
-        .role-coordenador {
-            background: #fd7e14;
-            color: white;
-        }
-        .role-lider {
-            background: #20c997;
-            color: white;
-        }
-        .role-colaborador {
-            background: #6c757d;
-            color: white;
-        }
-        .alert {
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 5px;
-        }
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .filters {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        .filter-group {
+            font-size: 0.75rem;
+            font-weight: 600;
             display: inline-block;
-            margin-right: 20px;
         }
+
+        .role-admin {
+            background: var(--accent);
+            color: white;
+        }
+
+        .role-usuario {
+            background: var(--muted);
+            color: white;
+        }
+
+        .status-active {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .status-inactive {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            color: var(--text);
+            font-size: 1.5rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .close-btn:hover {
+            color: var(--text);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 0.25rem;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .form-group .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-group .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+        }
+
+        .filters {
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
         .filter-group label {
             display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            color: #333;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+            font-weight: 500;
         }
-        .filter-group select, .filter-group input {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            width: 200px;
+
+        .filter-group input,
+        .filter-group select {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: var(--text);
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>👥 Gerenciar Usuários</h1>
+            <h1><i class="fas fa-users"></i> Gerenciar Usuários</h1>
             <div>
-                <a href="{{ url_for('admin_master_dashboard') }}" class="btn">← Voltar</a>
-                <a href="{{ url_for('admin_add_user') }}" class="btn btn-success">+ Adicionar Usuário</a>
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline">
+                    <i class="fas fa-arrow-left"></i> Voltar ao Dashboard
+                </a>
             </div>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'error' if category == 'error' else category }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
             {% endif %}
         {% endwith %}
 
         <div class="filters">
             <div class="filter-group">
-                <label for="search">Buscar:</label>
-                <input type="text" id="search" placeholder="Nome ou username...">
+                <label for="search"><i class="fas fa-search"></i> Buscar:</label>
+                <input type="text" id="search" placeholder="Nome, email ou usuário...">
             </div>
             <div class="filter-group">
                 <label for="role_filter">Role:</label>
                 <select id="role_filter">
                     <option value="">Todos</option>
-                    <option value="admin_master">Admin Master</option>
                     <option value="admin">Admin</option>
-                    <option value="coordenador">Coordenador</option>
-                    <option value="lider">Líder</option>
-                    <option value="colaborador">Colaborador</option>
+                    <option value="usuario">Usuário</option>
                 </select>
             </div>
             <div class="filter-group">
@@ -210,13 +382,11 @@
                 <thead>
                     <tr>
                         <th>Nome Completo</th>
-                        <th>Username</th>
                         <th>Email</th>
-                        <th>Cargo</th>
-                        <th>Departamento</th>
+                        <th>Nome Usuário</th>
                         <th>Role</th>
                         <th>Status</th>
-                        <th>Criado em</th>
+                        <th>Primeiro Acesso</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -224,13 +394,11 @@
                     {% for user in users %}
                     <tr>
                         <td>{{ user.nome_completo }}</td>
-                        <td>{{ user.username }}</td>
                         <td>{{ user.email or '-' }}</td>
-                        <td>{{ user.cargo_original }}</td>
-                        <td>{{ user.departamento }}</td>
+                        <td>{{ user.nome_usuario or '-' }}</td>
                         <td>
                             <span class="role-badge role-{{ user.role }}">
-                                {{ user.role.title() }}
+                                {{ 'Admin' if user.role == 'admin' else 'Usuário' }}
                             </span>
                         </td>
                         <td>
@@ -240,9 +408,17 @@
                                 <span class="status-inactive">Inativo</span>
                             {% endif %}
                         </td>
-                        <td>{{ user.created_at.strftime('%d/%m/%Y') if user.created_at else '-' }}</td>
                         <td>
-                            <a href="{{ url_for('admin_edit_user', user_id=user.id) }}" class="btn btn-warning">Editar</a>
+                            {% if user.first_login %}
+                                <span style="color: var(--warning);">Sim</span>
+                            {% else %}
+                                <span style="color: var(--success);">Não</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-warning" onclick="openEditModal({{ user.id }}, '{{ user.email or '' }}', '{{ user.nome_usuario or '' }}', '{{ user.role }}', {{ 'true' if user.first_login else 'false' }})">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -251,7 +427,78 @@
         </div>
     </div>
 
+    <!-- Modal de Edição -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-edit"></i> Editar Usuário</h2>
+                <button class="close-btn" onclick="closeEditModal()">&times;</button>
+            </div>
+            <form id="editForm" method="POST">
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" placeholder="usuario@portoex.com.br" required>
+                    <small>Deve terminar com @portoex.com.br</small>
+                </div>
+                <div class="form-group">
+                    <label for="nome_usuario">Nome de Usuário:</label>
+                    <input type="text" id="nome_usuario" name="nome_usuario" placeholder="nome_usuario">
+                    <small>Usado para login alternativo</small>
+                </div>
+                <div class="form-group">
+                    <label for="role">Permissões (Role):</label>
+                    <select id="role" name="role" required>
+                        <option value="usuario">Usuário</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="password">Nova Senha:</label>
+                    <input type="password" id="password" name="password" placeholder="Deixe em branco para não alterar">
+                    <small>Mínimo 6 caracteres</small>
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="reset_first_login" name="reset_first_login">
+                        <label for="reset_first_login">Resetar primeiro acesso (força redefinição de senha)</label>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeEditModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
+        let currentUserId = null;
+
+        function openEditModal(userId, email, nomeUsuario, role, firstLogin) {
+            currentUserId = userId;
+            document.getElementById('editForm').action = `/admin/users/${userId}/update`;
+            document.getElementById('email').value = email || '';
+            document.getElementById('nome_usuario').value = nomeUsuario || '';
+            document.getElementById('role').value = role || 'usuario';
+            document.getElementById('password').value = '';
+            document.getElementById('reset_first_login').checked = false;
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+            currentUserId = null;
+        }
+
+        // Fechar modal ao clicar fora
+        document.getElementById('editModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEditModal();
+            }
+        });
+
         // Filtros em tempo real
         document.getElementById('search').addEventListener('input', filterTable);
         document.getElementById('role_filter').addEventListener('change', filterTable);
@@ -266,11 +513,12 @@
             
             rows.forEach(row => {
                 const nome = row.cells[0].textContent.toLowerCase();
-                const username = row.cells[1].textContent.toLowerCase();
-                const role = row.cells[5].textContent.toLowerCase();
-                const status = row.cells[6].textContent.toLowerCase();
+                const email = row.cells[1].textContent.toLowerCase();
+                const nomeUsuario = row.cells[2].textContent.toLowerCase();
+                const role = row.cells[3].textContent.toLowerCase();
+                const status = row.cells[4].textContent.toLowerCase();
                 
-                const matchesSearch = nome.includes(search) || username.includes(search);
+                const matchesSearch = nome.includes(search) || email.includes(search) || nomeUsuario.includes(search);
                 const matchesRole = !roleFilter || role.includes(roleFilter);
                 const matchesStatus = !statusFilter || 
                     (statusFilter === 'true' && status.includes('ativo')) ||
