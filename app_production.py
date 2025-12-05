@@ -169,8 +169,23 @@ def _as_bytes(value):
 
 
 def get_db():
+    # Remove parâmetros não suportados pelo psycopg2 (como pgbouncer)
+    database_url = app.config["DATABASE_URL"]
+    # Remove o parâmetro pgbouncer da query string se existir
+    if "?" in database_url:
+        url_parts = database_url.split("?")
+        base_url = url_parts[0]
+        if len(url_parts) > 1:
+            query_params = url_parts[1]
+            # Remove parâmetros pgbouncer
+            params = [p for p in query_params.split("&") if not p.startswith("pgbouncer=")]
+            if params:
+                database_url = f"{base_url}?{'&'.join(params)}"
+            else:
+                database_url = base_url
+    
     return psycopg2.connect(
-        app.config["DATABASE_URL"],
+        database_url,
         cursor_factory=psycopg2.extras.RealDictCursor,
     )
 
