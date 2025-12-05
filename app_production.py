@@ -545,21 +545,23 @@ def import_users_from_excel() -> None:
                     except psycopg2.errors.DeadlockDetected:
                         if attempt < max_retries - 1:
                             import time
-                            time.sleep(0.1 * (attempt + 1))  # Backoff exponencial
+                            import random
+                            time.sleep(0.1 * (attempt + 1) + random.uniform(0, 0.1))  # Backoff exponencial com jitter
                             conn.rollback()
                             continue
                         else:
                             app.logger.warning(
-                                "[normalize_roles] Aviso: deadlock detected",
+                                f"[IMPORTACAO] Deadlock após múltiplas tentativas para {email}, pulando usuário",
                                 exc_info=True,
                             )
-                            raise
+                            skipped += 1
+                            break  # Pula este usuário e continua
             else:
                 temp_password = secrets.token_urlsafe(16)
                 password_hash = bcrypt.hashpw(
                     temp_password.encode("utf-8"), bcrypt.gensalt()
                 )
-                # Retry em caso de deadlock
+                # Retry em caso de deadlock ou unique violation
                 max_retries = 3
                 for attempt in range(max_retries):
                     try:
@@ -574,8 +576,17 @@ def import_users_from_excel() -> None:
                                 role,
                                 email,
                                 unidade,
-                                first_login
-                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+                                first_login,
+                                nome_usuario
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE, NULL)
+                            ON CONFLICT (username) DO UPDATE SET
+                                nome_completo = EXCLUDED.nome_completo,
+                                cargo_original = EXCLUDED.cargo_original,
+                                departamento = EXCLUDED.departamento,
+                                unidade = EXCLUDED.unidade,
+                                role = EXCLUDED.role,
+                                email = EXCLUDED.email,
+                                updated_at = NOW()
                             """,
                             (
                                 username,
@@ -588,20 +599,63 @@ def import_users_from_excel() -> None:
                                 unidade or None,
                             ),
                         )
-                        inserted += 1
+                        # ON CONFLICT sempre retorna rowcount > 0, precisa verificar se foi insert ou update
+                        if cursor.rowcount > 0:
+                            # Verifica se foi realmente insert (created_at == updated_at) ou update
+                            cursor.execute("SELECT created_at, updated_at FROM users_new WHERE username = %s", (username,))
+                            user_check = cursor.fetchone()
+                            if user_check and user_check.get("created_at") == user_check.get("updated_at"):
+                                inserted += 1
+                            else:
+                                updated += 1
                         break
-                    except psycopg2.errors.DeadlockDetected:
+                    except (psycopg2.errors.DeadlockDetected, psycopg2.errors.UniqueViolation) as e:
                         if attempt < max_retries - 1:
                             import time
-                            time.sleep(0.1 * (attempt + 1))  # Backoff exponencial
+                            import random
+                            time.sleep(0.1 * (attempt + 1) + random.uniform(0, 0.1))  # Backoff exponencial com jitter
                             conn.rollback()
+                            # Tenta novamente como UPDATE se for unique violation
+                            if isinstance(e, psycopg2.errors.UniqueViolation):
+                                cursor.execute("SELECT id FROM users_new WHERE username = %s", (username,))
+                                existing = cursor.fetchone()
+                                if existing:
+                                    # Tenta fazer UPDATE em vez de INSERT
+                                    try:
+                                        cursor.execute(
+                                            """
+                                            UPDATE users_new
+                                            SET nome_completo = %s,
+                                                cargo_original = %s,
+                                                departamento = %s,
+                                                unidade = %s,
+                                                role = %s,
+                                                email = %s,
+                                                updated_at = NOW()
+                                            WHERE id = %s
+                                            """,
+                                            (
+                                                nome,
+                                                cargo or None,
+                                                departamento or None,
+                                                unidade or None,
+                                                role,
+                                                email,
+                                                existing["id"],
+                                            ),
+                                        )
+                                        updated += 1
+                                        break
+                                    except psycopg2.errors.DeadlockDetected:
+                                        continue
                             continue
                         else:
                             app.logger.warning(
-                                "[import_users] Aviso: deadlock detected no INSERT",
+                                f"[IMPORTACAO] Erro após múltiplas tentativas para {email}, pulando usuário",
                                 exc_info=True,
                             )
-                            raise
+                            skipped += 1
+                            break  # Pula este usuário e continua
 
         conn.commit()
         app.logger.info(
@@ -1535,6 +1589,12 @@ def admin_add_dashboard():
             return redirect(url_for("admin_dashboard"))
     
     return render_template("admin_add_dashboard.html", dashboard=dashboard)
+
+
+@app.route("/favicon.ico")
+def favicon():
+    """Serve o favicon"""
+    return redirect(url_for("static", filename="test_favicon.ico"))
 
 
 @app.route("/team/dashboard")
