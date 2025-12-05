@@ -350,19 +350,25 @@ def create_admin_user() -> None:
             conn.commit()
             app.logger.info("[ADMIN] Usuário admin anaissiabraao criado com sucesso")
         else:
-            # Atualiza o usuário existente para garantir que é admin
+            # Atualiza o usuário existente para garantir que é admin e resetar senha
+            temp_password = "admin123"  # Senha temporária
+            password_hash = bcrypt.hashpw(
+                temp_password.encode("utf-8"), bcrypt.gensalt()
+            )
             cursor.execute(
                 """
                 UPDATE users_new
                 SET nome_usuario = 'anaissiabraao',
                     role = 'admin',
-                    is_active = true
+                    is_active = true,
+                    password = %s,
+                    first_login = true
                 WHERE id = %s
                 """,
-                (existing["id"],),
+                (psycopg2.Binary(password_hash), existing["id"]),
             )
             conn.commit()
-            app.logger.info("[ADMIN] Usuário admin anaissiabraao atualizado")
+            app.logger.info("[ADMIN] Usuário admin anaissiabraao atualizado (senha resetada)")
         
         conn.close()
     except Exception as exc:
@@ -856,22 +862,31 @@ def authenticate_user(identifier: str, password: str):
         user = cursor.fetchone()
         conn.close()
         
-        if user and bcrypt.checkpw(password.encode("utf-8"), _as_bytes(user["password"])):
-            role = "admin" if user["role"] == "admin" else "usuario"
-            return {
-                "id": user["id"],
-                "username": user["username"],
-                "nome_completo": user["nome_completo"],
-                "cargo_original": user["cargo_original"],
-                "departamento": user["departamento"],
-                "role": role,
-                "email": user["email"],
-                "nome_usuario": user.get("nome_usuario"),
-                "first_login": user["first_login"],
-            }
-        return None
+        if not user:
+            app.logger.debug(f"[AUTH] Usuário não encontrado: {identifier}")
+            return None
+        
+        # Verifica senha
+        password_valid = bcrypt.checkpw(password.encode("utf-8"), _as_bytes(user["password"]))
+        if not password_valid:
+            app.logger.debug(f"[AUTH] Senha incorreta para: {identifier}")
+            return None
+        
+        app.logger.info(f"[AUTH] Login bem-sucedido: {identifier} (ID: {user['id']}, first_login: {user['first_login']})")
+        role = "admin" if user["role"] == "admin" else "usuario"
+        return {
+            "id": user["id"],
+            "username": user["username"],
+            "nome_completo": user["nome_completo"],
+            "cargo_original": user["cargo_original"],
+            "departamento": user["departamento"],
+            "role": role,
+            "email": user["email"],
+            "nome_usuario": user.get("nome_usuario"),
+            "first_login": user["first_login"],
+        }
     except Exception as exc:
-        print(f"Erro na autenticação: {exc}")
+        app.logger.error(f"[AUTH] Erro na autenticação: {exc}", exc_info=True)
         return None
 
 
@@ -1011,7 +1026,8 @@ def login():
             user = authenticate_user(identifier, password)
             
             if user:
-                # Se autenticou, verifica validação de email (exceto primeiro acesso)
+                # Se é primeiro acesso, permite qualquer email
+                # Se não é primeiro acesso, valida email @portoex.com.br
                 if not user["first_login"] and "@" in identifier:
                     # Se não é primeiro acesso e o email usado não termina com @portoex.com.br
                     if not identifier.lower().endswith("@portoex.com.br"):
@@ -1025,6 +1041,7 @@ def login():
                             )
                             return render_template("enterprise_login.html")
                 
+                # Primeiro acesso: redireciona para definir senha
                 if user["first_login"]:
                     session["temp_user_id"] = user["id"]
                     flash(
