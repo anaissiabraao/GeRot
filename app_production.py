@@ -21,6 +21,7 @@ from pathlib import Path
 import bcrypt
 import psycopg2
 import psycopg2.extras
+import psycopg2.errors
 from datetime import datetime, date, timedelta
 from functools import wraps
 from typing import Dict, List, Tuple
@@ -392,58 +393,92 @@ def import_users_from_excel() -> None:
             existing = cursor.fetchone()
 
             if existing:
-                cursor.execute(
-                    """
-                    UPDATE users_new
-                    SET nome_completo = %s,
-                        cargo_original = %s,
-                        departamento = %s,
-                        unidade = %s,
-                        role = %s,
-                        updated_at = NOW()
-                    WHERE id = %s
-                    """,
-                    (
-                        nome,
-                        cargo or None,
-                        departamento or None,
-                        unidade or None,
-                        role,
-                        existing["id"],
-                    ),
-                )
-                updated += 1
+                # Retry em caso de deadlock
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        cursor.execute(
+                            """
+                            UPDATE users_new
+                            SET nome_completo = %s,
+                                cargo_original = %s,
+                                departamento = %s,
+                                unidade = %s,
+                                role = %s,
+                                updated_at = NOW()
+                            WHERE id = %s
+                            """,
+                            (
+                                nome,
+                                cargo or None,
+                                departamento or None,
+                                unidade or None,
+                                role,
+                                existing["id"],
+                            ),
+                        )
+                        updated += 1
+                        break
+                    except psycopg2.errors.DeadlockDetected:
+                        if attempt < max_retries - 1:
+                            import time
+                            time.sleep(0.1 * (attempt + 1))  # Backoff exponencial
+                            conn.rollback()
+                            continue
+                        else:
+                            app.logger.warning(
+                                "[normalize_roles] Aviso: deadlock detected",
+                                exc_info=True,
+                            )
+                            raise
             else:
                 temp_password = secrets.token_urlsafe(16)
                 password_hash = bcrypt.hashpw(
                     temp_password.encode("utf-8"), bcrypt.gensalt()
                 )
-                cursor.execute(
-                    """
-                    INSERT INTO users_new (
-                        username,
-                        password,
-                        nome_completo,
-                        cargo_original,
-                        departamento,
-                        role,
-                        email,
-                        unidade,
-                        first_login
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
-                    """,
-                    (
-                        username,
-                        psycopg2.Binary(password_hash),
-                        nome,
-                        cargo or None,
-                        departamento or None,
-                        role,
-                        email,
-                        unidade or None,
-                    ),
-                )
-                inserted += 1
+                # Retry em caso de deadlock
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        cursor.execute(
+                            """
+                            INSERT INTO users_new (
+                                username,
+                                password,
+                                nome_completo,
+                                cargo_original,
+                                departamento,
+                                role,
+                                email,
+                                unidade,
+                                first_login
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+                            """,
+                            (
+                                username,
+                                psycopg2.Binary(password_hash),
+                                nome,
+                                cargo or None,
+                                departamento or None,
+                                role,
+                                email,
+                                unidade or None,
+                            ),
+                        )
+                        inserted += 1
+                        break
+                    except psycopg2.errors.DeadlockDetected:
+                        if attempt < max_retries - 1:
+                            import time
+                            time.sleep(0.1 * (attempt + 1))  # Backoff exponencial
+                            conn.rollback()
+                            continue
+                        else:
+                            app.logger.warning(
+                                "[import_users] Aviso: deadlock detected no INSERT",
+                                exc_info=True,
+                            )
+                            raise
 
         conn.commit()
         app.logger.info(
@@ -478,7 +513,7 @@ def fetch_dashboards(active_only: bool = True) -> List[Dict]:
     cursor = conn.cursor()
     query = "SELECT * FROM dashboards"
     if active_only:
-        query += " WHERE is_active = 1"
+        query += " WHERE is_active = true"
     query += " ORDER BY display_order, title"
     cursor.execute(query)
     dashboards = cursor.fetchall()
@@ -493,7 +528,7 @@ def fetch_users() -> List[Dict]:
         """
         SELECT id, nome_completo, username, email, role
         FROM users_new
-        WHERE is_active = 1
+        WHERE is_active = true
         ORDER BY nome_completo
         """
     )
@@ -510,7 +545,7 @@ def get_user_dashboard_map() -> Dict[int, Dict[str, List]]:
         SELECT ud.user_id, d.id as dashboard_id, d.title, d.category
         FROM user_dashboards ud
         JOIN dashboards d ON d.id = ud.dashboard_id
-        WHERE d.is_active = 1
+        WHERE d.is_active = true
         ORDER BY d.display_order, d.title
         """
     )
@@ -599,7 +634,7 @@ def sync_dashboards_to_planner() -> Tuple[int, List[str]]:
         FROM user_dashboards ud
         JOIN users_new u ON u.id = ud.user_id
         JOIN dashboards d ON d.id = ud.dashboard_id
-        WHERE u.is_active = 1 AND d.is_active = 1
+        WHERE u.is_active = true AND d.is_active = true
         ORDER BY u.nome_completo, d.display_order, d.title
         """
     )
@@ -689,7 +724,7 @@ def authenticate_user(identifier: str, password: str):
                    departamento, role, email, first_login
             FROM users_new
             WHERE (LOWER(username) = LOWER(%s) OR LOWER(email) = LOWER(%s))
-              AND is_active = 1
+              AND is_active = true
             """,
             (identifier, identifier),
         )
@@ -931,13 +966,13 @@ def admin_dashboard():
 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM users_new WHERE is_active = 1")
+    cursor.execute("SELECT COUNT(*) FROM users_new WHERE is_active = true")
     total_users = cursor.fetchone()[0]
     cursor.execute(
-        "SELECT COUNT(*) FROM users_new WHERE is_active = 1 AND role = 'admin'"
+        "SELECT COUNT(*) FROM users_new WHERE is_active = true AND role = 'admin'"
     )
     total_admins = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM dashboards WHERE is_active = 1")
+    cursor.execute("SELECT COUNT(*) FROM dashboards WHERE is_active = true")
     active_dashboards = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM user_dashboards")
     total_assignments = cursor.fetchone()[0]
@@ -1019,7 +1054,7 @@ def team_dashboard():
             SELECT d.title, d.description, d.category, d.embed_url
             FROM dashboards d
             JOIN user_dashboards ud ON ud.dashboard_id = d.id
-            WHERE ud.user_id = %s AND d.is_active = 1
+            WHERE ud.user_id = %s AND d.is_active = true
             ORDER BY d.display_order, d.title
             """,
             (session["user_id"],),
@@ -1043,12 +1078,16 @@ def team_dashboard():
 # --------------------------------------------------------------------------- #
 class UsersAPI(Resource):
     def get(self, user_id=None):
+        # Validação de admin para acessar lista de usuários
+        if session.get("role") != "admin":
+            return jsonify({"error": "Acesso restrito aos administradores"}), 403
+        
         conn = get_db()
         cursor = conn.cursor()
         try:
             if user_id:
                 cursor.execute(
-                    "SELECT id, username, nome_completo, role, departamento FROM users_new WHERE id = %s",
+                    "SELECT id, username, nome_completo, role, departamento FROM users_new WHERE id = %s AND is_active = true",
                     (user_id,),
                 )
                 user = cursor.fetchone()
@@ -1057,7 +1096,7 @@ class UsersAPI(Resource):
                 return jsonify({"user": dict(user)})
 
             cursor.execute(
-                "SELECT id, username, nome_completo, role, departamento FROM users_new WHERE is_active = 1"
+                "SELECT id, username, nome_completo, role, departamento FROM users_new WHERE is_active = true"
             )
             users = [dict(row) for row in cursor.fetchall()]
             return jsonify({"users": users})
