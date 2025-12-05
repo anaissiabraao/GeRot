@@ -144,6 +144,29 @@
             border-radius: 20px;
             overflow: hidden;
             border: 1px solid rgba(255,255,255,0.05);
+            position: relative;
+        }
+
+        .iframe-wrapper .expand-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            z-index: 10;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .iframe-wrapper .expand-btn:hover {
+            background: rgba(0,0,0,0.9);
         }
 
         iframe {
@@ -151,6 +174,60 @@
             height: 360px;
             border: none;
             display: block;
+        }
+
+        /* Modal de tela inteira */
+        .fullscreen-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 9999;
+            flex-direction: column;
+        }
+
+        .fullscreen-modal.active {
+            display: flex;
+        }
+
+        .fullscreen-header {
+            padding: 1rem 2rem;
+            background: var(--card);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .fullscreen-header h2 {
+            color: var(--text);
+            font-size: 1.25rem;
+        }
+
+        .fullscreen-close {
+            background: var(--danger);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .fullscreen-close:hover {
+            background: #dc2626;
+        }
+
+        .fullscreen-iframe {
+            flex: 1;
+            width: 100%;
+            border: none;
         }
 
         .empty-state {
@@ -184,6 +261,9 @@
             </h1>
             <div class="header-actions">
                 {% if is_admin %}
+                    <a class="btn" href="{{ url_for('admin_dashboard') }}">
+                        ⚙️ Painel Admin
+                    </a>
                     <a class="btn" href="{{ url_for('team_dashboard', all='0' if show_all else '1') }}">
                         {% if show_all %}
                             🔒 Ver apenas os meus
@@ -221,6 +301,9 @@
                             <p>{{ dash.description }}</p>
                         </div>
                         <div class="iframe-wrapper">
+                            <button class="expand-btn" onclick="expandFullscreen('{{ dash.title }}', '{{ dash.embed_url }}')">
+                                <span>⛶</span> Tela Inteira
+                            </button>
                             <iframe 
                                 title="{{ dash.title }}" 
                                 src="{{ dash.embed_url }}" 
@@ -237,5 +320,38 @@
             </div>
         {% endif %}
     </div>
+
+    <!-- Modal de tela inteira -->
+    <div id="fullscreenModal" class="fullscreen-modal">
+        <div class="fullscreen-header">
+            <h2 id="fullscreenTitle"></h2>
+            <button class="fullscreen-close" onclick="closeFullscreen()">
+                <span>✕</span> Fechar
+            </button>
+        </div>
+        <iframe id="fullscreenIframe" class="fullscreen-iframe" allowfullscreen="true"></iframe>
+    </div>
+
+    <script>
+        function expandFullscreen(title, url) {
+            document.getElementById('fullscreenTitle').textContent = title;
+            document.getElementById('fullscreenIframe').src = url;
+            document.getElementById('fullscreenModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeFullscreen() {
+            document.getElementById('fullscreenModal').classList.remove('active');
+            document.getElementById('fullscreenIframe').src = '';
+            document.body.style.overflow = '';
+        }
+
+        // Fechar com ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeFullscreen();
+            }
+        });
+    </script>
 </body>
 </html>

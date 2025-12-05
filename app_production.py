@@ -17,6 +17,7 @@ from flask_cors import CORS
 from flask_restful import Api, Resource
 import os
 import secrets
+import re
 from pathlib import Path
 import bcrypt
 import psycopg2
@@ -1322,6 +1323,97 @@ def admin_planner_sync():
     except PlannerIntegrationError as exc:
         flash(str(exc), "error")
     return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/dashboards/add", methods=["GET", "POST"])
+@login_required
+@admin_required
+def admin_add_dashboard():
+    """Adiciona ou edita um dashboard do BI"""
+    if request.method == "POST":
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        try:
+            dashboard_id = request.form.get("dashboard_id", type=int)
+            title = request.form.get("title", "").strip()
+            description = request.form.get("description", "").strip()
+            category = request.form.get("category", "").strip()
+            embed_code = request.form.get("embed_code", "").strip()
+            display_order = request.form.get("display_order", type=int) or 0
+            
+            if not title or not embed_code:
+                flash("Nome e código de incorporação são obrigatórios.", "error")
+                return redirect(url_for("admin_add_dashboard", dashboard_id=dashboard_id) if dashboard_id else url_for("admin_add_dashboard"))
+            
+            # Extrai URL do iframe
+            url_match = re.search(r'src="([^"]+)"', embed_code)
+            if not url_match:
+                flash("Código de incorporação inválido. Deve conter um iframe com src.", "error")
+                return redirect(url_for("admin_add_dashboard", dashboard_id=dashboard_id) if dashboard_id else url_for("admin_add_dashboard"))
+            
+            embed_url = url_match.group(1)
+            
+            # Gera slug do título
+            slug = title.lower().replace(" ", "-").replace("ç", "c").replace("ã", "a").replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+            slug = re.sub(r'[^a-z0-9-]', '', slug)
+            
+            if dashboard_id:
+                # Atualiza dashboard existente
+                cursor.execute(
+                    """
+                    UPDATE dashboards
+                    SET title = %s, description = %s, category = %s, 
+                        embed_url = %s, display_order = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                    """,
+                    (title, description, category, embed_url, display_order, dashboard_id),
+                )
+                flash("Dashboard atualizado com sucesso!", "success")
+            else:
+                # Cria novo dashboard
+                cursor.execute(
+                    """
+                    INSERT INTO dashboards (slug, title, description, category, embed_url, display_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (slug) DO UPDATE SET
+                        title = EXCLUDED.title,
+                        description = EXCLUDED.description,
+                        category = EXCLUDED.category,
+                        embed_url = EXCLUDED.embed_url,
+                        display_order = EXCLUDED.display_order,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (slug, title, description, category, embed_url, display_order),
+                )
+                flash("Dashboard adicionado com sucesso!", "success")
+            
+            conn.commit()
+            return redirect(url_for("admin_dashboard"))
+        except Exception as exc:
+            conn.rollback()
+            app.logger.error(f"Erro ao salvar dashboard: {exc}", exc_info=True)
+            flash(f"Erro ao salvar dashboard: {exc}", "error")
+            return redirect(url_for("admin_add_dashboard"))
+        finally:
+            conn.close()
+    
+    # GET: mostra formulário
+    dashboard_id = request.args.get("dashboard_id", type=int)
+    dashboard = None
+    
+    if dashboard_id:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM dashboards WHERE id = %s", (dashboard_id,))
+        dashboard = cursor.fetchone()
+        conn.close()
+        
+        if not dashboard:
+            flash("Dashboard não encontrado.", "error")
+            return redirect(url_for("admin_dashboard"))
+    
+    return render_template("admin_add_dashboard.html", dashboard=dashboard)
 
 
 @app.route("/team/dashboard")
