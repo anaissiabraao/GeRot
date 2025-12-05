@@ -336,6 +336,9 @@
         <div class="header">
             <h1><i class="fas fa-users"></i> Gerenciar Usuários</h1>
             <div>
+                <button class="btn btn-success" onclick="openAddModal()">
+                    <i class="fas fa-plus"></i> Adicionar Usuário
+                </button>
                 <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline">
                     <i class="fas fa-arrow-left"></i> Voltar ao Dashboard
                 </a>
@@ -416,14 +419,75 @@
                             {% endif %}
                         </td>
                         <td>
-                            <button class="btn btn-warning" onclick="openEditModal({{ user.id }}, '{{ user.email or '' }}', '{{ user.nome_usuario or '' }}', '{{ user.role }}', {{ 'true' if user.first_login else 'false' }})">
-                                <i class="fas fa-edit"></i> Editar
-                            </button>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn btn-warning" onclick="openEditModal({{ user.id }}, '{{ user.email or '' }}', '{{ user.nome_usuario or '' }}', '{{ user.role }}', {{ 'true' if user.first_login else 'false' }})">
+                                    <i class="fas fa-edit"></i> Editar
+                                </button>
+                                {% if user.id != session.user_id %}
+                                <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja desativar este usuário?');">
+                                    <button type="submit" class="btn btn-danger">
+                                        <i class="fas fa-trash"></i> Excluir
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Modal de Adicionar -->
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-plus"></i> Adicionar Usuário</h2>
+                <button class="close-btn" onclick="closeAddModal()">&times;</button>
+            </div>
+            <form method="POST" action="{{ url_for('add_user') }}">
+                <div class="form-group">
+                    <label for="add_nome_completo">Nome Completo:</label>
+                    <input type="text" id="add_nome_completo" name="nome_completo" required>
+                </div>
+                <div class="form-group">
+                    <label for="add_email">Email:</label>
+                    <input type="email" id="add_email" name="email" placeholder="usuario@portoex.com.br" required>
+                    <small>Deve terminar com @portoex.com.br</small>
+                </div>
+                <div class="form-group">
+                    <label for="add_nome_usuario">Nome de Usuário (opcional):</label>
+                    <input type="text" id="add_nome_usuario" name="nome_usuario" placeholder="nome_usuario">
+                    <small>Usado para login alternativo</small>
+                </div>
+                <div class="form-group">
+                    <label for="add_role">Permissões (Role):</label>
+                    <select id="add_role" name="role" required>
+                        <option value="usuario">Usuário</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="add_password">Senha:</label>
+                    <input type="password" id="add_password" name="password" placeholder="Deixe em branco para senha padrão (portoex123)">
+                    <small>Mínimo 6 caracteres. Se deixar em branco, será portoex123</small>
+                </div>
+                <div class="form-group">
+                    <label for="add_departamento">Departamento (opcional):</label>
+                    <input type="text" id="add_departamento" name="departamento">
+                </div>
+                <div class="form-group">
+                    <label for="add_cargo_original">Cargo (opcional):</label>
+                    <input type="text" id="add_cargo_original" name="cargo_original">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeAddModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Adicionar Usuário
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -475,6 +539,21 @@
 
     <script>
         let currentUserId = null;
+
+        function openAddModal() {
+            document.getElementById('addModal').classList.add('active');
+        }
+
+        function closeAddModal() {
+            document.getElementById('addModal').classList.remove('active');
+        }
+
+        // Fechar modal de adicionar ao clicar fora
+        document.getElementById('addModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAddModal();
+            }
+        });
 
         function openEditModal(userId, email, nomeUsuario, role, firstLogin) {
             currentUserId = userId;

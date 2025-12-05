@@ -2,15 +2,19 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="GeRot Enterprise">
     <meta name="mobile-web-app-capable" content="yes">
     <title>GeRot Enterprise - Login</title>
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='test_favicon.ico') }}">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ url_for('static', filename='test_favicon.ico') }}">
+    
     <!-- PWA Icons -->
-    <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDE4MCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIiByeD0iMjAiIGZpbGw9IiM2NjdlZWEiLz4KPHRleHQgeD0iOTAiIHk9IjEwNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0id2hpdGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI0OCI+R2VSb1Q8L3RleHQ+Cjwvc3ZnPg==">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='test_favicon.ico') }}">
     
     <style>
         :root {
@@ -43,6 +47,71 @@
             justify-content: center;
             padding: 1rem;
             color: var(--text-light);
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+        
+        /* Light Theme */
+        body.light-theme {
+            --bg-dark: #f5f5f5;
+            --bg-darker: #ffffff;
+            --bg-card: #ffffff;
+            --text-light: #1a1a2e;
+            --text-gray: #4a5568;
+            --border-color: #e2e8f0;
+            background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+        }
+        
+        body.light-theme .login-container {
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+        }
+        
+        body.light-theme .form-group input {
+            background: #f8f9fa;
+            color: var(--text-light);
+        }
+        
+        body.light-theme .form-group input:focus {
+            background: #ffffff;
+        }
+        
+        /* Theme Toggle Button */
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .theme-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+        
+        .theme-toggle i {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+        
+        /* Mobile Detection */
+        @media (max-width: 768px) {
+            .theme-toggle {
+                width: 45px;
+                height: 45px;
+                top: 0.5rem;
+                right: 0.5rem;
+            }
         }
         
         .login-container {
@@ -73,6 +142,15 @@
             margin-bottom: 2rem;
         }
         
+        .logo-img {
+            max-width: 200px;
+            height: auto;
+            margin-bottom: 1rem;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
         .logo {
             display: inline-flex;
             align-items: center;
@@ -86,6 +164,41 @@
             font-weight: bold;
             margin-bottom: 1rem;
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        /* Mobile Detection */
+        @media (max-width: 768px) {
+            .login-container {
+                padding: 1.5rem;
+                max-width: 100%;
+            }
+            
+            .logo-img {
+                max-width: 150px;
+            }
+            
+            .logo-section h1 {
+                font-size: 1.5rem;
+            }
+            
+            .logo-section .subtitle {
+                font-size: 0.9rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 0.5rem;
+            }
+            
+            .login-container {
+                padding: 1rem;
+                border-radius: 15px;
+            }
+            
+            .logo-img {
+                max-width: 120px;
+            }
         }
         
         .logo-section h1 {
@@ -365,13 +478,15 @@
             }
         }
         
-        /* Tema Escuro Permanente */
     </style>
 </head>
-<body>
+<body id="themeBody">
+    <button class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
+        <i class="fas fa-moon" id="themeIcon"></i>
+    </button>
     <div class="login-container">
         <div class="logo-section">
-            <div class="logo">GeRot</div>
+            <img src="{{ url_for('static', filename='portoex-logo.png') }}" alt="Portoex Logo" class="logo-img" onerror="this.style.display='none';">
             <h1>GeRot Enterprise</h1>
             <p class="subtitle">Sistema de Gerenciamento de Rotinas</p>
             <p class="company-info">🏢 Portoex Solutions</p>
@@ -476,6 +591,46 @@
             }
         `;
         document.head.appendChild(style);
+    </script>
+    
+    <script>
+        // Theme Toggle
+        function toggleTheme() {
+            const body = document.getElementById('themeBody');
+            const icon = document.getElementById('themeIcon');
+            const isLight = body.classList.contains('light-theme');
+            
+            if (isLight) {
+                body.classList.remove('light-theme');
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.classList.add('light-theme');
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+                localStorage.setItem('theme', 'light');
+            }
+        }
+        
+        // Load saved theme
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedTheme = localStorage.getItem('theme');
+            const body = document.getElementById('themeBody');
+            const icon = document.getElementById('themeIcon');
+            
+            if (savedTheme === 'light') {
+                body.classList.add('light-theme');
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            }
+            
+            // Mobile detection
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (isMobile) {
+                document.body.classList.add('is-mobile');
+            }
+        });
     </script>
 </body>
 </html> 
