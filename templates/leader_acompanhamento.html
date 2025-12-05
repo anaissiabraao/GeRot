@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acompanhamento - {{ tarefa.titulo }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+        }
+        .tarefa-info {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .tarefa-details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .tarefa-details h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+        }
+        .detail-item {
+            margin-bottom: 10px;
+            color: #666;
+        }
+        .detail-item strong {
+            color: #333;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        .status-pendente {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-em_andamento {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .status-concluida {
+            background: #d4edda;
+            color: #155724;
+        }
+        .priority-badge {
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        .priority-alta {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .priority-media {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .priority-baixa {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .form-container {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .form-group textarea {
+            height: 80px;
+            resize: vertical;
+        }
+        .acompanhamento-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .acompanhamento-item h5 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+        .acompanhamento-meta {
+            color: #666;
+            font-size: 0.9rem;
+            margin: 5px 0;
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+        .progress-slider {
+            width: 100%;
+            margin: 10px 0;
+        }
+        .progress-slider input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #e9ecef;
+            outline: none;
+        }
+        .progress-slider input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+        .progress-slider input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+        @media (max-width: 768px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Acompanhamento - {{ tarefa.titulo }}</h1>
+            <div class="tarefa-info">
+                <strong>Meta:</strong> {{ tarefa.meta_titulo }} | 
+                <strong>Responsável:</strong> {{ tarefa.responsavel_nome }}
+            </div>
+            <div>
+                <a href="{{ url_for('leader_tarefas', meta_id=tarefa.meta_id) }}" class="btn btn-secondary">← Voltar às Tarefas</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="tarefa-details">
+            <h4>📋 Detalhes da Tarefa</h4>
+            <div class="detail-item">
+                <strong>Título:</strong> {{ tarefa.titulo }}
+            </div>
+            {% if tarefa.descricao %}
+            <div class="detail-item">
+                <strong>Descrição:</strong> {{ tarefa.descricao }}
+            </div>
+            {% endif %}
+            <div class="detail-item">
+                <strong>Prioridade:</strong> 
+                <span class="priority-badge priority-{{ tarefa.prioridade }}">{{ tarefa.prioridade.title() }}</span>
+            </div>
+            <div class="detail-item">
+                <strong>Status:</strong> 
+                <span class="status-badge status-{{ tarefa.status }}">{{ tarefa.status.replace('_', ' ').title() }}</span>
+            </div>
+            {% if tarefa.data_fim %}
+            <div class="detail-item">
+                <strong>Prazo:</strong> {{ tarefa.data_fim.strftime('%d/%m/%Y') }}
+            </div>
+            {% endif %}
+            <div class="detail-item">
+                <strong>Criada em:</strong> {{ tarefa.created_at.strftime('%d/%m/%Y às %H:%M') }}
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ tarefa.progresso }}%">
+                    {{ tarefa.progresso }}%
+                </div>
+            </div>
+        </div>
+
+        <div class="content-grid">
+            <!-- Atualizar Progresso -->
+            <div class="card">
+                <h3>📈 Atualizar Progresso</h3>
+                <form method="POST" action="{{ url_for('leader_atualizar_progresso') }}">
+                    <input type="hidden" name="tarefa_id" value="{{ tarefa.id }}">
+                    
+                    <div class="form-group">
+                        <label for="progresso">Progresso Atual: <span id="progresso-value">{{ tarefa.progresso }}</span>%</label>
+                        <div class="progress-slider">
+                            <input type="range" id="progresso" name="progresso" min="0" max="100" 
+                                   value="{{ tarefa.progresso }}" oninput="updateProgressValue(this.value)">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="observacoes">Observações</label>
+                        <textarea id="observacoes" name="observacoes" 
+                                  placeholder="Descreva o progresso realizado, próximos passos, dificuldades encontradas..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-success">Atualizar Progresso</button>
+                </form>
+            </div>
+
+            <!-- Histórico de Acompanhamento -->
+            <div class="card">
+                <h3>📝 Histórico de Acompanhamento</h3>
+                {% if acompanhamentos %}
+                    {% for acompanhamento in acompanhamentos %}
+                    <div class="acompanhamento-item">
+                        <h5>{{ acompanhamento.data.strftime('%d/%m/%Y') }}</h5>
+                        <div class="acompanhamento-meta">
+                            <strong>Progresso:</strong> {{ acompanhamento.progresso_dia }}%
+                        </div>
+                        {% if acompanhamento.observacoes %}
+                        <div class="acompanhamento-meta">
+                            <strong>Observações:</strong> {{ acompanhamento.observacoes }}
+                        </div>
+                        {% endif %}
+                        <div class="acompanhamento-meta">
+                            <strong>Registrado por:</strong> {{ acompanhamento.nome_completo }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <h3>Nenhum acompanhamento registrado</h3>
+                        <p>Atualize o progresso da tarefa para começar o acompanhamento.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Observações da Tarefa -->
+        {% if tarefa.observacoes %}
+        <div class="card" style="margin-top: 20px;">
+            <h3>📝 Observações da Tarefa</h3>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                {{ tarefa.observacoes }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function updateProgressValue(value) {
+            document.getElementById('progresso-value').textContent = value;
+        }
+
+        // Validação do formulário
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const progresso = parseInt(document.getElementById('progresso').value);
+            const observacoes = document.getElementById('observacoes').value.trim();
+            
+            if (progresso < 0 || progresso > 100) {
+                e.preventDefault();
+                alert('O progresso deve estar entre 0% e 100%!');
+                return;
+            }
+            
+            // Confirmar atualização
+            if (!confirm('Tem certeza que deseja atualizar o progresso desta tarefa?')) {
+                e.preventDefault();
+            }
+        });
+
+        // Auto-focus no campo de observações se estiver vazio
+        document.getElementById('observacoes').addEventListener('focus', function() {
+            if (!this.value) {
+                this.placeholder = 'Ex: Concluí 50% da tarefa. Próximos passos: contatar fornecedores...';
+            }
+        });
+    </script>
+</body>
+</html>

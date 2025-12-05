@@ -1,30 +1,27 @@
 services:
   - type: web
-    name: gerot-enterprise
-    env: python
+    name: gerot-dashboard
+    env: docker
     plan: free
-    buildCommand: "pip install -r requirements.txt && mkdir -p logs && python -c 'from app_production import init_db; init_db()'"
-    startCommand: "gunicorn app_production:app"
+    region: oregon
+    dockerfilePath: Dockerfile
+    numInstances: 1
+    autoDeploy: true
     envVars:
-      - key: FLASK_ENV
-        value: production
       - key: SECRET_KEY
         generateValue: true
+      - key: MS_TENANT_ID
+        value: ""
+      - key: MS_CLIENT_ID
+        value: ""
+      - key: MS_CLIENT_SECRET
+        value: ""
+      - key: MS_PLANNER_PLAN_ID
+        value: ""
+      - key: MS_PLANNER_BUCKET_ID
+        value: ""
       - key: DATABASE_URL
-        fromDatabase:
-          name: gerot-db
-          property: connectionString
-      - key: GOOGLE_CLIENT_ID
-        value: "292478756955-j8j0dfs9tu5g4o0fkkqth0c2erv6sg2j.apps.googleusercontent.com"
-      - key: GOOGLE_CLIENT_SECRET
-        value: "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"
-      - key: VAPID_PRIVATE_KEY
-        value: "your-vapid-private-key"
-      - key: VAPID_PUBLIC_KEY
-        value: "your-vapid-public-key"
+        value: postgresql://postgres.cwkfsazxmtdluoexwafp:uTwmiAmgkXlTa0Yu@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true
+      - key: DIRECT_URL
+        value: postgresql://postgres.cwkfsazxmtdluoexwafp:uTwmiAmgkXlTa0Yu@aws-1-us-east-2.pooler.supabase.com:5432/postgres
 
-databases:
-  - name: gerot-db
-    databaseName: gerot_production
-    user: gerot_user
-    plan: free 

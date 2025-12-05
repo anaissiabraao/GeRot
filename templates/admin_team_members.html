@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Membros - {{ team.name }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+        }
+        .team-info {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 5px;
+            transition: background 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .btn-info {
+            background: #17a2b8;
+        }
+        .btn-info:hover {
+            background: #138496;
+        }
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+        .members-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        .member-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            transition: transform 0.3s;
+        }
+        .member-card:hover {
+            transform: translateY(-2px);
+        }
+        .member-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .member-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+            margin: 0;
+        }
+        .member-role {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .role-lider {
+            background: #d4edda;
+            color: #155724;
+        }
+        .role-membro {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .member-info {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .member-info div {
+            margin: 5px 0;
+        }
+        .member-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .form-inline {
+            display: inline-block;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+        .team-stats {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .confirmation-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 400px;
+            text-align: center;
+        }
+        .modal-buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👥 Gerenciar Membros - {{ team.name }}</h1>
+            <div class="team-info">
+                {% if team.description %}
+                <strong>Descrição:</strong> {{ team.description }}<br>
+                {% endif %}
+                {% if team.leader_name %}
+                <strong>👑 Líder:</strong> {{ team.leader_name }}<br>
+                {% endif %}
+                {% if team.coordinator_name %}
+                <strong>🎯 Coordenador:</strong> {{ team.coordinator_name }}<br>
+                {% endif %}
+            </div>
+            <div>
+                <a href="{{ url_for('admin_teams') }}" class="btn btn-secondary">← Voltar aos Times</a>
+                <a href="{{ url_for('admin_add_team_member', team_id=team.id) }}" class="btn btn-success">➕ Adicionar Membro</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Estatísticas do Time -->
+        <div class="team-stats">
+            <div class="stat-item">
+                <div class="stat-number">{{ members|length }}</div>
+                <div class="stat-label">Total de Membros</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">{{ members|selectattr('role', 'equalto', 'lider')|list|length }}</div>
+                <div class="stat-label">Líderes</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">{{ members|selectattr('role', 'equalto', 'membro')|list|length }}</div>
+                <div class="stat-label">Membros</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">{{ members|selectattr('is_active', 'equalto', true)|list|length }}</div>
+                <div class="stat-label">Ativos</div>
+            </div>
+        </div>
+
+        <!-- Lista de Membros -->
+        {% if members %}
+        <div class="members-grid">
+            {% for member in members %}
+            <div class="member-card">
+                <div class="member-header">
+                    <h3 class="member-name">{{ member.nome_completo }}</h3>
+                    <span class="member-role role-{{ member.role }}">
+                        {{ member.role.title() }}
+                    </span>
+                </div>
+                
+                <div class="member-info">
+                    <div><strong>Username:</strong> {{ member.username }}</div>
+                    <div><strong>Departamento:</strong> {{ member.departamento }}</div>
+                    <div><strong>Role no Sistema:</strong> {{ member.user_role.title() }}</div>
+                    <div><strong>Status:</strong> 
+                        <span style="color: {{ '#28a745' if member.is_active else '#dc3545' }}">
+                            {{ 'Ativo' if member.is_active else 'Inativo' }}
+                        </span>
+                    </div>
+                </div>
+                
+                {% if member.is_active %}
+                <div class="member-actions">
+                    <!-- Editar Role -->
+                    <form method="POST" action="{{ url_for('admin_edit_team_member', team_id=team.id, member_id=member.id) }}" class="form-inline">
+                        <div class="form-group">
+                            <label for="role_{{ member.id }}">Alterar Role:</label>
+                            <select name="role" id="role_{{ member.id }}" onchange="this.form.submit()">
+                                <option value="membro" {{ 'selected' if member.role == 'membro' else '' }}>Membro</option>
+                                <option value="lider" {{ 'selected' if member.role == 'lider' else '' }}>Líder</option>
+                            </select>
+                        </div>
+                    </form>
+                    
+                    <!-- Remover Membro -->
+                    <button onclick="confirmDelete({{ member.id }}, '{{ member.nome_completo }}')" class="btn btn-danger">
+                        🗑️ Remover
+                    </button>
+                </div>
+                {% else %}
+                <div style="text-align: center; padding: 10px; background: #f8d7da; border-radius: 5px; color: #721c24;">
+                    <strong>Membro Inativo</strong>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h3>Nenhum membro encontrado</h3>
+            <p>Este time ainda não possui membros atribuídos.</p>
+            <a href="{{ url_for('admin_add_team_member', team_id=team.id) }}" class="btn btn-success">Adicionar Primeiro Membro</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div id="confirmationModal" class="confirmation-modal">
+        <div class="modal-content">
+            <h3>Confirmar Remoção</h3>
+            <p id="confirmationText">Tem certeza que deseja remover este membro do time?</p>
+            <div class="modal-buttons">
+                <button onclick="closeModal()" class="btn btn-secondary">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Confirmar Remoção</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function confirmDelete(memberId, memberName) {
+            document.getElementById('confirmationText').textContent = 
+                `Tem certeza que deseja remover "${memberName}" do time?`;
+            document.getElementById('deleteForm').action = 
+                `{{ url_for('admin_delete_team_member', team_id=team.id, member_id=0) }}`.replace('0', memberId);
+            document.getElementById('confirmationModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('confirmationModal').style.display = 'none';
+        }
+
+        // Fechar modal clicando fora
+        document.getElementById('confirmationModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Confirmar alteração de role
+        document.querySelectorAll('select[name="role"]').forEach(select => {
+            select.addEventListener('change', function() {
+                if (confirm('Tem certeza que deseja alterar o role deste membro?')) {
+                    this.form.submit();
+                } else {
+                    // Reverter a seleção
+                    this.form.reset();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -3,364 +3,439 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeRot - Dashboard Admin</title>
+    <title>GeRot • Painel Administrativo</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --bg: #0f172a;
+            --card: #111c33;
+            --card-alt: #172544;
+            --primary: #60a5fa;
+            --primary-dark: #2563eb;
+            --accent: #a855f7;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f97316;
         }
-        
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: radial-gradient(circle at top, #1e293b, #020617 55%);
+            color: var(--text);
             min-height: 100vh;
-            color: #333;
+            padding: 2rem 1rem 4rem;
         }
-        
-        .navbar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+
+        .layout {
+            max-width: 1200px;
+            margin: 0 auto;
             display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
             justify-content: space-between;
-            align-items: center;
-        }
-        
-        .navbar h1 {
-            color: #667eea;
-            font-size: 1.8rem;
-            font-weight: 600;
-        }
-        
-        .user-info {
-            display: flex;
-            align-items: center;
             gap: 1rem;
         }
-        
-        .user-info .badge {
-            background: #667eea;
-            color: white;
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 500;
+
+        header h1 {
+            font-size: 1.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text);
         }
-        
-        .logout-btn {
-            background: #dc3545;
-            color: white;
-            padding: 0.5rem 1rem;
+
+        header h1 span {
+            font-size: 1.25rem;
+            color: var(--muted);
+        }
+
+        header .actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
             border: none;
-            border-radius: 5px;
+            border-radius: 999px;
+            padding: 0.65rem 1.25rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
             text-decoration: none;
-            font-size: 0.9rem;
-            transition: all 0.3s;
+            color: inherit;
         }
-        
-        .logout-btn:hover {
-            background: #c82333;
+
+        .btn-primary {
+            background: linear-gradient(120deg, var(--primary-dark), var(--accent));
+            color: #fff;
+        }
+
+        .btn-outline {
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .btn:hover {
             transform: translateY(-1px);
+            box-shadow: 0 12px 25px rgba(15, 23, 42, 0.25);
         }
-        
-        .container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 2rem;
-        }
-        
-        .stats-grid {
+
+        .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-bottom: 3rem;
+            gap: 1rem;
         }
-        
-        .stat-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            text-align: center;
-            transition: transform 0.3s;
+
+        .stats {
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
         }
-        
-        .stat-card:hover {
-            transform: translateY(-5px);
+
+        .card {
+            background: var(--card);
+            border-radius: 20px;
+            padding: 1.75rem;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 15px 35px rgba(2, 6, 23, 0.6);
         }
-        
-        .stat-card .icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-        
-        .stat-card .number {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 0.5rem;
-        }
-        
-        .stat-card .label {
-            color: #666;
-            font-size: 1rem;
+
+        .stat-card h3 {
+            font-size: 0.9rem;
             text-transform: uppercase;
             letter-spacing: 1px;
+            color: var(--muted);
         }
-        
-        .actions-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
+
+        .stat-card .value {
+            font-size: 2.4rem;
+            font-weight: 700;
+            margin-top: 0.35rem;
         }
-        
-        .actions-section h2 {
-            color: #333;
-            margin-bottom: 1.5rem;
-            font-size: 1.5rem;
+
+        .stat-card .hint {
+            margin-top: 0.4rem;
+            font-size: 0.85rem;
+            color: var(--muted);
         }
-        
-        .actions-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
+
+        .section {
+            background: var(--card);
+            border-radius: 24px;
+            padding: 1.75rem;
+            box-shadow: 0 18px 45px rgba(2, 6, 23, 0.75);
         }
-        
-        .action-btn {
-            display: block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1rem;
-            text-decoration: none;
-            border-radius: 10px;
-            text-align: center;
-            transition: all 0.3s;
-            font-weight: 500;
-        }
-        
-        .action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-        
-        .action-btn.success {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        }
-        
-        .action-btn.info {
-            background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
-        }
-        
-        .action-btn.warning {
-            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-            color: #333;
-        }
-        
-        .quick-stats {
-            background: white;
-            padding: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
-        
-        .quick-stats h2 {
-            color: #333;
-            margin-bottom: 1.5rem;
-            font-size: 1.5rem;
-        }
-        
-        .progress-item {
-            margin-bottom: 1.5rem;
-        }
-        
-        .progress-label {
+
+        .section-title {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
+            align-items: center;
+            margin-bottom: 1.25rem;
         }
-        
-        .progress-bar {
+
+        .section-title h2 {
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        select, input[type="checkbox"] {
+            accent-color: var(--primary-dark);
+        }
+
+        select {
+            background: var(--card-alt);
+            color: var(--text);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 0.65rem 1rem;
+            font-size: 1rem;
+            min-width: 240px;
+        }
+
+        .dash-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-top: 1.25rem;
+        }
+
+        .dash-card {
+            background: var(--card-alt);
+            border-radius: 18px;
+            padding: 1rem;
+            border: 1px solid transparent;
+            transition: border 0.2s ease, transform 0.2s ease;
+        }
+
+        .dash-card input {
+            display: none;
+        }
+
+        .dash-card label {
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .dash-card h4 {
+            font-size: 1.05rem;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(96, 165, 250, 0.15);
+            font-size: 0.8rem;
+        }
+
+        .dash-card input:checked + label .pill {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--success);
+        }
+
+        .dash-card input:checked + label h4 {
+            color: var(--primary);
+        }
+
+        .dash-card input:checked + label + .dash-card {
+            border-color: var(--primary);
+        }
+
+        table {
             width: 100%;
-            height: 8px;
-            background: #e9ecef;
-            border-radius: 4px;
-            overflow: hidden;
+            border-collapse: collapse;
+            margin-top: 1rem;
         }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            border-radius: 4px;
-            transition: width 0.5s ease;
+
+        th, td {
+            text-align: left;
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
         }
-        
-        .welcome-message {
-            background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
-            padding: 2rem;
-            border-radius: 15px;
-            margin-bottom: 2rem;
-            text-align: center;
-            backdrop-filter: blur(10px);
+
+        th {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
         }
-        
-        .welcome-message h2 {
-            color: #333;
-            margin-bottom: 0.5rem;
-            font-size: 2rem;
+
+        .log-list {
+            margin-top: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
         }
-        
-        .welcome-message p {
-            color: #666;
-            font-size: 1.1rem;
+
+        .log-item {
+            background: var(--card-alt);
+            border-radius: 14px;
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 3px solid transparent;
         }
-        
-        @media (max-width: 768px) {
-            .container {
-                padding: 0 1rem;
-            }
-            
-            .navbar {
-                padding: 1rem;
-                flex-direction: column;
-                gap: 1rem;
-            }
-            
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
+
+        .log-item.success { border-color: var(--success); }
+        .log-item.error { border-color: var(--danger); }
+
+        .flash-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .flash {
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(255,255,255,0.08);
+            font-size: 0.95rem;
+        }
+
+        @media (max-width: 720px) {
+            header { flex-direction: column; align-items: flex-start; }
+            select { width: 100%; }
+            .dash-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <h1>🎯 GeRot - Dashboard Administrativo</h1>
-        <div class="user-info">
-            <span class="badge">👨‍💼 Admin</span>
-            <span>{{ user }}</span>
-            <a href="/logout" class="logout-btn">Sair</a>
-        </div>
-    </nav>
-    
-    <div class="container">
-        <div class="welcome-message">
-            <h2>Bem-vindo, {{ user }}! 👋</h2>
-            <p>Gerencie rotinas, usuários e monitore o desempenho da sua equipe</p>
-        </div>
-        
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="icon">👥</div>
-                <div class="number">{{ stats.total_users }}</div>
-                <div class="label">Usuários Totais</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="icon">📋</div>
-                <div class="number">{{ stats.routines_today }}</div>
-                <div class="label">Rotinas Hoje</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="icon">✅</div>
-                <div class="number">{{ stats.tasks_today }}</div>
-                <div class="label">Tarefas Hoje</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="icon">⚡</div>
-                <div class="number">{{ "%.1f"|format((stats.tasks_today / (stats.total_users or 1)) * 100) }}%</div>
-                <div class="label">Produtividade</div>
-            </div>
-        </div>
-        
-        <div class="actions-section">
-            <h2>🚀 Ações Rápidas</h2>
-            <div class="actions-grid">
-                <a href="/api/create-sample-data" class="action-btn success">
-                    📝 Criar Dados de Exemplo
-                </a>
-                <a href="/team/dashboard" class="action-btn info">
-                    👥 Ver Dashboard da Equipe
-                </a>
-                <a href="/api/health" class="action-btn">
-                    🔍 Status do Sistema
-                </a>
-                <a href="https://github.com/anaissiabraao/GeRot" target="_blank" class="action-btn warning">
-                    📚 Documentação
-                </a>
-            </div>
-        </div>
-        
-        <div class="quick-stats">
-            <h2>📊 Estatísticas Rápidas</h2>
-            
-            <div class="progress-item">
-                <div class="progress-label">
-                    <span>Usuários Ativos</span>
-                    <span>{{ stats.total_users }}/10</span>
+    <div class="layout">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash" style="border-left:4px solid {{ '#22c55e' if category == 'success' else '#ef4444' if category == 'error' else '#f97316' }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
                 </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: {{ (stats.total_users / 10 * 100) | round }}%"></div>
-                </div>
+            {% endif %}
+        {% endwith %}
+
+        <header>
+            <h1>🚀 GeRot <span>Painel do Administrador</span></h1>
+            <div class="actions">
+                <a class="btn btn-outline" href="{{ url_for('team_dashboard') }}">Ver janela de dashboards</a>
+                <a class="btn btn-primary" href="{{ url_for('logout') }}">Sair</a>
             </div>
-            
-            <div class="progress-item">
-                <div class="progress-label">
-                    <span>Rotinas Concluídas Hoje</span>
-                    <span>{{ stats.routines_today }}/5</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: {{ (stats.routines_today / 5 * 100) | round }}%"></div>
-                </div>
+        </header>
+
+        <section class="grid stats">
+            <article class="card stat-card">
+                <h3>Usuários ativos</h3>
+                <div class="value">{{ stats.total_users }}</div>
+                <p class="hint">{{ stats.total_admins }} administradores</p>
+            </article>
+            <article class="card stat-card">
+                <h3>Dashboards liberados</h3>
+                <div class="value">{{ stats.active_dashboards }}</div>
+                <p class="hint">{{ stats.total_assignments }} atribuições</p>
+            </article>
+            <article class="card stat-card">
+                <h3>Planner</h3>
+                {% if planner_enabled %}
+                    <div class="value" style="color: var(--success);">Ativo</div>
+                {% else %}
+                    <div class="value" style="color: var(--warning);">Pendente</div>
+                {% endif %}
+                <p class="hint">
+                    {% if stats.last_sync %}
+                        Último envio: {{ stats.last_sync }} ({{ stats.last_sync_status }})
+                    {% else %}
+                        Nenhuma sincronização registrada
+                    {% endif %}
+                </p>
+            </article>
+        </section>
+
+        <section class="section">
+            <div class="section-title">
+                <h2>🗂️ Configurar visibilidade</h2>
+                <select id="userSelector" aria-label="Selecionar usuário">
+                    {% for user in users %}
+                        <option value="{{ user.id }}" {% if user.id == selected_user_id %}selected{% endif %}>
+                            {{ user.nome_completo }} · {{ 'Admin' if user.role == 'admin' else 'Usuário' }}
+                        </option>
+                    {% endfor %}
+                </select>
             </div>
-            
-            <div class="progress-item">
-                <div class="progress-label">
-                    <span>Tarefas em Andamento</span>
-                    <span>{{ stats.tasks_today }}/20</span>
+
+            <form method="POST" action="{{ url_for('update_dashboard_permissions') }}">
+                <input type="hidden" name="user_id" id="formUserId" value="{{ selected_user_id }}">
+                <div class="dash-grid">
+                    {% for dash in dashboards %}
+                        {% set selected = selected_user_id and dash.id in user_dashboards[selected_user_id]['ids'] %}
+                        <div class="dash-card">
+                            <input type="checkbox" id="dash-{{ dash.id }}" name="dashboards" value="{{ dash.id }}" {% if selected %}checked{% endif %}>
+                            <label for="dash-{{ dash.id }}">
+                                <span class="pill">{{ dash.category }}</span>
+                                <h4>{{ dash.title }}</h4>
+                                <p style="color: var(--muted); font-size: 0.9rem;">{{ dash.description }}</p>
+                            </label>
+                        </div>
+                    {% endfor %}
                 </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: {{ (stats.tasks_today / 20 * 100) | round }}%"></div>
+                <div style="margin-top:1.5rem; display:flex; justify-content:flex-end;">
+                    <button class="btn btn-primary" type="submit">Salvar permissões</button>
                 </div>
+            </form>
+        </section>
+
+        <section class="section">
+            <div class="section-title">
+                <h2>📒 Usuários x Dashboards</h2>
+                <form method="POST" action="{{ url_for('admin_planner_sync') }}" style="margin:0">
+                    <button class="btn btn-outline" {% if not planner_enabled %}disabled style="opacity:0.4;cursor:not-allowed;"{% endif %}>
+                        📤 Enviar agenda ao Planner
+                    </button>
+                </form>
             </div>
-        </div>
+
+            <div class="table-wrapper" style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Usuário</th>
+                            <th>Tipo</th>
+                            <th>Dashboards liberados</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                            {% set info = user_dashboards[user.id] %}
+                            <tr>
+                                <td>{{ user.nome_completo }}</td>
+                                <td>{{ 'Admin' if user.role == 'admin' else 'Usuário' }}</td>
+                                <td>
+                                    {% if info.items %}
+                                        {% for dash in info.items %}
+                                            <span class="pill">{{ dash.title }}</span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span style="color: var(--muted);">Nenhum dashboard atribuído</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-title">
+                <h2>📝 Logs de sincronização</h2>
+            </div>
+            <div class="log-list">
+                {% if planner_logs %}
+                    {% for log in planner_logs %}
+                        <div class="log-item {{ log.status }}">
+                            <div>
+                                <strong>{{ log.user_name or '—' }}</strong>
+                                <p style="color: var(--muted); font-size:0.85rem;">
+                                    {{ log.dashboard_count or 0 }} dashboard(s) • {{ log.message }}
+                                </p>
+                            </div>
+                            <small style="color: var(--muted);">{{ log.created_at }}</small>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: var(--muted);">Nenhum histórico disponível.</p>
+                {% endif %}
+            </div>
+        </section>
     </div>
-    
+
     <script>
-        // Atualizar estatísticas automaticamente
-        function updateStats() {
-            fetch('/api/health')
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Sistema funcionando:', data.status);
-                })
-                .catch(error => console.log('Erro:', error));
-        }
-        
-        // Atualizar a cada 30 segundos
-        setInterval(updateStats, 30000);
-        
-        // Animação de entrada
-        document.addEventListener('DOMContentLoaded', function() {
-            const cards = document.querySelectorAll('.stat-card');
-            cards.forEach((card, index) => {
-                setTimeout(() => {
-                    card.style.opacity = '0';
-                    card.style.transform = 'translateY(20px)';
-                    card.style.transition = 'all 0.5s ease';
-                    
-                    setTimeout(() => {
-                        card.style.opacity = '1';
-                        card.style.transform = 'translateY(0)';
-                    }, 100);
-                }, index * 100);
+        const userSelector = document.getElementById('userSelector');
+        const formUserId = document.getElementById('formUserId');
+        if (userSelector && formUserId) {
+            userSelector.addEventListener('change', (event) => {
+                const selected = event.target.value;
+                formUserId.value = selected;
+                const params = new URLSearchParams(window.location.search);
+                params.set('user_id', selected);
+                window.location.search = params.toString();
             });
-        });
+        }
     </script>
 </body>
-</html> 
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar Time - Admin Master</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            color: #333;
+            margin: 0;
+        }
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .form-group textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .help-text {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
+        .leader-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .leader-info h4 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+        .leader-info p {
+            margin: 5px 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>➕ Criar Novo Time</h1>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="form-container">
+            <form method="POST">
+                <div class="form-group">
+                    <label for="name">Nome do Time *</label>
+                    <input type="text" id="name" name="name" required>
+                    <div class="help-text">Nome identificador do time</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Descrição</label>
+                    <textarea id="description" name="description" placeholder="Descreva as responsabilidades e objetivos do time..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="leader_id">Líder do Time *</label>
+                    <select id="leader_id" name="leader_id" required>
+                        <option value="">Selecione um líder</option>
+                        {% for leader in leaders %}
+                        <option value="{{ leader.id }}">
+                            {{ leader.nome_completo }} - {{ leader.departamento }} ({{ leader.role.title() }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="help-text">Escolha um usuário com role 'lider' para comandar este time</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="departamento_id">Departamento</label>
+                    <select id="departamento_id" name="departamento_id">
+                        <option value="">Selecione um departamento</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}">{{ dept.nome }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="help-text">Departamento ao qual o time pertence</div>
+                </div>
+
+                <div class="leader-info">
+                    <h4>ℹ️ Informações sobre Líderes</h4>
+                    <p><strong>Líderes disponíveis:</strong> {{ leaders|length }} usuários (Líderes, Coordenadores, Admins)</p>
+                    <p><strong>Função do líder:</strong> Criar atividades e gerenciar colaboradores do time</p>
+                    <p><strong>Responsabilidades:</strong> Delegar tarefas, acompanhar progresso e coordenar equipe</p>
+                    <p><strong>Roles elegíveis:</strong> Líder, Coordenador, Admin, Admin Master</p>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="{{ url_for('admin_teams') }}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-success">Criar Time</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Atualizar informações do líder selecionado
+        document.getElementById('leader_id').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                console.log('Líder selecionado:', selectedOption.text);
+            }
+        });
+    </script>
+</body>
+</html>

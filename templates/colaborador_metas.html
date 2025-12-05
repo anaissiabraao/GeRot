@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minhas Metas - Colaborador</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+        }
+        .header-info {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn-info {
+            background: #17a2b8;
+        }
+        .btn-info:hover {
+            background: #138496;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .meta-item, .tarefa-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .meta-item h4, .tarefa-item h4 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+        .meta-meta, .tarefa-meta {
+            color: #666;
+            font-size: 0.9rem;
+            margin: 5px 0;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s;
+        }
+        .progress-text {
+            font-size: 0.8rem;
+            color: #666;
+            text-align: right;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .status-pendente {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-em_andamento {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .status-concluida {
+            background: #d4edda;
+            color: #155724;
+        }
+        .priority-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .priority-alta {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .priority-media {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .priority-baixa {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+        .welcome-info {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .welcome-info h3 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+        .welcome-info p {
+            margin: 5px 0;
+            color: #666;
+        }
+        @media (max-width: 768px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Minhas Metas e Tarefas</h1>
+            <div class="header-info">
+                Bem-vindo, {{ session.get('nome_completo', 'Colaborador') }}! 
+                Visualize suas metas e tarefas atribuídas pelos líderes.
+            </div>
+            <div>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← Dashboard Principal</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-danger">🚪 Sair</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="welcome-info">
+            <h3>📋 Suas Atividades</h3>
+            <p><strong>Funcionalidades disponíveis:</strong></p>
+            <p>• 📋 Visualizar metas atribuídas pelos líderes</p>
+            <p>• ✅ Marcar tarefas como concluídas</p>
+            <p>• 📝 Adicionar observações sobre o trabalho realizado</p>
+            <p>• 📊 Acompanhar seu progresso individual</p>
+        </div>
+
+        <!-- Estatísticas -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ metas|length }}</div>
+                <div class="stat-label">Metas Atribuídas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ tarefas|length }}</div>
+                <div class="stat-label">Tarefas Atribuídas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">
+                    {% set tarefas_concluidas = tarefas|selectattr('status', 'equalto', 'concluida')|list|length %}
+                    {{ tarefas_concluidas }}
+                </div>
+                <div class="stat-label">Tarefas Concluídas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">
+                    {% if tarefas %}
+                        {{ (tarefas|sum(attribute='progresso') / tarefas|length)|round|int }}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </div>
+                <div class="stat-label">Progresso Médio</div>
+            </div>
+        </div>
+
+        <div class="content-grid">
+            <!-- Metas Atribuídas -->
+            <div class="card">
+                <h3>🎯 Minhas Metas</h3>
+                {% if metas %}
+                    {% for meta in metas %}
+                    <div class="meta-item">
+                        <h4>{{ meta.titulo }}</h4>
+                        <div class="meta-meta">
+                            <strong>Líder:</strong> {{ meta.leader_name }}
+                        </div>
+                        <div class="meta-meta">
+                            <strong>Time:</strong> {{ meta.team_name }}
+                        </div>
+                        <div class="meta-meta">
+                            <strong>Período:</strong> {{ meta.data_inicio.strftime('%d/%m/%Y') }} - {{ meta.data_fim.strftime('%d/%m/%Y') }}
+                        </div>
+                        
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {{ meta.progresso_geral or 0 }}%"></div>
+                        </div>
+                        <div class="progress-text">{{ meta.progresso_geral or 0 }}% concluído</div>
+                        
+                        <div style="margin-top: 15px;">
+                            {% if meta.tipo == 'active' %}
+                            <button onclick="showConcludeMetaModal({{ meta.id }}, '{{ meta.titulo }}')" class="btn btn-success">
+                                ✅ Concluir Meta
+                            </button>
+                            {% else %}
+                            <span class="status-badge status-concluida">Meta Concluída</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <h3>Nenhuma meta atribuída</h3>
+                        <p>Seus líderes ainda não atribuíram metas para você.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Tarefas Atribuídas -->
+            <div class="card">
+                <h3>📋 Minhas Tarefas</h3>
+                {% if tarefas %}
+                    {% for tarefa in tarefas %}
+                    <div class="tarefa-item">
+                        <h4>{{ tarefa.titulo }}</h4>
+                        <div class="tarefa-meta">
+                            <strong>Meta:</strong> {{ tarefa.meta_titulo }}
+                        </div>
+                        <div class="tarefa-meta">
+                            <strong>Líder:</strong> {{ tarefa.leader_name }}
+                        </div>
+                        {% if tarefa.descricao %}
+                        <div class="tarefa-meta">
+                            <strong>Descrição:</strong> {{ tarefa.descricao }}
+                        </div>
+                        {% endif %}
+                        <div class="tarefa-meta">
+                            <strong>Prioridade:</strong> 
+                            <span class="priority-badge priority-{{ tarefa.prioridade }}">{{ tarefa.prioridade.title() }}</span>
+                        </div>
+                        {% if tarefa.data_fim %}
+                        <div class="tarefa-meta">
+                            <strong>Prazo:</strong> {{ tarefa.data_fim.strftime('%d/%m/%Y') }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {{ tarefa.progresso }}%"></div>
+                        </div>
+                        <div class="progress-text">{{ tarefa.progresso }}% concluído</div>
+                        
+                        <div style="margin-top: 10px;">
+                            <span class="status-badge status-{{ tarefa.status }}">{{ tarefa.status.replace('_', ' ').title() }}</span>
+                            <a href="{{ url_for('colaborador_tarefa', tarefa_id=tarefa.id) }}" class="btn btn-info" style="margin-left: 10px;">Gerenciar</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <h3>Nenhuma tarefa atribuída</h3>
+                        <p>Seus líderes ainda não atribuíram tarefas para você.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Informações sobre o Sistema -->
+        <div class="card" style="margin-top: 20px;">
+            <h3>ℹ️ Como Funciona</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                <div>
+                    <h4>📋 Visualizar Tarefas</h4>
+                    <p>Veja todas as tarefas atribuídas pelos seus líderes com detalhes completos.</p>
+                </div>
+                <div>
+                    <h4>✅ Marcar Conclusão</h4>
+                    <p>Marque tarefas como concluídas e adicione observações sobre o trabalho realizado.</p>
+                </div>
+                <div>
+                    <h4>📊 Acompanhar Progresso</h4>
+                    <p>Atualize o progresso das suas tarefas e veja como está evoluindo.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Concluir Meta -->
+    <div id="concludeMetaModal" class="confirmation-modal">
+        <div class="modal-content">
+            <h3>🎯 Concluir Meta</h3>
+            <p id="concludeMetaText">Tem certeza que deseja marcar esta meta como concluída?</p>
+            <form id="concludeMetaForm" method="POST" action="{{ url_for('colaborador_concluir_meta') }}">
+                <input type="hidden" name="meta_id" id="metaIdInput">
+                <div class="form-group">
+                    <label for="metaObservacoes">Observações sobre a conclusão:</label>
+                    <textarea id="metaObservacoes" name="observacoes" 
+                              placeholder="Descreva como a meta foi concluída, resultados obtidos, aprendizados..."></textarea>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" onclick="closeConcludeMetaModal()" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-success">✅ Concluir Meta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showConcludeMetaModal(metaId, metaTitle) {
+            document.getElementById('concludeMetaText').textContent = 
+                `Tem certeza que deseja marcar a meta "${metaTitle}" como concluída?`;
+            document.getElementById('metaIdInput').value = metaId;
+            document.getElementById('concludeMetaModal').style.display = 'flex';
+        }
+
+        function closeConcludeMetaModal() {
+            document.getElementById('concludeMetaModal').style.display = 'none';
+            document.getElementById('metaObservacoes').value = '';
+        }
+
+        // Fechar modal clicando fora
+        document.getElementById('concludeMetaModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeConcludeMetaModal();
+            }
+        });
+
+        // Confirmar conclusão de meta
+        document.getElementById('concludeMetaForm').addEventListener('submit', function(e) {
+            if (!confirm('Tem certeza que deseja concluir esta meta? Esta ação marcará todas as tarefas relacionadas como concluídas.')) {
+                e.preventDefault();
+            } else {
+                // Mostrar celebração após confirmação
+                setTimeout(() => {
+                    showCelebration();
+                }, 1000);
+            }
+        });
+
+        // Função para criar confetes (reutilizada do colaborador_tarefa.html)
+        function createConfetti() {
+            const container = document.createElement('div');
+            container.style.position = 'fixed';
+            container.style.top = '0';
+            container.style.left = '0';
+            container.style.width = '100%';
+            container.style.height = '100%';
+            container.style.pointerEvents = 'none';
+            container.style.zIndex = '9999';
+            document.body.appendChild(container);
+
+            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#5f27cd'];
+            
+            for (let i = 0; i < 150; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.position = 'absolute';
+                confetti.style.width = '10px';
+                confetti.style.height = '10px';
+                confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.animationDelay = Math.random() * 3 + 's';
+                confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                confetti.style.animation = 'confetti-fall 3s linear infinite';
+                container.appendChild(confetti);
+            }
+            
+            // Remover confetes após animação
+            setTimeout(() => {
+                document.body.removeChild(container);
+            }, 5000);
+        }
+
+        // Função para mostrar celebração
+        function showCelebration() {
+            // Criar confetes
+            createConfetti();
+            
+            // Mostrar modal de celebração
+            const celebrationModal = document.createElement('div');
+            celebrationModal.style.position = 'fixed';
+            celebrationModal.style.top = '0';
+            celebrationModal.style.left = '0';
+            celebrationModal.style.width = '100%';
+            celebrationModal.style.height = '100%';
+            celebrationModal.style.background = 'rgba(0,0,0,0.8)';
+            celebrationModal.style.display = 'flex';
+            celebrationModal.style.justifyContent = 'center';
+            celebrationModal.style.alignItems = 'center';
+            celebrationModal.style.zIndex = '10000';
+            
+            celebrationModal.innerHTML = `
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; border-radius: 20px; text-align: center; max-width: 500px; animation: celebration-bounce 0.6s ease-out;">
+                    <div style="font-size: 2.5rem; margin-bottom: 20px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">🎉 Parabéns!</div>
+                    <div style="font-size: 1.2rem; margin-bottom: 20px; line-height: 1.5;">
+                        Meta concluída com sucesso!<br>
+                        Continue assim, você está indo muito bem!
+                    </div>
+                    <div style="font-style: italic; font-size: 1rem; opacity: 0.9; margin-bottom: 30px;">
+                        "Nossa rota é ir além das entregas"
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="background: white; color: #667eea; padding: 15px 30px; border: none; border-radius: 25px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.3s;">
+                        Continuar Trabalhando
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(celebrationModal);
+            
+            // Remover modal após 10 segundos
+            setTimeout(() => {
+                if (document.body.contains(celebrationModal)) {
+                    document.body.removeChild(celebrationModal);
+                }
+            }, 10000);
+        }
+
+        // Verificar se há mensagem de sucesso para mostrar celebração
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    {% if category == 'success' and 'concluída' in message %}
+                        setTimeout(() => {
+                            showCelebration();
+                        }, 500);
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </script>
+
+    <style>
+        .confirmation-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 400px;
+            text-align: center;
+        }
+        .modal-buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            height: 80px;
+            resize: vertical;
+        }
+        @keyframes confetti-fall {
+            0% {
+                transform: translateY(-100vh) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+        @keyframes celebration-bounce {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</body>
+</html>

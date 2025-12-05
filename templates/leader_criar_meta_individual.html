@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar Meta Individual - Líder</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            color: #333;
+            margin: 0;
+        }
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .form-group textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .help-text {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
+        .meta-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .meta-info h4 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+        .meta-info p {
+            margin: 5px 0;
+            color: #666;
+        }
+        .member-selection {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .member-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .member-item:hover {
+            background: #e3f2fd;
+            border-left-color: #1976d2;
+        }
+        .member-item.selected {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        .member-item h4 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+        .member-meta {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .type-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 10px;
+        }
+        .type-option {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .type-option:hover {
+            border-color: #667eea;
+            background: #e3f2fd;
+        }
+        .type-option.selected {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        .type-option h5 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+        .type-option p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👤 Criar Meta Individual</h1>
+            <p>Crie metas específicas para cada membro do seu time</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="form-container">
+            <form method="POST">
+                <div class="form-group">
+                    <label for="team_id">Time *</label>
+                    <select id="team_id" name="team_id" required onchange="filterMembers()">
+                        <option value="">Selecione um time</option>
+                        {% for team in teams %}
+                        <option value="{{ team.id }}">{{ team.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="help-text">Escolha o time para o qual esta meta será criada</div>
+                </div>
+
+                <div class="member-selection">
+                    <h3>👥 Selecionar Membro do Time</h3>
+                    <div id="members-list">
+                        {% for membro in membros %}
+                        <div class="member-item" data-team="{{ membro.team_id }}" data-user="{{ membro.id }}" onclick="selectMember(this)">
+                            <h4>{{ membro.nome_completo }}</h4>
+                            <div class="member-meta">
+                                <strong>Time:</strong> {{ membro.team_name }} | 
+                                <strong>Departamento:</strong> {{ membro.departamento }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" id="user_id" name="user_id" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="titulo">Título da Meta *</label>
+                    <input type="text" id="titulo" name="titulo" required placeholder="Ex: Aumentar vendas em 20%">
+                    <div class="help-text">Nome claro e objetivo da meta</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="descricao">Descrição</label>
+                    <textarea id="descricao" name="descricao" placeholder="Descreva os detalhes da meta, objetivos específicos e critérios de sucesso..."></textarea>
+                    <div class="help-text">Detalhes sobre a meta e como será medida</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="tipo">Tipo de Meta *</label>
+                    <select id="tipo" name="tipo" required>
+                        <option value="">Selecione o tipo</option>
+                        <option value="diaria">Diária</option>
+                        <option value="semanal">Semanal</option>
+                        <option value="mensal">Mensal</option>
+                    </select>
+                    <div class="help-text">Período de duração da meta</div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="data_inicio">Data de Início *</label>
+                        <input type="date" id="data_inicio" name="data_inicio" required>
+                        <div class="help-text">Quando a meta começa</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="data_fim">Data de Fim *</label>
+                        <input type="date" id="data_fim" name="data_fim" required>
+                        <div class="help-text">Prazo para conclusão</div>
+                    </div>
+                </div>
+
+                <div class="meta-info">
+                    <h4>ℹ️ Informações sobre Metas Individuais</h4>
+                    <p><strong>Metas Diárias:</strong> Objetivos de curto prazo, ideal para acompanhamento detalhado</p>
+                    <p><strong>Metas Semanais:</strong> Objetivos de médio prazo, balance entre detalhamento e visão geral</p>
+                    <p><strong>Metas Mensais:</strong> Objetivos de longo prazo, visão estratégica e planejamento</p>
+                    <p><strong>Progresso:</strong> Será calculado automaticamente baseado nas tarefas criadas</p>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="{{ url_for('leader_metas') }}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-success">Criar Meta Individual</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let selectedMember = null;
+
+        function filterMembers() {
+            const teamId = document.getElementById('team_id').value;
+            const members = document.querySelectorAll('.member-item');
+            
+            members.forEach(member => {
+                if (teamId === '' || member.dataset.team === teamId) {
+                    member.style.display = 'block';
+                } else {
+                    member.style.display = 'none';
+                }
+            });
+        }
+
+        function selectMember(element) {
+            // Remover seleção anterior
+            document.querySelectorAll('.member-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Selecionar novo membro
+            element.classList.add('selected');
+            selectedMember = element.dataset.user;
+            document.getElementById('user_id').value = selectedMember;
+        }
+
+        // Validação de datas
+        document.getElementById('data_inicio').addEventListener('change', function() {
+            const dataInicio = new Date(this.value);
+            const dataFimInput = document.getElementById('data_fim');
+            
+            if (dataInicio) {
+                dataFimInput.min = this.value;
+                
+                // Se a data fim for anterior à data início, ajustar
+                if (dataFimInput.value && new Date(dataFimInput.value) < dataInicio) {
+                    dataFimInput.value = this.value;
+                }
+            }
+        });
+
+        // Validação do formulário
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const titulo = document.getElementById('titulo').value.trim();
+            const teamId = document.getElementById('team_id').value;
+            const userId = document.getElementById('user_id').value;
+            const tipo = document.getElementById('tipo').value;
+            const dataInicio = document.getElementById('data_inicio').value;
+            const dataFim = document.getElementById('data_fim').value;
+            
+            if (!titulo || !teamId || !userId || !tipo || !dataInicio || !dataFim) {
+                e.preventDefault();
+                alert('Todos os campos obrigatórios devem ser preenchidos!');
+                return;
+            }
+            
+            // Verificar se data fim é posterior à data início
+            if (new Date(dataFim) <= new Date(dataInicio)) {
+                e.preventDefault();
+                alert('A data de fim deve ser posterior à data de início!');
+                return;
+            }
+            
+            // Confirmar criação
+            if (!confirm('Tem certeza que deseja criar esta meta individual?')) {
+                e.preventDefault();
+            }
+        });
+
+        // Auto-preenchimento de datas baseado no tipo
+        document.getElementById('tipo').addEventListener('change', function() {
+            const hoje = new Date();
+            const dataInicioInput = document.getElementById('data_inicio');
+            const dataFimInput = document.getElementById('data_fim');
+            
+            if (this.value === 'diaria') {
+                dataInicioInput.value = hoje.toISOString().split('T')[0];
+                const fim = new Date(hoje);
+                fim.setDate(fim.getDate() + 1);
+                dataFimInput.value = fim.toISOString().split('T')[0];
+            } else if (this.value === 'semanal') {
+                dataInicioInput.value = hoje.toISOString().split('T')[0];
+                const fim = new Date(hoje);
+                fim.setDate(fim.getDate() + 7);
+                dataFimInput.value = fim.toISOString().split('T')[0];
+            } else if (this.value === 'mensal') {
+                dataInicioInput.value = hoje.toISOString().split('T')[0];
+                const fim = new Date(hoje);
+                fim.setMonth(fim.getMonth() + 1);
+                dataFimInput.value = fim.toISOString().split('T')[0];
+            }
+        });
+    </script>
+</body>
+</html>
