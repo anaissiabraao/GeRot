@@ -402,28 +402,60 @@ def seed_dashboards() -> None:
 
 
 def normalize_roles() -> None:
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            UPDATE users_new
-            SET role = 'admin'
-            WHERE role IN ('admin', 'admin_master')
-            """
-        )
-        cursor.execute(
-            """
-            UPDATE users_new
-            SET role = 'usuario'
-            WHERE role NOT IN ('admin')
-            """
-        )
-        conn.commit()
-    except Exception as exc:
-        print(f"[normalize_roles] Aviso: {exc}")
-    finally:
-        conn.close()
+    """Normaliza roles dos usuários com retry para evitar deadlocks"""
+    max_retries = 3
+    conn = None
+    for attempt in range(max_retries):
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            # Atualiza em ordem para reduzir deadlocks
+            cursor.execute(
+                """
+                UPDATE users_new
+                SET role = 'admin'
+                WHERE role IN ('admin', 'admin_master')
+                """
+            )
+            cursor.execute(
+                """
+                UPDATE users_new
+                SET role = 'usuario'
+                WHERE role NOT IN ('admin')
+                """
+            )
+            conn.commit()
+            conn.close()
+            return
+        except psycopg2.errors.DeadlockDetected:
+            if attempt < max_retries - 1:
+                import time
+                time.sleep(0.1 * (attempt + 1))  # Backoff exponencial
+                if conn:
+                    try:
+                        conn.rollback()
+                    except:
+                        pass
+                    conn.close()
+                continue
+            else:
+                app.logger.warning("[normalize_roles] Aviso: deadlock detected após múltiplas tentativas", exc_info=True)
+                if conn:
+                    try:
+                        conn.rollback()
+                    except:
+                        pass
+                    conn.close()
+                return
+        except Exception as exc:
+            app.logger.warning(f"[normalize_roles] Aviso: {exc}")
+            if conn:
+                try:
+                    conn.rollback()
+                except:
+                    pass
+                conn.close()
+            return
         
 
 def _determine_role_from_cargo(cargo: str | None) -> str:
