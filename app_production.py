@@ -206,6 +206,7 @@ def ensure_schema() -> None:
             departamento TEXT,
             role TEXT NOT NULL DEFAULT 'usuario',
             email TEXT,
+            nome_usuario TEXT,
             unidade TEXT,
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             first_login BOOLEAN NOT NULL DEFAULT TRUE,
@@ -213,6 +214,23 @@ def ensure_schema() -> None:
             updated_at TIMESTAMPTZ,
             last_login TIMESTAMPTZ
         );
+        """
+    )
+    
+    # Adicionar coluna nome_usuario se não existir (migration)
+    cursor.execute(
+        """
+        DO $$ 
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'users_new' AND column_name = 'nome_usuario'
+            ) THEN
+                ALTER TABLE users_new ADD COLUMN nome_usuario TEXT;
+                CREATE UNIQUE INDEX IF NOT EXISTS users_new_nome_usuario_unique
+                    ON users_new (LOWER(nome_usuario)) WHERE nome_usuario IS NOT NULL;
+            END IF;
+        END $$;
         """
     )
 
@@ -277,6 +295,78 @@ def ensure_schema() -> None:
 
     conn.commit()
     conn.close()
+    
+    # Criar usuário admin anaissiabraao se não existir
+    create_admin_user()
+
+
+def create_admin_user() -> None:
+    """Cria o usuário admin anaissiabraao com todos os privilégios"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verifica se o usuário já existe
+        cursor.execute(
+            """
+            SELECT id FROM users_new 
+            WHERE LOWER(username) = LOWER('anaissiabraao@gmail.com')
+               OR LOWER(nome_usuario) = LOWER('anaissiabraao')
+            """
+        )
+        existing = cursor.fetchone()
+        
+        if not existing:
+            # Cria senha padrão
+            temp_password = "admin123"  # Senha temporária, deve ser alterada no primeiro acesso
+            password_hash = bcrypt.hashpw(
+                temp_password.encode("utf-8"), bcrypt.gensalt()
+            )
+            
+            cursor.execute(
+                """
+                INSERT INTO users_new (
+                    username, password, nome_completo, cargo_original,
+                    departamento, role, email, nome_usuario, is_active, first_login
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (username) DO UPDATE SET
+                    nome_usuario = EXCLUDED.nome_usuario,
+                    role = EXCLUDED.role,
+                    is_active = EXCLUDED.is_active
+                """,
+                (
+                    "anaissiabraao@gmail.com",
+                    psycopg2.Binary(password_hash),
+                    "ABRAAO DE OLIVEIRA COSTA ANAISSI",
+                    "DIRETOR",
+                    "ADMINISTRATIVO",
+                    "admin",
+                    "anaissiabraao@portoex.com.br",
+                    "anaissiabraao",
+                    True,
+                    True,  # Primeiro acesso
+                ),
+            )
+            conn.commit()
+            app.logger.info("[ADMIN] Usuário admin anaissiabraao criado com sucesso")
+        else:
+            # Atualiza o usuário existente para garantir que é admin
+            cursor.execute(
+                """
+                UPDATE users_new
+                SET nome_usuario = 'anaissiabraao',
+                    role = 'admin',
+                    is_active = true
+                WHERE id = %s
+                """,
+                (existing["id"],),
+            )
+            conn.commit()
+            app.logger.info("[ADMIN] Usuário admin anaissiabraao atualizado")
+        
+        conn.close()
+    except Exception as exc:
+        app.logger.error(f"[ADMIN] Erro ao criar usuário admin: {exc}")
 
 
 def seed_dashboards() -> None:
@@ -718,15 +808,18 @@ def authenticate_user(identifier: str, password: str):
     try:
         conn = get_db()
         cursor = conn.cursor()
+        # Aceita email OU nome_usuario OU username
         cursor.execute(
             """
             SELECT id, username, password, nome_completo, cargo_original,
-                   departamento, role, email, first_login
+                   departamento, role, email, nome_usuario, first_login
             FROM users_new
-            WHERE (LOWER(username) = LOWER(%s) OR LOWER(email) = LOWER(%s))
+            WHERE (LOWER(username) = LOWER(%s) 
+                   OR LOWER(email) = LOWER(%s)
+                   OR LOWER(nome_usuario) = LOWER(%s))
               AND is_active = true
             """,
-            (identifier, identifier),
+            (identifier, identifier, identifier),
         )
         user = cursor.fetchone()
         conn.close()
@@ -741,6 +834,7 @@ def authenticate_user(identifier: str, password: str):
                 "departamento": user["departamento"],
                 "role": role,
                 "email": user["email"],
+                "nome_usuario": user.get("nome_usuario"),
                 "first_login": user["first_login"],
             }
         return None
@@ -749,20 +843,33 @@ def authenticate_user(identifier: str, password: str):
         return None
 
 
-def update_user_password(user_id: int, new_password: str) -> bool:
+def update_user_password(user_id: int, new_password: str, new_email: str = None) -> bool:
     try:
         conn = get_db()
         cursor = conn.cursor()
         password_hash = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt())
-        cursor.execute(
-            """
-            UPDATE users_new
-            SET password = %s, first_login = FALSE, updated_at = CURRENT_TIMESTAMP,
-                last_login = CURRENT_TIMESTAMP
-            WHERE id = %s
-            """,
-            (psycopg2.Binary(password_hash), user_id),
-        )
+        
+        # Se novo email fornecido e termina com @portoex.com.br, atualiza
+        if new_email and new_email.lower().endswith("@portoex.com.br"):
+            cursor.execute(
+                """
+                UPDATE users_new
+                SET password = %s, email = %s, first_login = FALSE, 
+                    updated_at = CURRENT_TIMESTAMP, last_login = CURRENT_TIMESTAMP
+                WHERE id = %s
+                """,
+                (psycopg2.Binary(password_hash), new_email.lower(), user_id),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE users_new
+                SET password = %s, first_login = FALSE, updated_at = CURRENT_TIMESTAMP,
+                    last_login = CURRENT_TIMESTAMP
+                WHERE id = %s
+                """,
+                (psycopg2.Binary(password_hash), user_id),
+            )
         conn.commit()
         conn.close()
         return True
@@ -830,7 +937,14 @@ def login():
                 user = get_user_by_id(user_id)
                 return render_template("first_login.html", user=user)
 
-            if update_user_password(user_id, new_password):
+            # Permite atualizar email no primeiro acesso se fornecido
+            new_email = request.form.get("new_email", "").strip()
+            if new_email and not new_email.lower().endswith("@portoex.com.br"):
+                flash("O email deve terminar com @portoex.com.br", "error")
+                user = get_user_by_id(user_id)
+                return render_template("first_login.html", user=user)
+            
+            if update_user_password(user_id, new_password, new_email if new_email else None):
                 user = get_user_by_id(user_id)
                 if user:
                     session.update(
@@ -861,6 +975,31 @@ def login():
         password = request.form.get("password", "").strip()
 
         if identifier and password:
+            # Validação de email: deve ser @portoex.com.br, exceto no primeiro acesso
+            if "@" in identifier:
+                # Verifica se é email e se termina com @portoex.com.br
+                if not identifier.lower().endswith("@portoex.com.br"):
+                    # Verifica se é primeiro acesso (usuário existe e tem first_login=True)
+                    conn = get_db()
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """
+                        SELECT first_login FROM users_new
+                        WHERE LOWER(email) = LOWER(%s) AND is_active = true
+                        """,
+                        (identifier,),
+                    )
+                    user_check = cursor.fetchone()
+                    conn.close()
+                    
+                    # Se não existe ou não é primeiro acesso, bloqueia
+                    if not user_check or not user_check["first_login"]:
+                        flash(
+                            "Use um email @portoex.com.br para acessar o sistema.",
+                            "error",
+                        )
+                        return render_template("enterprise_login.html")
+            
             user = authenticate_user(identifier, password)
             if user:
                 if user["first_login"]:
