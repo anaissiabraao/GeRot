@@ -1146,16 +1146,16 @@ def admin_dashboard():
 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM users_new WHERE is_active = true")
-    total_users = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) as count FROM users_new WHERE is_active = true")
+    total_users = cursor.fetchone()["count"]
     cursor.execute(
-        "SELECT COUNT(*) FROM users_new WHERE is_active = true AND role = 'admin'"
+        "SELECT COUNT(*) as count FROM users_new WHERE is_active = true AND role = 'admin'"
     )
-    total_admins = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM dashboards WHERE is_active = true")
-    active_dashboards = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM user_dashboards")
-    total_assignments = cursor.fetchone()[0]
+    total_admins = cursor.fetchone()["count"]
+    cursor.execute("SELECT COUNT(*) as count FROM dashboards WHERE is_active = true")
+    active_dashboards = cursor.fetchone()["count"]
+    cursor.execute("SELECT COUNT(*) as count FROM user_dashboards")
+    total_assignments = cursor.fetchone()["count"]
     cursor.execute(
         "SELECT status, created_at FROM planner_sync_logs ORDER BY created_at DESC LIMIT 1"
     )
