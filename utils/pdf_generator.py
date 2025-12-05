@@ -1,4 +1,4 @@
-from fpdf import FPDF
+from fpdf2 import FPDF
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import io
