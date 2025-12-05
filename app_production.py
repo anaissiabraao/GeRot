@@ -286,7 +286,7 @@ def seed_dashboards() -> None:
         cursor.execute(
             """
             INSERT INTO dashboards (slug, title, description, category, embed_url, display_order, is_active)
-            VALUES (%s, %s, %s, %s, %s, %s, 1)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT(slug) DO UPDATE SET
                 title=excluded.title,
                 description=excluded.description,
@@ -302,6 +302,7 @@ def seed_dashboards() -> None:
                 dash["category"],
                 dash["embed_url"],
                 dash["display_order"],
+                True,  # is_active como boolean
             ),
         )
 
