@@ -1232,6 +1232,127 @@ def admin_users():
         conn.close()
 
 
+@app.route("/admin/users/add", methods=["POST"])
+@login_required
+@admin_required
+def add_user():
+    """Adiciona um novo usuário"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        nome_completo = request.form.get("nome_completo", "").strip()
+        email = request.form.get("email", "").strip()
+        nome_usuario = request.form.get("nome_usuario", "").strip()
+        role = request.form.get("role", "usuario").strip()
+        password = request.form.get("password", "").strip()
+        departamento = request.form.get("departamento", "").strip()
+        cargo_original = request.form.get("cargo_original", "").strip()
+        
+        if not nome_completo or not email:
+            flash("Nome completo e email são obrigatórios.", "error")
+            return redirect(url_for("admin_users"))
+        
+        # Valida email
+        if not email.lower().endswith("@portoex.com.br"):
+            flash("O email deve terminar com @portoex.com.br", "error")
+            return redirect(url_for("admin_users"))
+        
+        # Gera senha padrão se não fornecida
+        if not password:
+            password = "portoex123"  # Senha padrão
+            first_login = True
+        else:
+            first_login = False
+        
+        # Verifica se email já existe
+        cursor.execute("SELECT id FROM users_new WHERE LOWER(email) = LOWER(%s)", (email,))
+        if cursor.fetchone():
+            flash("Email já cadastrado.", "error")
+            return redirect(url_for("admin_users"))
+        
+        # Verifica se nome_usuario já existe (se fornecido)
+        if nome_usuario:
+            cursor.execute("SELECT id FROM users_new WHERE LOWER(nome_usuario) = LOWER(%s)", (nome_usuario,))
+            if cursor.fetchone():
+                flash("Nome de usuário já cadastrado.", "error")
+                return redirect(url_for("admin_users"))
+        
+        # Hash da senha
+        password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
+        username = email.lower()
+        
+        # Insere usuário
+        cursor.execute(
+            """
+            INSERT INTO users_new (
+                username, password, nome_completo, email, nome_usuario,
+                role, departamento, cargo_original, is_active, first_login
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                username,
+                psycopg2.Binary(password_hash),
+                nome_completo,
+                email.lower(),
+                nome_usuario.lower() if nome_usuario else None,
+                role if role in ["admin", "usuario"] else "usuario",
+                departamento or None,
+                cargo_original or None,
+                True,
+                first_login,
+            ),
+        )
+        conn.commit()
+        flash("Usuário adicionado com sucesso!", "success")
+        return redirect(url_for("admin_users"))
+    except Exception as exc:
+        conn.rollback()
+        app.logger.error(f"Erro ao adicionar usuário: {exc}", exc_info=True)
+        flash(f"Erro ao adicionar usuário: {exc}", "error")
+        return redirect(url_for("admin_users"))
+    finally:
+        conn.close()
+
+
+@app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def delete_user(user_id):
+    """Exclui um usuário (soft delete - desativa)"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Verifica se o usuário existe
+        cursor.execute("SELECT id, nome_completo FROM users_new WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            flash("Usuário não encontrado.", "error")
+            return redirect(url_for("admin_users"))
+        
+        # Não permite excluir a si mesmo
+        if user_id == session.get("user_id"):
+            flash("Você não pode excluir seu próprio usuário.", "error")
+            return redirect(url_for("admin_users"))
+        
+        # Soft delete - desativa o usuário
+        cursor.execute(
+            "UPDATE users_new SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+            (user_id,),
+        )
+        conn.commit()
+        flash(f"Usuário {user['nome_completo']} foi desativado com sucesso!", "success")
+        return redirect(url_for("admin_users"))
+    except Exception as exc:
+        conn.rollback()
+        app.logger.error(f"Erro ao excluir usuário: {exc}", exc_info=True)
+        flash(f"Erro ao excluir usuário: {exc}", "error")
+        return redirect(url_for("admin_users"))
+    finally:
+        conn.close()
+
+
 @app.route("/admin/users/<int:user_id>/update", methods=["POST"])
 @login_required
 @admin_required
