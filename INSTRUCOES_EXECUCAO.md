@@ -1,287 +1,163 @@
-# 🚀 Instruções de Execução - GeRot
+# 🚀 Instruções de Execução – GeRot (2025)
 
-## 📋 Pré-requisitos
+Este guia consolida o passo a passo para subir o novo portal corporativo (`app_production.py`), preparando banco, variáveis de ambiente e rotinas de validação.
 
-- Python 3.8 ou superior
-- pip (gerenciador de pacotes Python)
-- Git (para clonar o repositório)
+## 1. Pré-requisitos
+- Python 3.10+ (3.11 recomendado)
+- `pip` e ferramentas de compilação (Build Tools / build-essential)
+- Banco PostgreSQL acessível (Supabase, Render, RDS ou local)
+- Credenciais Azure AD (apenas para a sincronização com Microsoft Planner)
+- Docker (opcional)
 
-## 🛠️ Instalação e Configuração
-
-### 1. Clonar o Repositório
+## 2. Clonar e configurar o ambiente
 ```bash
 git clone https://github.com/anaissiabraao/GeRot.git
 cd GeRot
-```
-
-### 2. Criar Ambiente Virtual
-```bash
-# Windows
-python -m venv venv
-venv\Scripts\activate
-
-# Linux/Mac
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Instalar Dependências
-```bash
+python -m venv .venv
+.venv\Scripts\activate    # Windows
+# ou
+source .venv/bin/activate # Linux/Mac
 pip install -r requirements.txt
 ```
 
-### 4. Configurar Variáveis de Ambiente
+## 3. Variáveis de ambiente
+Use `env.render` como base e crie um `.env` (ou exporte variáveis manualmente).
+
+| Variável | Obrigatória? | Descrição |
+| --- | --- | --- |
+| `SECRET_KEY` | ✅ | Chave Flask usada para sessões e CSRF. |
+| `DATABASE_URL` | ✅ | String de conexão (pooler/PgBouncer). |
+| `DIRECT_URL` | ⚠️ | Conexão direta (porta 5432) para scripts administrativos. |
+| `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_PLANNER_PLAN_ID`, `MS_PLANNER_BUCKET_ID` | Opcional | Necessárias apenas para habilitar o botão “Enviar agenda ao Planner”. |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Opcional | Mantidos para integrações externas/monitoramento. |
+| `PORT`, `GUNICORN_WORKERS` | Opcional | Utilizados no Docker/Render. |
+
+Exemplo de `.env`:
+```
+SECRET_KEY=troque-esta-chave
+DATABASE_URL=postgresql://user:senha@host:6543/postgres?pgbouncer=true
+DIRECT_URL=postgresql://user:senha@host:5432/postgres
+MS_TENANT_ID=...
+PORT=5000
+```
+
+## 4. Preparando o banco
+`app_production.py` cria/atualiza as tabelas automaticamente (`users_new`, `dashboards`, `user_dashboards`, `planner_sync_logs`). Mesmo assim, você precisa inserir pelo menos um usuário e revisar os dashboards.
+
+### 4.1 Criar administrador inicial
 ```bash
-# Copiar arquivo de exemplo
-cp .env.example .env
-
-# Editar as configurações conforme necessário
-```
-
-### 5. Inicializar Banco de Dados
-```bash
-python -c "from utils.database import init_db; init_db()"
-```
-
-## ▶️ Executando a Aplicação
-
-### Modo Desenvolvimento
-```bash
-python app_new.py
-```
-
-### Modo Produção
-```bash
-gunicorn -c gunicorn.conf.py app_new:app
-```
-
-### Usando Flask CLI
-```bash
-export FLASK_APP=app_new.py
-export FLASK_ENV=development
-flask run
-```
-
-## 🌐 Acessando a Aplicação
-
-- **URL Local**: http://localhost:5000
-- **Login Administrativo**:
-  - Usuário: `admin`
-  - Senha: `admin123`
-
-## 🏗️ Estrutura do Projeto
-
-```
-GeRot/
-├── app_new.py              # Aplicação principal Flask
-├── config.py               # Configurações
-├── requirements.txt        # Dependências Python
-├── models/                 # Modelos de dados
-│   ├── __init__.py
-│   ├── user.py            # Modelo de usuário
-│   ├── routine.py         # Modelo de rotina
-│   ├── sector.py          # Modelo de setor
-│   └── log.py             # Modelo de logs
-├── views/                  # Controladores (Blueprints)
-│   ├── __init__.py
-│   ├── auth.py            # Autenticação
-│   ├── admin.py           # Rotas administrativas
-│   └── team.py            # Rotas da equipe
-├── utils/                  # Utilitários
-│   ├── __init__.py
-│   ├── database.py        # Configuração do BD
-│   ├── pdf_generator.py   # Geração de PDFs
-│   └── logger.py          # Sistema de logs
-├── static/                 # Arquivos estáticos
-│   ├── css/
-│   │   └── style.css      # CSS principal
-│   ├── js/
-│   │   └── app.js         # JavaScript principal
-│   └── images/
-├── templates/              # Templates HTML
-│   ├── base.html          # Template base
-│   ├── auth/              # Templates de autenticação
-│   │   └── login.html
-│   ├── admin/             # Templates administrativos
-│   └── team/              # Templates da equipe
-└── docs/                   # Documentação
-    ├── API.md             # Documentação da API
-    └── DEPLOYMENT.md      # Guia de deploy
-```
-
-## 🔧 Comandos Úteis
-
-### Backup do Banco de Dados
-```python
-from utils.database import backup_database
-backup_database()
-```
-
-### Verificar Logs
-```bash
-tail -f logs/gerot.log
-```
-
-### Estatísticas do Sistema
-```python
-from utils.database import get_db_stats
-stats = get_db_stats()
-print(stats)
-```
-
-### Criar Usuário Administrativo
-```python
-from models.user import User
-from utils.database import connect_db
-
-conn = connect_db()
-admin = User(
-    username='novo_admin',
-    password=User.hash_password('senha123'),
-    role='manager',
-    sector_id=1
+python - <<'PY'
+import os, psycopg2, bcrypt
+dsn = os.getenv("DIRECT_URL") or os.getenv("DATABASE_URL")
+conn = psycopg2.connect(dsn)
+cursor = conn.cursor()
+password = bcrypt.hashpw("Admin#2025".encode(), bcrypt.gensalt())
+cursor.execute(
+    """
+    INSERT INTO users_new (username, password, nome_completo, cargo_original,
+                           departamento, role, email, unidade, first_login)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+    ON CONFLICT (LOWER(username)) DO NOTHING
+    """,
+    (
+        "admin.master",
+        psycopg2.Binary(password),
+        "Administrador Master",
+        "Diretoria",
+        "Executivo",
+        "admin",
+        "admin.master@portoex.com.br",
+        "Matriz",
+    ),
 )
-admin.save(conn)
+conn.commit()
 conn.close()
+PY
 ```
+O primeiro acesso obrigará a troca de senha (flag `first_login = TRUE`).
 
-## 📱 Funcionalidades Principais
+### 4.2 Dashboards
+`seed_dashboards()` garante que os registros listados em `DEFAULT_DASHBOARDS` existam. Para adicionar itens customizados, insira diretamente na tabela `dashboards` ou edite a lista no código e reinicie a aplicação.
 
-### Interface Administrativa
-- **Dashboard**: Visão geral do sistema
-- **Gestão de Usuários**: CRUD completo
-- **Gestão de Setores**: Organização por departamentos
-- **Criação de Rotinas**: Definição de horários e tarefas
-- **Relatórios**: Geração de PDFs com gráficos
-- **Logs**: Monitoramento de atividades
-
-### Interface da Equipe
-- **Dashboard Pessoal**: Tarefas do dia
-- **Checklist Interativo**: Marcar conclusão de tarefas
-- **Calendário**: Visualização mensal de rotinas
-- **Horários**: Cronograma diário detalhado
-- **Intervalos**: Categorização de pausas
-
-## 🎨 Recursos Visuais
-
-### Design Moderno
-- Interface responsiva (mobile-first)
-- Tema claro com cores vibrantes
-- Ícones Font Awesome
-- Animações CSS suaves
-- Sidebar retrátil
-
-### UX/UI Features
-- Feedback visual em tempo real
-- Loading states
-- Notificações toast
-- Modais interativos
-- Formulários com validação
-
-## 📊 Relatórios e Analytics
-
-### PDFs com Gráficos
-- Relatórios de produtividade individual
-- Comparativos por setor
-- Gráficos de conclusão diária
-- Estatísticas de performance
-
-### Dados Exportáveis
-- CSV de tarefas
-- JSON de relatórios
-- Backup do banco de dados
-
-## 🔐 Segurança
-
-### Autenticação
-- Hash de senhas com bcrypt
-- Sessões Flask seguras
-- Validação de permissões por role
-
-### Logs de Auditoria
-- Registro de todas as ações
-- IP e User-Agent tracking
-- Histórico de modificações
-
-## 🚀 Deploy em Produção
-
-### Usando Gunicorn
+## 5. Execução local
 ```bash
-gunicorn -w 4 -b 0.0.0.0:8000 app_new:app
+python app_production.py
+# aplica seed/migrações e sobe em http://localhost:5000
 ```
+Reinicie sempre que alterar variáveis ou a lista de dashboards padrão.
 
-### Com Nginx (reverso proxy)
-```nginx
-server {
-    listen 80;
-    server_name yourdomain.com;
-    
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-### Docker (Opcional)
-```dockerfile
-FROM python:3.9-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-EXPOSE 5000
-CMD ["python", "app_new.py"]
-```
-
-## 🐛 Troubleshooting
-
-### Problemas Comuns
-
-#### Erro de Importação de Módulos
+## 6. Executar com Gunicorn (produção sem Docker)
 ```bash
-# Verificar se está no ambiente virtual
-pip list
-# Reinstalar dependências
-pip install -r requirements.txt --force-reinstall
+export DATABASE_URL=...
+export SECRET_KEY=...
+gunicorn -w 4 -k sync -b 0.0.0.0:5000 app_production:app
 ```
+Sugestão de serviço systemd incluída no README.
 
-#### Banco de Dados Não Encontrado
-```python
-# Recriar banco de dados
-from utils.database import init_db
-init_db()
-```
-
-#### Porta Já Em Uso
+## 7. Docker
 ```bash
-# Matar processo na porta 5000
-# Windows
-netstat -ano | findstr :5000
-taskkill /PID <PID> /F
-
-# Linux/Mac
-lsof -ti:5000 | xargs kill -9
+docker build -t gerot-app .
+docker run --env-file .env -p 5000:5000 gerot-app
 ```
+O `Dockerfile` instala dependências e executa `gunicorn -w ${GUNICORN_WORKERS:-4} -b 0.0.0.0:${PORT:-5000} app_production:app`.
 
-## 📞 Suporte
+## 8. Render.com
+1. Crie um Web Service “Docker” apontando para este repositório.
+2. Garanta que `render.yaml` esteja selecionado (ou configure manualmente).
+3. Cole as variáveis (você pode reaproveitar `env.render`).  
+4. Faça deploy e verifique os logs – os seeds aparecem no boot.
 
-- **GitHub Issues**: https://github.com/anaissiabraao/GeRot/issues
-- **Email**: anaissiabraao@email.com
-- **Documentação**: `/docs/`
+## 9. Fluxos pós-deploy
+1. Login em `/login` com o admin criado.
+2. Acesse `/admin/dashboard` e:
+   - Confirme estatísticas (usuários/dashboards).
+   - Escolha um usuário e marque os dashboards desejados.
+3. Logue como usuário comum e valide `/dashboards` (somente itens liberados).
+4. (Opcional) Configure as variáveis `MS_*` e clique em “Enviar agenda ao Planner” para gerar tarefas; verifique `planner_sync_logs`.
+5. API: `curl https://SEU_HOST/api/users` deve retornar JSON com usuários ativos.
 
-## 🔄 Atualizações
+## 10. Scripts úteis
+- **Consultar usuários ativos**
+  ```bash
+  psql "$DIRECT_URL" -c "SELECT id, username, role, email FROM users_new WHERE is_active = true;"
+  ```
+- **Resetar senha (mantém flag first_login)**
+  ```bash
+  python - <<'PY'
+  import os, psycopg2, bcrypt
+  conn = psycopg2.connect(os.getenv("DIRECT_URL"))
+  cursor = conn.cursor()
+  cursor.execute(
+      "UPDATE users_new SET password=%s, first_login=TRUE WHERE username=%s",
+      (psycopg2.Binary(bcrypt.hashpw('NovaSenha#1'.encode(), bcrypt.gensalt())), 'operador.sc'),
+  )
+  conn.commit()
+  conn.close()
+  PY
+  ```
+- **Logs do Planner**
+  ```sql
+  SELECT user_name, dashboard_count, status, message, created_at
+  FROM planner_sync_logs
+  ORDER BY created_at DESC LIMIT 20;
+  ```
 
-Para atualizar o sistema:
+## 11. Troubleshooting
+| Sintoma | Diagnóstico | Correção |
+| --- | --- | --- |
+| `RuntimeError: DATABASE_URL não configurada` | Variáveis ausentes | Exporte `DATABASE_URL` (ou `SUPABASE_DB_URL`). |
+| Login falha mesmo com usuário criado | Hash inválido ou campo `is_active = false` | Recrie com o snippet da seção 4.1 e confirme `is_active`. |
+| Botão “Enviar agenda ao Planner” desabilitado | Variáveis `MS_*` vazias | Configure todas as credenciais do Azure AD. |
+| `psycopg2.OperationalError: timeout` | IP não autorizado no Supabase/Render | Libere o IP ou use a URL do pooler (`...6543?...pgbouncer=true`). |
+| Arquivos estáticos quebrados após deploy | Build incompleto | Refaça o deploy garantindo que `static/` e `templates/` foram copiados. |
 
-```bash
-git pull origin main
-pip install -r requirements.txt --upgrade
-# Executar migrações se necessário
-python -c "from utils.database import init_db; init_db()"
-```
+## 12. Checklist antes do commit/PR
+- README, este guia e `USUARIOS_TESTE.md` atualizados.
+- `.env` e outros segredos fora do versionamento.
+- Scripts que manipulam banco usando `DIRECT_URL`.
+- Testes locais executados (`python app_production.py`) sem stack traces.
+- Caso utilize o Planner, validação prévia no Azure (aplicação registrada + permissões Graph).
 
 ---
+Qualquer divergência entre código e documentação deve ser registrada em uma issue ou PR para manter o repositório alinhado. 😉
 
-✨ **GeRot v1.0.0** - Sistema de Gerenciamento de Rotinas Empresariais 
