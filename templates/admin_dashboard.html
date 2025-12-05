@@ -356,6 +356,13 @@
                                 <h4>{{ dash.title }}</h4>
                                 <p style="color: var(--muted); font-size: 0.9rem;">{{ dash.description }}</p>
                             </label>
+                            <div style="margin-top: 0.5rem;">
+                                <a href="{{ url_for('admin_add_dashboard', dashboard_id=dash.id) }}" 
+                                   class="btn btn-outline" 
+                                   style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">
+                                    ✏️ Editar
+                                </a>
+                            </div>
                         </div>
                     {% endfor %}
                 </div>
