@@ -12,6 +12,7 @@ from flask import (
     jsonify,
     request,
     flash,
+    send_from_directory,
 )
 from flask_cors import CORS
 from flask_restful import Api, Resource
@@ -1594,7 +1595,11 @@ def admin_add_dashboard():
 @app.route("/favicon.ico")
 def favicon():
     """Serve o favicon"""
-    return redirect(url_for("static", filename="test_favicon.ico"))
+    return send_from_directory(
+        app.static_folder,
+        "test_favicon.ico",
+        mimetype="image/x-icon"
+    )
 
 
 @app.route("/team/dashboard")
