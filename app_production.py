@@ -848,7 +848,7 @@ def authenticate_user(identifier: str, password: str):
             FROM users_new
             WHERE (LOWER(username) = LOWER(%s) 
                    OR LOWER(email) = LOWER(%s)
-                   OR LOWER(nome_usuario) = LOWER(%s))
+                   OR (nome_usuario IS NOT NULL AND LOWER(nome_usuario) = LOWER(%s)))
               AND is_active = true
             """,
             (identifier, identifier, identifier),
@@ -1007,33 +1007,24 @@ def login():
         password = request.form.get("password", "").strip()
 
         if identifier and password:
-            # Validação de email: deve ser @portoex.com.br, exceto no primeiro acesso
-            if "@" in identifier:
-                # Verifica se é email e se termina com @portoex.com.br
-                if not identifier.lower().endswith("@portoex.com.br"):
-                    # Verifica se é primeiro acesso (usuário existe e tem first_login=True)
-                    conn = get_db()
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        """
-                        SELECT first_login FROM users_new
-                        WHERE LOWER(email) = LOWER(%s) AND is_active = true
-                        """,
-                        (identifier,),
-                    )
-                    user_check = cursor.fetchone()
-                    conn.close()
-                    
-                    # Se não existe ou não é primeiro acesso, bloqueia
-                    if not user_check or not user_check["first_login"]:
-                        flash(
-                            "Use um email @portoex.com.br para acessar o sistema.",
-                            "error",
-                        )
-                        return render_template("enterprise_login.html")
-            
+            # Primeiro tenta autenticar
             user = authenticate_user(identifier, password)
+            
             if user:
+                # Se autenticou, verifica validação de email (exceto primeiro acesso)
+                if not user["first_login"] and "@" in identifier:
+                    # Se não é primeiro acesso e o email usado não termina com @portoex.com.br
+                    if not identifier.lower().endswith("@portoex.com.br"):
+                        # Verifica se o email do usuário no banco termina com @portoex.com.br
+                        user_email = user.get("email", "").lower()
+                        if user_email and not user_email.endswith("@portoex.com.br"):
+                            flash(
+                                "Use um email @portoex.com.br para acessar o sistema. "
+                                "Se este é seu primeiro acesso, use seu email pessoal para definir a senha.",
+                                "error",
+                            )
+                            return render_template("enterprise_login.html")
+                
                 if user["first_login"]:
                     session["temp_user_id"] = user["id"]
                     flash(
@@ -1054,7 +1045,8 @@ def login():
                 )
                 flash(f"Bem-vindo de volta, {user['nome_completo']}!", "success")
                 return redirect(url_for("index"))
-            flash("Usuário ou senha incorretos!", "error")
+            else:
+                flash("Usuário ou senha incorretos!", "error")
         else:
             flash("Por favor, informe usuário/email e senha.", "error")
 
