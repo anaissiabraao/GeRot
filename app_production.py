@@ -1809,6 +1809,42 @@ def room_booking_detail_api(booking_id):
         conn.close()
 
 
+@app.route("/api/3d-model/<model_type>")
+def proxy_3d_model(model_type):
+    """Proxy para servir modelos 3D do GitHub Releases sem problemas de CORS"""
+    import requests
+    
+    urls = {
+        'glb': 'https://github.com/anaissiabraao/GeRot/releases/download/v1.0-3d-models/Cd_front_12_50_53.glb',
+        'fbx': 'https://github.com/anaissiabraao/GeRot/releases/download/v1.0-3d-models/Cd_front_12_10_17.fbx'
+    }
+    
+    if model_type not in urls:
+        return jsonify({"error": "Modelo inválido"}), 404
+    
+    try:
+        # Fazer requisição para o GitHub
+        response = requests.get(urls[model_type], stream=True, timeout=30)
+        
+        if response.status_code == 200:
+            # Retornar o arquivo com headers CORS corretos
+            from flask import Response
+            return Response(
+                response.iter_content(chunk_size=8192),
+                content_type=response.headers.get('content-type', 'application/octet-stream'),
+                headers={
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Length': response.headers.get('content-length', ''),
+                    'Cache-Control': 'public, max-age=86400'
+                }
+            )
+        else:
+            return jsonify({"error": "Arquivo não encontrado no GitHub"}), 404
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # --------------------------------------------------------------------------- #
 # API pública básica
 # --------------------------------------------------------------------------- #

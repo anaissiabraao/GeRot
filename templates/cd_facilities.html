@@ -548,7 +548,7 @@
         if (type === 'glb') {
             const loader = new GLTFLoader();
             loader.load(
-                'https://github.com/anaissiabraao/GeRot/releases/download/v1.0-3d-models/Cd_front_12_50_53.glb',
+                '/api/3d-model/glb',
                 function(gltf) {
                     currentModel = gltf.scene;
                     scene.add(currentModel);
@@ -576,7 +576,7 @@
         } else {
             const loader = new FBXLoader();
             loader.load(
-                'https://github.com/anaissiabraao/GeRot/releases/download/v1.0-3d-models/Cd_front_12_10_17.fbx',
+                '/api/3d-model/fbx',
                 function(fbx) {
                     currentModel = fbx;
                     scene.add(currentModel);
