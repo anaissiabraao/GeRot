@@ -1812,8 +1812,8 @@ def room_booking_detail_api(booking_id):
 
 @app.route("/api/3d-model/<model_type>")
 def proxy_3d_model(model_type):
-    """Proxy para servir modelos 3D do GitHub Releases sem problemas de CORS"""
-    app.logger.info(f"[3D PROXY] Requisitando modelo: {model_type}")
+    """Redireciona para modelos 3D do GitHub Releases (evita timeout em arquivos grandes)"""
+    app.logger.info(f"[3D REDIRECT] Redirecionando para modelo: {model_type}")
     
     urls = {
         'glb': 'https://github.com/anaissiabraao/GeRot/releases/download/v1.0-3d-models/Cd_front_12_50_53.glb',
@@ -1821,29 +1821,13 @@ def proxy_3d_model(model_type):
     }
     
     if model_type not in urls:
+        app.logger.error(f"[3D REDIRECT] Modelo inválido: {model_type}")
         return jsonify({"error": "Modelo inválido"}), 404
     
-    try:
-        # Fazer requisição para o GitHub
-        response = requests.get(urls[model_type], stream=True, timeout=30)
-        
-        if response.status_code == 200:
-            # Retornar o arquivo com headers CORS corretos
-            from flask import Response
-            return Response(
-                response.iter_content(chunk_size=8192),
-                content_type=response.headers.get('content-type', 'application/octet-stream'),
-                headers={
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Length': response.headers.get('content-length', ''),
-                    'Cache-Control': 'public, max-age=86400'
-                }
-            )
-        else:
-            return jsonify({"error": "Arquivo não encontrado no GitHub"}), 404
-            
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    # Redirecionar diretamente para o GitHub Releases (302)
+    # Isso evita timeouts e erros de protocolo em arquivos grandes (>100MB)
+    app.logger.info(f"[3D REDIRECT] URL destino: {urls[model_type]}")
+    return redirect(urls[model_type], code=302)
 
 
 # --------------------------------------------------------------------------- #
