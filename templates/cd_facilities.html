@@ -482,12 +482,21 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/loaders/FBXLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/controls/OrbitControls.js"></script>
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
 
-<script>
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
     let scene, camera, renderer, controls, currentModel;
     let currentModelType = 'glb';
     let wireframeMode = false;
@@ -506,7 +515,7 @@
         renderer.shadowMap.enabled = true;
         container.appendChild(renderer.domElement);
         
-        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         
@@ -537,7 +546,7 @@
         }
         
         if (type === 'glb') {
-            const loader = new THREE.GLTFLoader();
+            const loader = new GLTFLoader();
             loader.load(
                 '/static/docs/Cd_front_12_50_53.glb',
                 function(gltf) {
@@ -555,7 +564,7 @@
                 }
             );
         } else {
-            const loader = new THREE.FBXLoader();
+            const loader = new FBXLoader();
             loader.load(
                 '/static/docs/Cd_front_12_10_17.fbx',
                 function(fbx) {
@@ -743,6 +752,15 @@
     function editBooking(id) {
         alert('Funcionalidade de edição em desenvolvimento. ID: ' + id);
     }
+
+    // Expor funções globalmente para serem acessíveis pelos botões HTML
+    window.switchTab = switchTab;
+    window.resetCamera = resetCamera;
+    window.toggleWireframe = toggleWireframe;
+    window.switchModel = switchModel;
+    window.submitBooking = submitBooking;
+    window.deleteBooking = deleteBooking;
+    window.editBooking = editBooking;
 
     document.getElementById('date').min = new Date().toISOString().split('T')[0];
     
