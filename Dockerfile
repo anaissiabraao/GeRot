@@ -17,5 +17,5 @@ COPY . .
 
 ENV PORT=5000
 
-CMD ["sh", "-c", "gunicorn -w ${GUNICORN_WORKERS:-4} -k sync -b 0.0.0.0:${PORT:-5000} app_production:app"]
+CMD ["sh", "-c", "gunicorn -w ${GUNICORN_WORKERS:-4} -k sync -b 0.0.0.0:${PORT:-5000} --timeout 300 --keep-alive 5 --graceful-timeout 300 app_production:app"]
 
