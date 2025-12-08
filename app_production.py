@@ -27,6 +27,7 @@ import psycopg2.errors
 from datetime import datetime, date, timedelta
 from functools import wraps
 from typing import Dict, List, Tuple
+import requests
 
 from openpyxl import load_workbook
 
@@ -1812,7 +1813,7 @@ def room_booking_detail_api(booking_id):
 @app.route("/api/3d-model/<model_type>")
 def proxy_3d_model(model_type):
     """Proxy para servir modelos 3D do GitHub Releases sem problemas de CORS"""
-    import requests
+    app.logger.info(f"[3D PROXY] Requisitando modelo: {model_type}")
     
     urls = {
         'glb': 'https://github.com/anaissiabraao/GeRot/releases/download/v1.0-3d-models/Cd_front_12_50_53.glb',
