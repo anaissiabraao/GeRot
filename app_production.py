@@ -1638,6 +1638,13 @@ def team_dashboard():
     )
 
 
+@app.route("/cd/facilities")
+@login_required
+def cd_facilities():
+    """Página para visualizar planta do CD e agendar salas de reunião"""
+    return render_template("cd_facilities.html")
+
+
 # --------------------------------------------------------------------------- #
 # API pública básica
 # --------------------------------------------------------------------------- #

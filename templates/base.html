@@ -89,6 +89,9 @@
                 <a href="{{ url_for('admin.logs') }}" class="sidebar-item {% if request.endpoint == 'admin.logs' %}active{% endif %}">
                     <i class="fas fa-history"></i> Logs
                 </a>
+                <a href="{{ url_for('cd_facilities') }}" class="sidebar-item {% if request.endpoint == 'cd_facilities' %}active{% endif %}">
+                    <i class="fas fa-building"></i> Instalações do CD
+                </a>
             {% else %}
                 <!-- Menu Equipe -->
                 <a href="{{ url_for('team.dashboard') }}" class="sidebar-item {% if request.endpoint == 'team.dashboard' %}active{% endif %}">
@@ -102,6 +105,9 @@
                 </a>
                 <a href="{{ url_for('team.schedule') }}" class="sidebar-item {% if request.endpoint == 'team.schedule' %}active{% endif %}">
                     <i class="fas fa-clock"></i> Horários
+                </a>
+                <a href="{{ url_for('cd_facilities') }}" class="sidebar-item {% if request.endpoint == 'cd_facilities' %}active{% endif %}">
+                    <i class="fas fa-building"></i> Instalações do CD
                 </a>
             {% endif %}
         </nav>

@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+
+{% block title %}Planta do CD e Agendamento - GeRot{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tabs-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin: 2rem 0;
+        overflow: hidden;
+    }
+
+    .tabs-header {
+        display: flex;
+        border-bottom: 2px solid #e5e7eb;
+        background: #f9fafb;
+    }
+
+    .tab-button {
+        flex: 1;
+        padding: 1.25rem 2rem;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #6b7280;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .tab-button:hover {
+        background: #f3f4f6;
+        color: #374151;
+    }
+
+    .tab-button.active {
+        color: #2563eb;
+        background: white;
+    }
+
+    .tab-button.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #2563eb;
+    }
+
+    .tab-content {
+        display: none;
+        padding: 2rem;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .floorplan-container {
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .floorplan-viewer {
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 2rem;
+        background: #f9fafb;
+        min-height: 500px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    .floorplan-placeholder {
+        color: #9ca3af;
+        font-size: 1.1rem;
+    }
+
+    .upload-section {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background: white;
+        border: 2px dashed #d1d5db;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .upload-btn {
+        background: #2563eb;
+        color: white;
+        padding: 0.75rem 2rem;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        margin-top: 1rem;
+    }
+
+    .upload-btn:hover {
+        background: #1d4ed8;
+    }
+
+    .schedule-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .schedule-form {
+        background: #f9fafb;
+        padding: 2rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #374151;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 1rem;
+        transition: border-color 0.3s ease;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .submit-btn {
+        background: #10b981;
+        color: white;
+        padding: 0.875rem 2rem;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 1rem;
+        width: 100%;
+        transition: background 0.3s ease;
+    }
+
+    .submit-btn:hover {
+        background: #059669;
+    }
+
+    .bookings-list {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .booking-item {
+        padding: 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background 0.2s ease;
+    }
+
+    .booking-item:hover {
+        background: #f9fafb;
+    }
+
+    .booking-item:last-child {
+        border-bottom: none;
+    }
+
+    .booking-info h4 {
+        margin: 0 0 0.5rem 0;
+        color: #111827;
+        font-size: 1.1rem;
+    }
+
+    .booking-info p {
+        margin: 0.25rem 0;
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+
+    .booking-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-edit,
+    .btn-delete {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+    }
+
+    .btn-edit {
+        background: #3b82f6;
+        color: white;
+    }
+
+    .btn-edit:hover {
+        background: #2563eb;
+    }
+
+    .btn-delete {
+        background: #ef4444;
+        color: white;
+    }
+
+    .btn-delete:hover {
+        background: #dc2626;
+    }
+
+    .page-header {
+        margin-bottom: 2rem;
+    }
+
+    .page-header h1 {
+        font-size: 2rem;
+        color: #111827;
+        margin-bottom: 0.5rem;
+    }
+
+    .page-header p {
+        color: #6b7280;
+        font-size: 1.1rem;
+    }
+
+    .floorplan-img {
+        max-width: 100%;
+        max-height: 600px;
+        object-fit: contain;
+        border-radius: 4px;
+    }
+
+    .file-input-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+
+    .file-input-wrapper input[type="file"] {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1><i class="fas fa-building"></i> Instalações do CD</h1>
+        <p>Visualize a planta do Centro de Distribuição e agende salas de reunião</p>
+    </div>
+
+    <div class="tabs-container">
+        <div class="tabs-header">
+            <button class="tab-button active" onclick="switchTab(event, 'floorplan')">
+                <i class="fas fa-map"></i> Planta do CD
+            </button>
+            <button class="tab-button" onclick="switchTab(event, 'schedule')">
+                <i class="fas fa-calendar-alt"></i> Agendamento de Sala
+            </button>
+        </div>
+
+        <!-- Aba: Planta do CD -->
+        <div id="floorplan" class="tab-content active">
+            <div class="floorplan-container">
+                <h2>Planta do Centro de Distribuição</h2>
+                
+                <div class="floorplan-viewer" id="floorplanViewer">
+                    <div class="floorplan-placeholder">
+                        <i class="fas fa-map-marked-alt" style="font-size: 4rem; margin-bottom: 1rem; display: block;"></i>
+                        <p>Nenhuma planta carregada</p>
+                        <p style="font-size: 0.9rem; margin-top: 0.5rem;">Faça upload de uma imagem da planta abaixo</p>
+                    </div>
+                </div>
+
+                <div class="upload-section">
+                    <h3>Carregar Planta</h3>
+                    <p style="color: #6b7280; margin: 0.5rem 0;">Formatos aceitos: JPG, PNG, PDF, SVG</p>
+                    <div class="file-input-wrapper">
+                        <button class="upload-btn">
+                            <i class="fas fa-upload"></i> Selecionar Arquivo
+                        </button>
+                        <input type="file" id="floorplanFile" accept=".jpg,.jpeg,.png,.pdf,.svg" onchange="loadFloorplan(event)">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aba: Agendamento de Sala -->
+        <div id="schedule" class="tab-content">
+            <div class="schedule-container">
+                <h2>Agendar Sala de Reunião</h2>
+                
+                <form class="schedule-form" onsubmit="submitBooking(event)">
+                    <div class="form-group">
+                        <label for="meetingTitle">
+                            <i class="fas fa-heading"></i> Título da Reunião
+                        </label>
+                        <input type="text" id="meetingTitle" name="meetingTitle" required placeholder="Ex: Reunião de Planejamento">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="room">
+                            <i class="fas fa-door-open"></i> Sala
+                        </label>
+                        <select id="room" name="room" required>
+                            <option value="">Selecione uma sala</option>
+                            <option value="sala1">Sala 1 - Capacidade 10 pessoas</option>
+                            <option value="sala2">Sala 2 - Capacidade 20 pessoas</option>
+                            <option value="sala3">Sala 3 - Capacidade 6 pessoas</option>
+                            <option value="auditorio">Auditório - Capacidade 50 pessoas</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="date">
+                                <i class="fas fa-calendar"></i> Data
+                            </label>
+                            <input type="date" id="date" name="date" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="participants">
+                                <i class="fas fa-users"></i> Nº de Participantes
+                            </label>
+                            <input type="number" id="participants" name="participants" min="1" required placeholder="Ex: 8">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="startTime">
+                                <i class="fas fa-clock"></i> Horário Início
+                            </label>
+                            <input type="time" id="startTime" name="startTime" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="endTime">
+                                <i class="fas fa-clock"></i> Horário Fim
+                            </label>
+                            <input type="time" id="endTime" name="endTime" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">
+                            <i class="fas fa-align-left"></i> Descrição (Opcional)
+                        </label>
+                        <textarea id="description" name="description" rows="3" placeholder="Adicione detalhes sobre a reunião..."></textarea>
+                    </div>
+
+                    <button type="submit" class="submit-btn">
+                        <i class="fas fa-check"></i> Confirmar Agendamento
+                    </button>
+                </form>
+
+                <h3 style="margin-top: 3rem; margin-bottom: 1rem;">Agendamentos Recentes</h3>
+                <div class="bookings-list" id="bookingsList">
+                    <div class="booking-item">
+                        <div class="booking-info">
+                            <h4>Reunião de Planejamento Semanal</h4>
+                            <p><i class="fas fa-door-open"></i> Sala 1 | <i class="fas fa-users"></i> 8 participantes</p>
+                            <p><i class="fas fa-calendar"></i> 10/12/2024 | <i class="fas fa-clock"></i> 14:00 - 16:00</p>
+                        </div>
+                        <div class="booking-actions">
+                            <button class="btn-edit" onclick="editBooking(1)">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
+                            <button class="btn-delete" onclick="deleteBooking(1)">
+                                <i class="fas fa-trash"></i> Excluir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function switchTab(event, tabId) {
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        tabContents.forEach(content => content.classList.remove('active'));
+        
+        event.currentTarget.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    function loadFloorplan(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const viewer = document.getElementById('floorplanViewer');
+                viewer.innerHTML = `<img src="${e.target.result}" alt="Planta do CD" class="floorplan-img">`;
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function submitBooking(event) {
+        event.preventDefault();
+        
+        const formData = new FormData(event.target);
+        const booking = {
+            title: formData.get('meetingTitle'),
+            room: formData.get('room'),
+            date: formData.get('date'),
+            startTime: formData.get('startTime'),
+            endTime: formData.get('endTime'),
+            participants: formData.get('participants'),
+            description: formData.get('description')
+        };
+
+        console.log('Novo agendamento:', booking);
+        
+        alert('Agendamento realizado com sucesso!\n\n' +
+              'Sala: ' + event.target.room.options[event.target.room.selectedIndex].text + '\n' +
+              'Data: ' + booking.date + '\n' +
+              'Horário: ' + booking.startTime + ' - ' + booking.endTime);
+        
+        event.target.reset();
+    }
+
+    function editBooking(id) {
+        alert('Editar agendamento #' + id);
+    }
+
+    function deleteBooking(id) {
+        if (confirm('Tem certeza que deseja excluir este agendamento?')) {
+            alert('Agendamento #' + id + ' excluído com sucesso!');
+        }
+    }
+
+    document.getElementById('date').min = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}
