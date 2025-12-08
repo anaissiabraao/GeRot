@@ -560,7 +560,17 @@
                 },
                 function(error) {
                     console.error('Erro ao carregar GLB:', error);
-                    loadingOverlay.innerHTML = '<div><i class="fas fa-exclamation-triangle"></i><p>Erro ao carregar modelo GLB</p></div>';
+                    loadingOverlay.innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: #f59e0b;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                            <h3 style="margin-bottom: 1rem;">Arquivo 3D não encontrado</h3>
+                            <p style="color: #9ca3af; margin-bottom: 1rem;">Os arquivos GLB/FBX não estão disponíveis no servidor.</p>
+                            <p style="color: #9ca3af; font-size: 0.9rem;">
+                                <strong>Motivo:</strong> Arquivos muito grandes (&gt;100MB) não são enviados para o GitHub.<br>
+                                <strong>Solução:</strong> Hospedar em CDN externo ou usar Git LFS.
+                            </p>
+                        </div>
+                    `;
                 }
             );
         } else {
@@ -578,7 +588,17 @@
                 },
                 function(error) {
                     console.error('Erro ao carregar FBX:', error);
-                    loadingOverlay.innerHTML = '<div><i class="fas fa-exclamation-triangle"></i><p>Erro ao carregar modelo FBX</p></div>';
+                    loadingOverlay.innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: #f59e0b;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                            <h3 style="margin-bottom: 1rem;">Arquivo 3D não encontrado</h3>
+                            <p style="color: #9ca3af; margin-bottom: 1rem;">Os arquivos GLB/FBX não estão disponíveis no servidor.</p>
+                            <p style="color: #9ca3af; font-size: 0.9rem;">
+                                <strong>Motivo:</strong> Arquivos muito grandes (&gt;100MB) não são enviados para o GitHub.<br>
+                                <strong>Solução:</strong> Hospedar em CDN externo ou usar Git LFS.
+                            </p>
+                        </div>
+                    `;
                 }
             );
         }
