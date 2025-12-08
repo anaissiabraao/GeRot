@@ -260,6 +260,14 @@
                 <span>Hoje é {{ today }}</span>
             </h1>
             <div class="header-actions">
+                <!-- Botões de Acesso Rápido -->
+                <a class="btn" href="{{ url_for('cd_facilities') }}" title="Visualização 3D do CD" style="background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.3);">
+                    🎲 3D
+                </a>
+                <a class="btn" href="{{ url_for('cd_facilities') }}#schedule" title="Agendar Sala de Reunião" style="background: rgba(168, 85, 247, 0.2); border: 1px solid rgba(168, 85, 247, 0.3);">
+                    📅 Agendar
+                </a>
+                
                 {% if is_admin %}
                     <a class="btn" href="{{ url_for('admin_dashboard') }}">
                         ⚙️ Painel Admin
