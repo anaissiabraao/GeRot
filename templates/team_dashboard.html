@@ -268,6 +268,10 @@
                     📅 Agendar
                 </a>
                 
+                <a class="btn" href="{{ url_for('profile') }}" title="Meu Perfil">
+                    👤 Perfil
+                </a>
+                
                 {% if is_admin %}
                     <a class="btn" href="{{ url_for('admin_dashboard') }}">
                         ⚙️ Painel Admin
