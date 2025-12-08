@@ -81,43 +81,19 @@
         <nav class="sidebar-menu">
             {% if session.role == 'manager' %}
                 <!-- Menu Admin -->
-                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-item {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+                <a href="{{ url_for('admin_dashboard') }}" class="sidebar-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
                     <i class="fas fa-tachometer-alt"></i> Dashboard
                 </a>
-                <a href="{{ url_for('admin.users') }}" class="sidebar-item {% if request.endpoint == 'admin.users' %}active{% endif %}">
-                    <i class="fas fa-users"></i> Usuários
-                </a>
-                <a href="{{ url_for('admin.sectors') }}" class="sidebar-item {% if request.endpoint == 'admin.sectors' %}active{% endif %}">
-                    <i class="fas fa-building"></i> Setores
-                </a>
-                <a href="{{ url_for('admin.routines') }}" class="sidebar-item {% if request.endpoint == 'admin.routines' %}active{% endif %}">
-                    <i class="fas fa-calendar-alt"></i> Rotinas
-                </a>
-                <a href="{{ url_for('admin.reports') }}" class="sidebar-item {% if request.endpoint == 'admin.reports' %}active{% endif %}">
-                    <i class="fas fa-chart-bar"></i> Relatórios
-                </a>
-                <a href="{{ url_for('admin.logs') }}" class="sidebar-item {% if request.endpoint == 'admin.logs' %}active{% endif %}">
-                    <i class="fas fa-history"></i> Logs
-                </a>
                 <a href="{{ url_for('cd_facilities') }}" class="sidebar-item {% if request.endpoint == 'cd_facilities' %}active{% endif %}">
-                    <i class="fas fa-building"></i> Instalações do CD
+                    <i class="fas fa-cube"></i> Visualização 3D
                 </a>
             {% else %}
                 <!-- Menu Equipe -->
-                <a href="{{ url_for('team.dashboard') }}" class="sidebar-item {% if request.endpoint == 'team.dashboard' %}active{% endif %}">
-                    <i class="fas fa-home"></i> Início
-                </a>
-                <a href="{{ url_for('team.tasks') }}" class="sidebar-item {% if request.endpoint == 'team.tasks' %}active{% endif %}">
-                    <i class="fas fa-tasks"></i> Minhas Tarefas
-                </a>
-                <a href="{{ url_for('team.calendar') }}" class="sidebar-item {% if request.endpoint == 'team.calendar' %}active{% endif %}">
-                    <i class="fas fa-calendar"></i> Calendário
-                </a>
-                <a href="{{ url_for('team.schedule') }}" class="sidebar-item {% if request.endpoint == 'team.schedule' %}active{% endif %}">
-                    <i class="fas fa-clock"></i> Horários
+                <a href="{{ url_for('team_dashboard') }}" class="sidebar-item {% if request.endpoint == 'team_dashboard' %}active{% endif %}">
+                    <i class="fas fa-home"></i> Dashboards
                 </a>
                 <a href="{{ url_for('cd_facilities') }}" class="sidebar-item {% if request.endpoint == 'cd_facilities' %}active{% endif %}">
-                    <i class="fas fa-building"></i> Instalações do CD
+                    <i class="fas fa-cube"></i> Visualização 3D
                 </a>
             {% endif %}
         </nav>
