@@ -1,9 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}Planta do CD e Agendamento - GeRot{% endblock %}
+{% block title %}Instalações 3D do CD - GeRot{% endblock %}
 
 {% block extra_css %}
 <style>
+    .page-header {
+        margin-bottom: 2rem;
+    }
+
+    .page-header h1 {
+        font-size: 2rem;
+        color: #111827;
+        margin-bottom: 0.5rem;
+    }
+
     .tabs-container {
         background: white;
         border-radius: 12px;
@@ -66,54 +76,55 @@
         to { opacity: 1; transform: translateY(0); }
     }
 
-    .floorplan-container {
-        text-align: center;
-        padding: 2rem;
-    }
-
-    .floorplan-viewer {
-        border: 2px solid #e5e7eb;
+    #viewer3d {
+        width: 100%;
+        height: 600px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
         border-radius: 8px;
-        padding: 2rem;
-        background: #f9fafb;
-        min-height: 500px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         position: relative;
+        overflow: hidden;
     }
 
-    .floorplan-placeholder {
-        color: #9ca3af;
-        font-size: 1.1rem;
-    }
-
-    .upload-section {
-        margin-top: 2rem;
-        padding: 1.5rem;
-        background: white;
-        border: 2px dashed #d1d5db;
+    .viewer-controls {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background: #f9fafb;
         border-radius: 8px;
-        text-align: center;
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
     }
 
-    .upload-btn {
-        background: #2563eb;
-        color: white;
-        padding: 0.75rem 2rem;
+    .control-btn {
+        padding: 0.75rem 1.5rem;
         border: none;
         border-radius: 6px;
         cursor: pointer;
         font-weight: 600;
-        margin-top: 1rem;
+        transition: all 0.3s ease;
     }
 
-    .upload-btn:hover {
+    .control-btn.primary {
+        background: #2563eb;
+        color: white;
+    }
+
+    .control-btn.primary:hover {
         background: #1d4ed8;
     }
 
+    .control-btn.secondary {
+        background: #6b7280;
+        color: white;
+    }
+
+    .control-btn.secondary:hover {
+        background: #4b5563;
+    }
+
     .schedule-container {
-        max-width: 800px;
+        max-width: 1200px;
         margin: 0 auto;
     }
 
@@ -177,53 +188,85 @@
         background: #059669;
     }
 
-    .bookings-list {
+    .bookings-panel {
         background: white;
         border-radius: 8px;
         overflow: hidden;
+        margin-top: 2rem;
     }
 
-    .booking-item {
+    .panel-header {
+        padding: 1.5rem 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .panel-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+    }
+
+    .bookings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1rem;
         padding: 1.5rem;
-        border-bottom: 1px solid #e5e7eb;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        transition: background 0.2s ease;
     }
 
-    .booking-item:hover {
+    .booking-card {
         background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
     }
 
-    .booking-item:last-child {
-        border-bottom: none;
+    .booking-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
     }
 
-    .booking-info h4 {
-        margin: 0 0 0.5rem 0;
+    .booking-card h4 {
+        margin: 0 0 1rem 0;
         color: #111827;
         font-size: 1.1rem;
     }
 
-    .booking-info p {
-        margin: 0.25rem 0;
+    .booking-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .booking-info-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
         color: #6b7280;
         font-size: 0.9rem;
+    }
+
+    .booking-info-item i {
+        width: 20px;
+        color: #2563eb;
     }
 
     .booking-actions {
         display: flex;
         gap: 0.5rem;
+        margin-top: 1rem;
     }
 
     .btn-edit,
     .btn-delete {
+        flex: 1;
         padding: 0.5rem 1rem;
         border: none;
         border-radius: 4px;
         cursor: pointer;
         font-size: 0.9rem;
+        font-weight: 600;
         transition: all 0.2s ease;
     }
 
@@ -245,39 +288,49 @@
         background: #dc2626;
     }
 
-    .page-header {
-        margin-bottom: 2rem;
-    }
-
-    .page-header h1 {
-        font-size: 2rem;
-        color: #111827;
-        margin-bottom: 0.5rem;
-    }
-
-    .page-header p {
-        color: #6b7280;
-        font-size: 1.1rem;
-    }
-
-    .floorplan-img {
-        max-width: 100%;
-        max-height: 600px;
-        object-fit: contain;
-        border-radius: 4px;
-    }
-
-    .file-input-wrapper {
-        position: relative;
+    .room-badge {
         display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 600;
     }
 
-    .file-input-wrapper input[type="file"] {
+    .room-badge.sala1 {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .room-badge.sala2 {
+        background: #fce7f3;
+        color: #9f1239;
+    }
+
+    .loading-overlay {
         position: absolute;
-        opacity: 0;
-        width: 100%;
-        height: 100%;
-        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+        z-index: 10;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #9ca3af;
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        display: block;
     }
 </style>
 {% endblock %}
@@ -286,42 +339,53 @@
 <div class="container">
     <div class="page-header">
         <h1><i class="fas fa-building"></i> Instalações do CD</h1>
-        <p>Visualize a planta do Centro de Distribuição e agende salas de reunião</p>
+        <p>Visualize o CD em 3D e agende salas de reunião</p>
     </div>
 
     <div class="tabs-container">
         <div class="tabs-header">
-            <button class="tab-button active" onclick="switchTab(event, 'floorplan')">
-                <i class="fas fa-map"></i> Planta do CD
+            <button class="tab-button active" onclick="switchTab(event, 'viewer3d-tab')">
+                <i class="fas fa-cube"></i> Visualização 3D
             </button>
             <button class="tab-button" onclick="switchTab(event, 'schedule')">
-                <i class="fas fa-calendar-alt"></i> Agendamento de Sala
+                <i class="fas fa-calendar-alt"></i> Agendar Sala
+            </button>
+            <button class="tab-button" onclick="switchTab(event, 'bookings')">
+                <i class="fas fa-list"></i> Horários Agendados
             </button>
         </div>
 
-        <!-- Aba: Planta do CD -->
-        <div id="floorplan" class="tab-content active">
-            <div class="floorplan-container">
-                <h2>Planta do Centro de Distribuição</h2>
-                
-                <div class="floorplan-viewer" id="floorplanViewer">
-                    <div class="floorplan-placeholder">
-                        <i class="fas fa-map-marked-alt" style="font-size: 4rem; margin-bottom: 1rem; display: block;"></i>
-                        <p>Nenhuma planta carregada</p>
-                        <p style="font-size: 0.9rem; margin-top: 0.5rem;">Faça upload de uma imagem da planta abaixo</p>
+        <!-- Aba: Visualização 3D -->
+        <div id="viewer3d-tab" class="tab-content active">
+            <h2>Tour Virtual 3D do CD</h2>
+            <p style="color: #6b7280; margin-bottom: 1.5rem;">
+                Navegue pelo Centro de Distribuição usando os controles do mouse. Arraste para rotacionar, scroll para zoom.
+            </p>
+            
+            <div id="viewer3d">
+                <div class="loading-overlay" id="loadingOverlay">
+                    <div>
+                        <i class="fas fa-spinner fa-spin" style="font-size: 2rem;"></i>
+                        <p>Carregando modelo 3D...</p>
                     </div>
                 </div>
+            </div>
 
-                <div class="upload-section">
-                    <h3>Carregar Planta</h3>
-                    <p style="color: #6b7280; margin: 0.5rem 0;">Formatos aceitos: JPG, PNG, PDF, SVG</p>
-                    <div class="file-input-wrapper">
-                        <button class="upload-btn">
-                            <i class="fas fa-upload"></i> Selecionar Arquivo
-                        </button>
-                        <input type="file" id="floorplanFile" accept=".jpg,.jpeg,.png,.pdf,.svg" onchange="loadFloorplan(event)">
-                    </div>
-                </div>
+            <div class="viewer-controls">
+                <button class="control-btn primary" onclick="resetCamera()">
+                    <i class="fas fa-redo"></i> Resetar Câmera
+                </button>
+                <button class="control-btn secondary" onclick="toggleWireframe()">
+                    <i class="fas fa-border-all"></i> Wireframe
+                </button>
+                <button class="control-btn secondary" onclick="switchModel()">
+                    <i class="fas fa-exchange-alt"></i> Alternar Modelo (GLB/FBX)
+                </button>
+                <div style="flex: 1;"></div>
+                <span style="color: #6b7280;">
+                    <i class="fas fa-mouse"></i> Arraste para rotacionar | 
+                    <i class="fas fa-scroll"></i> Scroll para zoom
+                </span>
             </div>
         </div>
 
@@ -330,38 +394,36 @@
             <div class="schedule-container">
                 <h2>Agendar Sala de Reunião</h2>
                 
-                <form class="schedule-form" onsubmit="submitBooking(event)">
+                <form class="schedule-form" id="bookingForm" onsubmit="submitBooking(event)">
                     <div class="form-group">
                         <label for="meetingTitle">
-                            <i class="fas fa-heading"></i> Título da Reunião
+                            <i class="fas fa-heading"></i> Título da Reunião *
                         </label>
-                        <input type="text" id="meetingTitle" name="meetingTitle" required placeholder="Ex: Reunião de Planejamento">
+                        <input type="text" id="meetingTitle" name="title" required placeholder="Ex: Reunião de Planejamento">
                     </div>
 
                     <div class="form-group">
                         <label for="room">
-                            <i class="fas fa-door-open"></i> Sala
+                            <i class="fas fa-door-open"></i> Sala *
                         </label>
                         <select id="room" name="room" required>
                             <option value="">Selecione uma sala</option>
-                            <option value="sala1">Sala 1 - Capacidade 10 pessoas</option>
-                            <option value="sala2">Sala 2 - Capacidade 20 pessoas</option>
-                            <option value="sala3">Sala 3 - Capacidade 6 pessoas</option>
-                            <option value="auditorio">Auditório - Capacidade 50 pessoas</option>
+                            <option value="sala1">Sala 1</option>
+                            <option value="sala2">Sala 2</option>
                         </select>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
                             <label for="date">
-                                <i class="fas fa-calendar"></i> Data
+                                <i class="fas fa-calendar"></i> Data *
                             </label>
                             <input type="date" id="date" name="date" required>
                         </div>
 
                         <div class="form-group">
                             <label for="participants">
-                                <i class="fas fa-users"></i> Nº de Participantes
+                                <i class="fas fa-users"></i> Nº de Participantes *
                             </label>
                             <input type="number" id="participants" name="participants" min="1" required placeholder="Ex: 8">
                         </div>
@@ -370,46 +432,46 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="startTime">
-                                <i class="fas fa-clock"></i> Horário Início
+                                <i class="fas fa-clock"></i> Horário Início *
                             </label>
-                            <input type="time" id="startTime" name="startTime" required>
+                            <input type="time" id="startTime" name="start_time" required>
                         </div>
 
                         <div class="form-group">
                             <label for="endTime">
-                                <i class="fas fa-clock"></i> Horário Fim
+                                <i class="fas fa-clock"></i> Horário Fim *
                             </label>
-                            <input type="time" id="endTime" name="endTime" required>
+                            <input type="time" id="endTime" name="end_time" required>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="description">
-                            <i class="fas fa-align-left"></i> Descrição (Opcional)
+                        <label for="subject">
+                            <i class="fas fa-align-left"></i> Assunto da Reunião *
                         </label>
-                        <textarea id="description" name="description" rows="3" placeholder="Adicione detalhes sobre a reunião..."></textarea>
+                        <textarea id="subject" name="subject" rows="3" required placeholder="Descreva o assunto que será tratado na reunião..."></textarea>
                     </div>
 
                     <button type="submit" class="submit-btn">
                         <i class="fas fa-check"></i> Confirmar Agendamento
                     </button>
                 </form>
+            </div>
+        </div>
 
-                <h3 style="margin-top: 3rem; margin-bottom: 1rem;">Agendamentos Recentes</h3>
-                <div class="bookings-list" id="bookingsList">
-                    <div class="booking-item">
-                        <div class="booking-info">
-                            <h4>Reunião de Planejamento Semanal</h4>
-                            <p><i class="fas fa-door-open"></i> Sala 1 | <i class="fas fa-users"></i> 8 participantes</p>
-                            <p><i class="fas fa-calendar"></i> 10/12/2024 | <i class="fas fa-clock"></i> 14:00 - 16:00</p>
-                        </div>
-                        <div class="booking-actions">
-                            <button class="btn-edit" onclick="editBooking(1)">
-                                <i class="fas fa-edit"></i> Editar
-                            </button>
-                            <button class="btn-delete" onclick="deleteBooking(1)">
-                                <i class="fas fa-trash"></i> Excluir
-                            </button>
+        <!-- Aba: Horários Agendados -->
+        <div id="bookings" class="tab-content">
+            <div class="schedule-container">
+                <div class="bookings-panel">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-calendar-check"></i> Painel de Horários Agendados</h3>
+                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">Visualize e gerencie todos os agendamentos</p>
+                    </div>
+                    
+                    <div class="bookings-grid" id="bookingsGrid">
+                        <div class="empty-state">
+                            <i class="fas fa-calendar-times"></i>
+                            <p>Carregando agendamentos...</p>
                         </div>
                     </div>
                 </div>
@@ -420,7 +482,134 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/loaders/FBXLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/controls/OrbitControls.js"></script>
+
 <script>
+    let scene, camera, renderer, controls, currentModel;
+    let currentModelType = 'glb';
+    let wireframeMode = false;
+
+    function initViewer() {
+        const container = document.getElementById('viewer3d');
+        
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a2e);
+        
+        camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(5, 5, 5);
+        
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+        
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 10, 5);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+        
+        const gridHelper = new THREE.GridHelper(20, 20);
+        scene.add(gridHelper);
+        
+        loadModel('glb');
+        
+        animate();
+        
+        window.addEventListener('resize', onWindowResize);
+    }
+
+    function loadModel(type) {
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        loadingOverlay.style.display = 'flex';
+        
+        if (currentModel) {
+            scene.remove(currentModel);
+        }
+        
+        if (type === 'glb') {
+            const loader = new THREE.GLTFLoader();
+            loader.load(
+                '/static/docs/Cd_front_12_50_53.glb',
+                function(gltf) {
+                    currentModel = gltf.scene;
+                    scene.add(currentModel);
+                    loadingOverlay.style.display = 'none';
+                    currentModelType = 'glb';
+                },
+                function(xhr) {
+                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
+                function(error) {
+                    console.error('Erro ao carregar GLB:', error);
+                    loadingOverlay.innerHTML = '<div><i class="fas fa-exclamation-triangle"></i><p>Erro ao carregar modelo GLB</p></div>';
+                }
+            );
+        } else {
+            const loader = new THREE.FBXLoader();
+            loader.load(
+                '/static/docs/Cd_front_12_10_17.fbx',
+                function(fbx) {
+                    currentModel = fbx;
+                    scene.add(currentModel);
+                    loadingOverlay.style.display = 'none';
+                    currentModelType = 'fbx';
+                },
+                function(xhr) {
+                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
+                function(error) {
+                    console.error('Erro ao carregar FBX:', error);
+                    loadingOverlay.innerHTML = '<div><i class="fas fa-exclamation-triangle"></i><p>Erro ao carregar modelo FBX</p></div>';
+                }
+            );
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+        const container = document.getElementById('viewer3d');
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function resetCamera() {
+        camera.position.set(5, 5, 5);
+        controls.target.set(0, 0, 0);
+        controls.update();
+    }
+
+    function toggleWireframe() {
+        wireframeMode = !wireframeMode;
+        if (currentModel) {
+            currentModel.traverse(function(child) {
+                if (child.isMesh) {
+                    child.material.wireframe = wireframeMode;
+                }
+            });
+        }
+    }
+
+    function switchModel() {
+        const newType = currentModelType === 'glb' ? 'fbx' : 'glb';
+        loadModel(newType);
+    }
+
     function switchTab(event, tabId) {
         const tabButtons = document.querySelectorAll('.tab-button');
         const tabContents = document.querySelectorAll('.tab-content');
@@ -430,54 +619,135 @@
         
         event.currentTarget.classList.add('active');
         document.getElementById(tabId).classList.add('active');
-    }
-
-    function loadFloorplan(event) {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const viewer = document.getElementById('floorplanViewer');
-                viewer.innerHTML = `<img src="${e.target.result}" alt="Planta do CD" class="floorplan-img">`;
-            };
-            reader.readAsDataURL(file);
+        
+        if (tabId === 'bookings') {
+            loadBookings();
         }
     }
 
-    function submitBooking(event) {
+    async function submitBooking(event) {
         event.preventDefault();
         
         const formData = new FormData(event.target);
-        const booking = {
-            title: formData.get('meetingTitle'),
-            room: formData.get('room'),
-            date: formData.get('date'),
-            startTime: formData.get('startTime'),
-            endTime: formData.get('endTime'),
-            participants: formData.get('participants'),
-            description: formData.get('description')
-        };
-
-        console.log('Novo agendamento:', booking);
+        const data = Object.fromEntries(formData.entries());
         
-        alert('Agendamento realizado com sucesso!\n\n' +
-              'Sala: ' + event.target.room.options[event.target.room.selectedIndex].text + '\n' +
-              'Data: ' + booking.date + '\n' +
-              'Horário: ' + booking.startTime + ' - ' + booking.endTime);
-        
-        event.target.reset();
-    }
-
-    function editBooking(id) {
-        alert('Editar agendamento #' + id);
-    }
-
-    function deleteBooking(id) {
-        if (confirm('Tem certeza que deseja excluir este agendamento?')) {
-            alert('Agendamento #' + id + ' excluído com sucesso!');
+        try {
+            const response = await fetch('/api/room-bookings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                alert('Agendamento realizado com sucesso!');
+                event.target.reset();
+                loadBookings();
+            } else {
+                alert('Erro: ' + (result.error || 'Não foi possível realizar o agendamento'));
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+            alert('Erro ao realizar agendamento');
         }
     }
 
+    async function loadBookings() {
+        const grid = document.getElementById('bookingsGrid');
+        grid.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Carregando...</p></div>';
+        
+        try {
+            const response = await fetch('/api/room-bookings');
+            const bookings = await response.json();
+            
+            if (bookings.length === 0) {
+                grid.innerHTML = '<div class="empty-state"><i class="fas fa-calendar-times"></i><p>Nenhum agendamento encontrado</p></div>';
+                return;
+            }
+            
+            grid.innerHTML = bookings.map(booking => `
+                <div class="booking-card">
+                    <h4>${booking.title}</h4>
+                    <div class="booking-info">
+                        <div class="booking-info-item">
+                            <i class="fas fa-door-open"></i>
+                            <span class="room-badge ${booking.room}">${booking.room === 'sala1' ? 'Sala 1' : 'Sala 2'}</span>
+                        </div>
+                        <div class="booking-info-item">
+                            <i class="fas fa-calendar"></i>
+                            <span>${formatDate(booking.date)}</span>
+                        </div>
+                        <div class="booking-info-item">
+                            <i class="fas fa-clock"></i>
+                            <span>${booking.start_time} - ${booking.end_time}</span>
+                        </div>
+                        <div class="booking-info-item">
+                            <i class="fas fa-users"></i>
+                            <span>${booking.participants} participantes</span>
+                        </div>
+                        <div class="booking-info-item">
+                            <i class="fas fa-user"></i>
+                            <span>${booking.user_name || 'Usuário'}</span>
+                        </div>
+                        <div class="booking-info-item" style="margin-top: 0.5rem; color: #374151;">
+                            <i class="fas fa-align-left"></i>
+                            <span><strong>Assunto:</strong> ${booking.subject}</span>
+                        </div>
+                    </div>
+                    <div class="booking-actions">
+                        <button class="btn-edit" onclick="editBooking(${booking.id})">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button class="btn-delete" onclick="deleteBooking(${booking.id})">
+                            <i class="fas fa-trash"></i> Excluir
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Erro:', error);
+            grid.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Erro ao carregar agendamentos</p></div>';
+        }
+    }
+
+    function formatDate(dateString) {
+        const date = new Date(dateString + 'T00:00:00');
+        return date.toLocaleDateString('pt-BR');
+    }
+
+    async function deleteBooking(id) {
+        if (!confirm('Tem certeza que deseja excluir este agendamento?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/room-bookings/${id}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                alert('Agendamento excluído com sucesso!');
+                loadBookings();
+            } else {
+                alert('Erro ao excluir agendamento');
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+            alert('Erro ao excluir agendamento');
+        }
+    }
+
+    function editBooking(id) {
+        alert('Funcionalidade de edição em desenvolvimento. ID: ' + id);
+    }
+
     document.getElementById('date').min = new Date().toISOString().split('T')[0];
+    
+    if (document.getElementById('viewer3d-tab').classList.contains('active')) {
+        initViewer();
+    }
 </script>
 {% endblock %}

@@ -1645,6 +1645,170 @@ def cd_facilities():
     return render_template("cd_facilities.html")
 
 
+@app.route("/api/room-bookings", methods=["GET", "POST"])
+@login_required
+def room_bookings_api():
+    """API para listar e criar agendamentos de salas"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        if request.method == "GET":
+            cursor.execute("""
+                SELECT 
+                    rb.id, rb.room, rb.title, rb.date, rb.start_time, rb.end_time,
+                    rb.participants, rb.subject, rb.created_at,
+                    u.nome_completo as user_name
+                FROM room_bookings rb
+                JOIN users_new u ON rb.user_id = u.id
+                WHERE rb.is_active = true
+                ORDER BY rb.date DESC, rb.start_time DESC
+            """)
+            bookings = cursor.fetchall()
+            return jsonify([dict(row) for row in bookings])
+        
+        elif request.method == "POST":
+            data = request.get_json()
+            
+            required_fields = ['room', 'title', 'date', 'start_time', 'end_time', 'participants', 'subject']
+            for field in required_fields:
+                if field not in data:
+                    return jsonify({"error": f"Campo obrigatório ausente: {field}"}), 400
+            
+            cursor.execute("""
+                SELECT id FROM room_bookings
+                WHERE room = %s AND date = %s AND is_active = true
+                AND (
+                    (start_time <= %s AND end_time > %s) OR
+                    (start_time < %s AND end_time >= %s) OR
+                    (start_time >= %s AND end_time <= %s)
+                )
+            """, (
+                data['room'], data['date'],
+                data['start_time'], data['start_time'],
+                data['end_time'], data['end_time'],
+                data['start_time'], data['end_time']
+            ))
+            
+            conflict = cursor.fetchone()
+            if conflict:
+                return jsonify({"error": "Já existe um agendamento neste horário para esta sala"}), 409
+            
+            cursor.execute("""
+                INSERT INTO room_bookings 
+                (user_id, room, title, date, start_time, end_time, participants, subject)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                session['user_id'],
+                data['room'],
+                data['title'],
+                data['date'],
+                data['start_time'],
+                data['end_time'],
+                data['participants'],
+                data['subject']
+            ))
+            
+            booking_id = cursor.fetchone()[0]
+            conn.commit()
+            
+            return jsonify({"success": True, "id": booking_id}), 201
+    
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/room-bookings/<int:booking_id>", methods=["GET", "PUT", "DELETE"])
+@login_required
+def room_booking_detail_api(booking_id):
+    """API para obter, atualizar ou deletar um agendamento específico"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        if request.method == "GET":
+            cursor.execute("""
+                SELECT 
+                    rb.id, rb.room, rb.title, rb.date, rb.start_time, rb.end_time,
+                    rb.participants, rb.subject, rb.created_at, rb.user_id,
+                    u.nome_completo as user_name
+                FROM room_bookings rb
+                JOIN users_new u ON rb.user_id = u.id
+                WHERE rb.id = %s AND rb.is_active = true
+            """, (booking_id,))
+            
+            booking = cursor.fetchone()
+            if not booking:
+                return jsonify({"error": "Agendamento não encontrado"}), 404
+            
+            return jsonify(dict(booking))
+        
+        elif request.method == "PUT":
+            cursor.execute(
+                "SELECT user_id FROM room_bookings WHERE id = %s AND is_active = true",
+                (booking_id,)
+            )
+            booking = cursor.fetchone()
+            
+            if not booking:
+                return jsonify({"error": "Agendamento não encontrado"}), 404
+            
+            if booking['user_id'] != session['user_id'] and session.get('role') != 'admin':
+                return jsonify({"error": "Sem permissão para editar este agendamento"}), 403
+            
+            data = request.get_json()
+            
+            cursor.execute("""
+                UPDATE room_bookings
+                SET room = %s, title = %s, date = %s, start_time = %s, 
+                    end_time = %s, participants = %s, subject = %s
+                WHERE id = %s
+            """, (
+                data.get('room'),
+                data.get('title'),
+                data.get('date'),
+                data.get('start_time'),
+                data.get('end_time'),
+                data.get('participants'),
+                data.get('subject'),
+                booking_id
+            ))
+            
+            conn.commit()
+            return jsonify({"success": True})
+        
+        elif request.method == "DELETE":
+            cursor.execute(
+                "SELECT user_id FROM room_bookings WHERE id = %s AND is_active = true",
+                (booking_id,)
+            )
+            booking = cursor.fetchone()
+            
+            if not booking:
+                return jsonify({"error": "Agendamento não encontrado"}), 404
+            
+            if booking['user_id'] != session['user_id'] and session.get('role') != 'admin':
+                return jsonify({"error": "Sem permissão para excluir este agendamento"}), 403
+            
+            cursor.execute(
+                "UPDATE room_bookings SET is_active = false WHERE id = %s",
+                (booking_id,)
+            )
+            
+            conn.commit()
+            return jsonify({"success": True})
+    
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
 # --------------------------------------------------------------------------- #
 # API pública básica
 # --------------------------------------------------------------------------- #

@@ -31,3 +31,16 @@ Thumbs.db
 # Render / deployment artifacts
 /terminals/
 
+
+# Arquivos 3D grandes (não fazer upload para GitHub)
+static/docs/*.glb
+static/docs/*.fbx
+docs/*.glb
+docs/*.fbx
+*.glb
+*.fbx
+
+# Outros arquivos grandes
+*.zip
+*.rar
+*.7z
