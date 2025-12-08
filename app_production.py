@@ -1837,25 +1837,32 @@ def proxy_3d_model(model_type):
         # Streaming otimizado: chunks grandes + timeout longo
         app.logger.info(f"[3D PROXY] Baixando: {urls[model_type]}")
         
-        def generate():
-            """Generator para streaming eficiente"""
-            with requests.get(urls[model_type], stream=True, timeout=120) as r:
-                r.raise_for_status()
+        # Fazer requisição inicial para obter Content-Length
+        with requests.get(urls[model_type], stream=True, timeout=120) as r:
+            r.raise_for_status()
+            content_length = r.headers.get('content-length', '0')
+            content_type = r.headers.get('content-type', 'application/octet-stream')
+            
+            app.logger.info(f"[3D PROXY] Tamanho do arquivo: {content_length} bytes")
+            
+            def generate():
+                """Generator para streaming eficiente"""
                 # Chunks de 128KB para velocidade máxima
                 for chunk in r.iter_content(chunk_size=131072):
                     if chunk:
                         yield chunk
-        
-        # Retornar resposta com CORS e streaming
-        from flask import Response
-        response = Response(generate(), mimetype='application/octet-stream')
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-        response.headers['Cache-Control'] = 'public, max-age=86400'
-        
-        app.logger.info(f"[3D PROXY] Streaming iniciado para {model_type}")
-        return response
+            
+            # Retornar resposta com CORS, Content-Length e streaming
+            from flask import Response
+            response = Response(generate(), mimetype=content_type)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+            response.headers['Content-Length'] = content_length
+            response.headers['Cache-Control'] = 'public, max-age=86400'
+            
+            app.logger.info(f"[3D PROXY] Streaming iniciado para {model_type}")
+            return response
         
     except requests.exceptions.Timeout:
         app.logger.error(f"[3D PROXY] Timeout ao baixar {model_type}")
