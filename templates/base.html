@@ -29,6 +29,16 @@
                         </a>
                     </li>
                     <li>
+                        <a href="{{ url_for('cd_facilities') }}" class="btn-quick-access" title="Visualização 3D do CD">
+                            <i class="fas fa-cube"></i> 3D
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('cd_facilities') }}#schedule" class="btn-quick-access" title="Agendar Sala de Reunião">
+                            <i class="fas fa-calendar-plus"></i> Agendar
+                        </a>
+                    </li>
+                    <li>
                         <span class="text-sm">
                             <i class="fas fa-user"></i> {{ session.username }}
                             {% if session.role == 'manager' %}
