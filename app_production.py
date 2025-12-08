@@ -1810,10 +1810,19 @@ def room_booking_detail_api(booking_id):
         conn.close()
 
 
-@app.route("/api/3d-model/<model_type>")
+@app.route("/api/3d-model/<model_type>", methods=['GET', 'OPTIONS'])
 def proxy_3d_model(model_type):
-    """Redireciona para modelos 3D do GitHub Releases (evita timeout em arquivos grandes)"""
-    app.logger.info(f"[3D REDIRECT] Redirecionando para modelo: {model_type}")
+    """Proxy otimizado para modelos 3D com streaming e CORS"""
+    
+    # Responder a preflight OPTIONS
+    if request.method == 'OPTIONS':
+        response = app.make_default_options_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
+    
+    app.logger.info(f"[3D PROXY] Requisitando modelo: {model_type}")
     
     urls = {
         'glb': 'https://github.com/anaissiabraao/GeRot/releases/download/v1.0-3d-models/Cd_front_12_50_53.glb',
@@ -1821,13 +1830,42 @@ def proxy_3d_model(model_type):
     }
     
     if model_type not in urls:
-        app.logger.error(f"[3D REDIRECT] Modelo inválido: {model_type}")
+        app.logger.error(f"[3D PROXY] Modelo inválido: {model_type}")
         return jsonify({"error": "Modelo inválido"}), 404
     
-    # Redirecionar diretamente para o GitHub Releases (302)
-    # Isso evita timeouts e erros de protocolo em arquivos grandes (>100MB)
-    app.logger.info(f"[3D REDIRECT] URL destino: {urls[model_type]}")
-    return redirect(urls[model_type], code=302)
+    try:
+        # Streaming otimizado: chunks grandes + timeout longo
+        app.logger.info(f"[3D PROXY] Baixando: {urls[model_type]}")
+        
+        def generate():
+            """Generator para streaming eficiente"""
+            with requests.get(urls[model_type], stream=True, timeout=120) as r:
+                r.raise_for_status()
+                # Chunks de 128KB para velocidade máxima
+                for chunk in r.iter_content(chunk_size=131072):
+                    if chunk:
+                        yield chunk
+        
+        # Retornar resposta com CORS e streaming
+        from flask import Response
+        response = Response(generate(), mimetype='application/octet-stream')
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        response.headers['Cache-Control'] = 'public, max-age=86400'
+        
+        app.logger.info(f"[3D PROXY] Streaming iniciado para {model_type}")
+        return response
+        
+    except requests.exceptions.Timeout:
+        app.logger.error(f"[3D PROXY] Timeout ao baixar {model_type}")
+        return jsonify({"error": "Timeout ao baixar modelo"}), 504
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"[3D PROXY] Erro de rede: {str(e)}")
+        return jsonify({"error": f"Erro ao baixar modelo: {str(e)}"}), 502
+    except Exception as e:
+        app.logger.error(f"[3D PROXY] Erro inesperado: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 # --------------------------------------------------------------------------- #
