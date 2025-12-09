@@ -446,21 +446,77 @@
         </section>
     </div>
 
-    <div id="schemaModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
-        <div style="background: white; padding: 1rem; border-radius: 8px; max-width: 90vw; max-height: 90vh; overflow: auto; position: relative;">
-            <button onclick="closeSchemaModal()" style="position: absolute; top: 10px; right: 10px; border: none; background: transparent; font-size: 1.5rem; cursor: pointer;">&times;</button>
-            <h2 style="margin-bottom: 1rem; color: #333;">Supabase Public Schema</h2>
-            <img src="{{ url_for('static', filename='supabase-public.svg') }}" alt="Database Schema" style="max-width: 100%; height: auto;">
+    <div id="schemaModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background: #1a1a2e; padding: 1rem; border-radius: 12px; width: 95vw; height: 95vh; position: relative; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h2 style="color: #fff; margin: 0; font-size: 1.2rem;">
+                    <i class="fas fa-database" style="color: #60a5fa;"></i> Supabase Public Schema
+                </h2>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button onclick="zoomSchema(-0.2)" style="background: #374151; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 1rem;">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <span id="zoomLevel" style="color: #9ca3af; min-width: 50px; text-align: center;">100%</span>
+                    <button onclick="zoomSchema(0.2)" style="background: #374151; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 1rem;">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button onclick="resetZoom()" style="background: #374151; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-left: 0.5rem;">
+                        Reset
+                    </button>
+                    <button onclick="closeSchemaModal()" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 1rem; margin-left: 1rem;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="svgContainer" style="flex: 1; overflow: auto; background: #0f0f1a; border-radius: 8px; cursor: grab;">
+                <object id="schemaSvg" type="image/svg+xml" data="{{ url_for('static', filename='supabase-public.svg') }}" style="width: 100%; height: auto; min-width: 1200px; transform-origin: top left; transition: transform 0.1s ease;">
+                    Seu navegador não suporta SVG
+                </object>
+            </div>
+            <p style="color: #6b7280; font-size: 0.8rem; margin-top: 0.5rem; text-align: center;">
+                Use a roda do mouse para zoom, arraste para navegar, ou use os botões acima.
+            </p>
         </div>
     </div>
 
     <script>
+        let currentZoom = 1;
+        
         function openSchemaModal() {
             document.getElementById('schemaModal').style.display = 'flex';
+            currentZoom = 1;
+            updateZoom();
         }
+        
         function closeSchemaModal() {
             document.getElementById('schemaModal').style.display = 'none';
         }
+        
+        function zoomSchema(delta) {
+            currentZoom = Math.max(0.2, Math.min(3, currentZoom + delta));
+            updateZoom();
+        }
+        
+        function resetZoom() {
+            currentZoom = 1;
+            updateZoom();
+            document.getElementById('svgContainer').scrollTo(0, 0);
+        }
+        
+        function updateZoom() {
+            const svg = document.getElementById('schemaSvg');
+            svg.style.transform = `scale(${currentZoom})`;
+            document.getElementById('zoomLevel').textContent = Math.round(currentZoom * 100) + '%';
+        }
+        
+        // Zoom com roda do mouse
+        document.getElementById('svgContainer')?.addEventListener('wheel', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                zoomSchema(e.deltaY > 0 ? -0.1 : 0.1);
+            }
+        });
+        
         // Close on click outside
         document.getElementById('schemaModal').addEventListener('click', function(e) {
             if (e.target === this) {
