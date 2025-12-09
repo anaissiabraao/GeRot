@@ -420,7 +420,7 @@
                         </td>
                         <td>
                             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button class="btn btn-warning" onclick="openEditModal({{ user.id }}, '{{ user.email or '' }}', '{{ user.nome_usuario or '' }}', '{{ user.role }}', {{ 'true' if user.first_login else 'false' }})">
+                                <button class="btn btn-warning" onclick="openEditModal({{ user.id }}, '{{ user.email or '' }}', '{{ user.nome_usuario or '' }}', '{{ user.role }}', {{ 'true' if user.first_login else 'false' }}, '{{ user.nome_completo|replace("'", "\\'") }}', '{{ user.cargo_original or '' }}', '{{ user.departamento or '' }}', {{ 'true' if user.is_active else 'false' }})">
                                     <i class="fas fa-edit"></i> Editar
                                 </button>
                                 {% if user.id != session.user_id %}
@@ -500,6 +500,22 @@
             </div>
             <form id="editForm" method="POST">
                 <div class="form-group">
+                    <label for="edit_nome_completo">Nome Completo:</label>
+                    <input type="text" id="edit_nome_completo" name="nome_completo" required>
+                </div>
+                <div class="form-group">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label for="edit_cargo_original">Cargo:</label>
+                            <input type="text" id="edit_cargo_original" name="cargo_original">
+                        </div>
+                        <div>
+                            <label for="edit_departamento">Departamento:</label>
+                            <input type="text" id="edit_departamento" name="departamento">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label for="email">Email:</label>
                     <input type="email" id="email" name="email" placeholder="usuario@portoex.com.br" required>
                     <small>Deve terminar com @portoex.com.br</small>
@@ -510,11 +526,22 @@
                     <small>Usado para login alternativo</small>
                 </div>
                 <div class="form-group">
-                    <label for="role">Permissões (Role):</label>
-                    <select id="role" name="role" required>
-                        <option value="usuario">Usuário</option>
-                        <option value="admin">Admin</option>
-                    </select>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label for="role">Permissões (Role):</label>
+                            <select id="role" name="role" required>
+                                <option value="usuario">Usuário</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="edit_is_active">Status:</label>
+                            <select id="edit_is_active" name="is_active">
+                                <option value="true">Ativo</option>
+                                <option value="false">Inativo</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="password">Nova Senha:</label>
@@ -555,7 +582,7 @@
             }
         });
 
-        function openEditModal(userId, email, nomeUsuario, role, firstLogin) {
+        function openEditModal(userId, email, nomeUsuario, role, firstLogin, nomeCompleto, cargo, departamento, isActive) {
             currentUserId = userId;
             document.getElementById('editForm').action = `/admin/users/${userId}/update`;
             document.getElementById('email').value = email || '';
@@ -563,6 +590,13 @@
             document.getElementById('role').value = role || 'usuario';
             document.getElementById('password').value = '';
             document.getElementById('reset_first_login').checked = false;
+            
+            // Novos campos
+            document.getElementById('edit_nome_completo').value = nomeCompleto || '';
+            document.getElementById('edit_cargo_original').value = cargo || '';
+            document.getElementById('edit_departamento').value = departamento || '';
+            document.getElementById('edit_is_active').value = isActive ? 'true' : 'false';
+
             document.getElementById('editModal').classList.add('active');
         }
 

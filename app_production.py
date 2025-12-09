@@ -1495,6 +1495,12 @@ def update_user(user_id):
         new_password = request.form.get("password", "").strip()
         reset_first_login = request.form.get("reset_first_login") == "on"
         
+        # Novos campos
+        new_nome_completo = request.form.get("nome_completo", "").strip()
+        new_cargo = request.form.get("cargo_original", "").strip()
+        new_departamento = request.form.get("departamento", "").strip()
+        new_is_active = request.form.get("is_active") == "true"
+        
         # Valida email
         if new_email and not new_email.lower().endswith("@portoex.com.br"):
             flash("O email deve terminar com @portoex.com.br", "error")
@@ -1503,6 +1509,21 @@ def update_user(user_id):
         # Atualiza campos
         updates = []
         params = []
+        
+        if new_nome_completo:
+            updates.append("nome_completo = %s")
+            params.append(new_nome_completo)
+            
+        # Cargo e departamento podem ser vazios
+        updates.append("cargo_original = %s")
+        params.append(new_cargo)
+        
+        updates.append("departamento = %s")
+        params.append(new_departamento)
+        
+        # Status
+        updates.append("is_active = %s")
+        params.append(new_is_active)
         
         if new_email:
             updates.append("email = %s")
