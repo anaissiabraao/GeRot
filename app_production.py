@@ -233,6 +233,45 @@ def admin_live_users():
     return render_template(get_template("admin_live_users.html"), users=active_users)
 
 
+@app.route("/admin/debug-time")
+@login_required
+@admin_required
+def debug_time():
+    """Rota temporária para diagnosticar problemas de time/fuso"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Verifica hora do DB
+    cursor.execute("SELECT NOW() as db_time, CURRENT_TIMESTAMP as db_timestamp, NOW() - INTERVAL '5 minutes' as cutoff")
+    times = cursor.fetchone()
+    
+    # Verifica últimos updates reais
+    cursor.execute("""
+        SELECT username, last_seen_at, current_page,
+        NOW() - last_seen_at as time_diff
+        FROM users_new
+        WHERE last_seen_at IS NOT NULL
+        ORDER BY last_seen_at DESC
+        LIMIT 5
+    """)
+    recent_users = cursor.fetchall()
+    conn.close()
+    
+    return jsonify({
+        "server_time_utc": str(datetime.utcnow()),
+        "db_time": str(times['db_time']),
+        "cutoff_5min": str(times['cutoff']),
+        "recent_users": [
+            {
+                "username": r['username'],
+                "last_seen": str(r['last_seen_at']),
+                "page": r['current_page'],
+                "diff": str(r['time_diff'])
+            } for r in recent_users
+        ]
+    })
+
+
 def get_db():
     # Remove parâmetros não suportados pelo psycopg2 (como pgbouncer)
     database_url = app.config["DATABASE_URL"]
