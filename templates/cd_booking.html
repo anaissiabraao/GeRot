@@ -15,14 +15,38 @@
         color: white;
         margin-bottom: 2rem;
         box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
     }
     
-    .booking-header h1 {
+    .booking-header-content h1 {
         font-size: 2.5rem;
         margin-bottom: 0.5rem;
         display: flex;
         align-items: center;
         gap: 1rem;
+    }
+    
+    .btn-back {
+        color: white;
+        text-decoration: none;
+        border: 1px solid rgba(255,255,255,0.3);
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.1);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-back:hover {
+        background: rgba(255,255,255,0.2);
+        transform: translateY(-2px);
     }
     
     .booking-header p {
@@ -407,11 +431,17 @@
 <div class="booking-container">
     <!-- Header -->
     <div class="booking-header">
-        <h1>
-            <i class="fas fa-calendar-alt"></i>
-            Agendamento de Salas
-        </h1>
-        <p>Reserve salas de reunião e auditórios do Centro de Distribuição</p>
+        <div class="booking-header-content">
+            <h1>
+                <i class="fas fa-calendar-alt"></i>
+                Agendamento de Salas
+            </h1>
+            <p>Reserve salas de reunião e auditórios do Centro de Distribuição</p>
+        </div>
+        <a href="{{ url_for('team_dashboard') }}" class="btn-back">
+            <i class="fas fa-arrow-left"></i>
+            Voltar ao Dashboard
+        </a>
     </div>
     
     <!-- Quick Stats -->

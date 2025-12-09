@@ -35,3 +35,16 @@ function enableCopyButtons() {
         });
     });
 }
+
+// Sidebar Toggle
+const sidebarToggle = document.getElementById('sidebar-toggle');
+const sidebar = document.getElementById('sidebar');
+const mainContent = document.getElementById('main-content');
+
+if (sidebarToggle && sidebar && mainContent) {
+    sidebarToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        sidebar.classList.toggle('active');
+        mainContent.classList.toggle('sidebar-active');
+    });
+}
