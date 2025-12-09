@@ -236,6 +236,9 @@ def get_db():
 def ensure_schema() -> None:
     conn = get_db()
     cursor = conn.cursor()
+    
+    # Adquirir lock exclusivo para garantir que apenas um worker execute a migração
+    cursor.execute("SELECT pg_advisory_xact_lock(12345)")
 
     cursor.execute(
         """
