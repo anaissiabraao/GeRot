@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoramento em Tempo Real - GeRot{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1200px; margin: 2rem auto;">
+    <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <div>
+            <h1><i class="fas fa-satellite-dish" style="color: #2ecc71;"></i> Usuários Online</h1>
+            <p style="color: #666;">Monitoramento de atividade em tempo real (últimos 5 minutos)</p>
+        </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn-back" style="background: #6c757d; color: white; padding: 0.5rem 1rem; border-radius: 5px; text-decoration: none;">
+            <i class="fas fa-arrow-left"></i> Voltar ao Painel
+        </a>
+    </div>
+
+    <div class="stats-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+        <div class="card" style="background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center;">
+            <h3 style="font-size: 2.5rem; margin: 0; color: #2ecc71;">{{ users|length }}</h3>
+            <p style="color: #666; margin: 0;">Usuários Ativos</p>
+        </div>
+        <div class="card" style="background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center;">
+            <h3 style="font-size: 2.5rem; margin: 0; color: #3498db;" id="pageViews">0</h3>
+            <p style="color: #666; margin: 0;">Visualizações de Página</p>
+        </div>
+    </div>
+
+    <div class="users-table-container" style="background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead style="background: #f8f9fa; border-bottom: 2px solid #e9ecef;">
+                <tr>
+                    <th style="padding: 1rem; text-align: left; color: #495057;">Usuário</th>
+                    <th style="padding: 1rem; text-align: left; color: #495057;">Função</th>
+                    <th style="padding: 1rem; text-align: left; color: #495057;">Página Atual</th>
+                    <th style="padding: 1rem; text-align: left; color: #495057;">Última Ação</th>
+                    <th style="padding: 1rem; text-align: center; color: #495057;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr style="border-bottom: 1px solid #e9ecef;">
+                    <td style="padding: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.8rem;">
+                            <div style="width: 35px; height: 35px; background: #6c5ce7; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+                                {{ user.nome_completo[0].upper() }}
+                            </div>
+                            <div>
+                                <div style="font-weight: 600;">{{ user.nome_completo }}</div>
+                                <div style="font-size: 0.85rem; color: #888;">{{ user.username }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="padding: 1rem;">
+                        {% if user.role == 'admin' %}
+                            <span style="background: #ffebee; color: #c62828; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">Admin</span>
+                        {% else %}
+                            <span style="background: #e3f2fd; color: #1565c0; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">Usuário</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 1rem;">
+                        <code style="background: #f1f2f6; padding: 0.2rem 0.4rem; border-radius: 4px; color: #e84393;">{{ user.current_page }}</code>
+                    </td>
+                    <td style="padding: 1rem;">
+                        {% set seconds = user.seconds_ago|int %}
+                        {% if seconds < 60 %}
+                            {{ seconds }}s atrás
+                        {% else %}
+                            {{ (seconds / 60)|int }}m atrás
+                        {% endif %}
+                    </td>
+                    <td style="padding: 1rem; text-align: center;">
+                        <span style="display: inline-block; width: 10px; height: 10px; background: #2ecc71; border-radius: 50%; box-shadow: 0 0 5px #2ecc71;"></span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="padding: 2rem; text-align: center; color: #888;">
+                        <i class="fas fa-ghost" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+                        Nenhum usuário ativo no momento (além de você?)
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Atualizar a página a cada 10 segundos
+    setTimeout(() => {
+        window.location.reload();
+    }, 10000);
+</script>
+{% endblock %}

@@ -174,6 +174,43 @@ def _as_bytes(value):
     return value
 
 
+@app.before_request
+def update_last_seen():
+    if session.get('user_id') and request.endpoint and request.endpoint != 'static':
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE users_new 
+                SET last_seen_at = NOW(), current_page = %s 
+                WHERE id = %s
+            """, (request.endpoint, session['user_id']))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
+
+@app.route("/admin/live-users")
+@login_required
+@admin_required
+def admin_live_users():
+    conn = get_db()
+    cursor = conn.cursor()
+    # Buscar usuários ativos nos últimos 5 minutos
+    cursor.execute("""
+        SELECT id, nome_completo, username, role, last_seen_at, current_page,
+        EXTRACT(EPOCH FROM (NOW() - last_seen_at)) as seconds_ago
+        FROM users_new
+        WHERE last_seen_at > NOW() - INTERVAL '5 minutes'
+        ORDER BY last_seen_at DESC
+    """)
+    active_users = cursor.fetchall()
+    
+    conn.close()
+    return render_template("admin_live_users.html", users=active_users)
+
+
 def get_db():
     # Remove parâmetros não suportados pelo psycopg2 (como pgbouncer)
     database_url = app.config["DATABASE_URL"]
@@ -243,6 +280,21 @@ def ensure_schema() -> None:
         """
         CREATE UNIQUE INDEX IF NOT EXISTS users_new_email_unique
             ON users_new (LOWER(email));
+        """
+    )
+    
+    # Adicionar colunas para rastreamento de atividade em tempo real
+    cursor.execute(
+        """
+        DO $$ 
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_new' AND column_name = 'last_seen_at') THEN
+                ALTER TABLE users_new ADD COLUMN last_seen_at TIMESTAMPTZ;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_new' AND column_name = 'current_page') THEN
+                ALTER TABLE users_new ADD COLUMN current_page TEXT;
+            END IF;
+        END $$;
         """
     )
 
