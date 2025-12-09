@@ -1,376 +1,397 @@
 {% extends "base.html" %}
 
-{% block title %}Instalações 3D do CD - GeRot{% endblock %}
+{% block title %}Visualização 3D do CD - GeRot{% endblock %}
 
 {% block extra_css %}
 <style>
-    .page-header {
+    .facilities-container {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .facilities-header {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        padding: 2.5rem;
+        border-radius: 15px;
+        color: white;
         margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     }
-
-    .page-header h1 {
-        font-size: 2rem;
-        color: #111827;
+    
+    .facilities-header h1 {
+        font-size: 2.5rem;
         margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
     }
-
-    .tabs-container {
+    
+    .facilities-header p {
+        opacity: 0.95;
+        font-size: 1.1rem;
+    }
+    
+    .header-actions {
+        margin-top: 1.5rem;
+        display: flex;
+        gap: 1rem;
+    }
+    
+    .header-btn {
+        padding: 0.75rem 1.5rem;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 8px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s;
+    }
+    
+    .header-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+    }
+    
+    .environment-selector {
         background: white;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        margin: 2rem 0;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .environment-selector h2 {
+        font-size: 1.3rem;
+        margin-bottom: 1rem;
+        color: #1e3c72;
+    }
+    
+    .environment-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .env-button {
+        padding: 1rem;
+        border: 2px solid #e0e0e0;
+        background: white;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: center;
+    }
+    
+    .env-button:hover {
+        border-color: #1e3c72;
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(30, 60, 114, 0.15);
+    }
+    
+    .env-button.active {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        color: white;
+        border-color: #1e3c72;
+    }
+    
+    .env-button i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    
+    .env-button .env-name {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    
+    .env-button .env-info {
+        font-size: 0.85rem;
+        opacity: 0.8;
+    }
+    
+    .viewer-section {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         overflow: hidden;
     }
-
-    .tabs-header {
+    
+    .viewer-tabs {
         display: flex;
+        background: #f8f9fa;
         border-bottom: 2px solid #e5e7eb;
-        background: #f9fafb;
     }
-
-    .tab-button {
+    
+    .viewer-tab {
         flex: 1;
-        padding: 1.25rem 2rem;
+        padding: 1rem 2rem;
+        background: none;
         border: none;
-        background: transparent;
         cursor: pointer;
-        font-size: 1rem;
         font-weight: 600;
         color: #6b7280;
-        transition: all 0.3s ease;
+        transition: all 0.3s;
         position: relative;
     }
-
-    .tab-button:hover {
+    
+    .viewer-tab:hover {
         background: #f3f4f6;
         color: #374151;
     }
-
-    .tab-button.active {
-        color: #2563eb;
+    
+    .viewer-tab.active {
         background: white;
+        color: #1e3c72;
     }
-
-    .tab-button.active::after {
+    
+    .viewer-tab.active::after {
         content: '';
         position: absolute;
         bottom: -2px;
         left: 0;
         right: 0;
         height: 2px;
-        background: #2563eb;
+        background: #1e3c72;
     }
-
-    .tab-content {
+    
+    .viewer-content {
         display: none;
         padding: 2rem;
-        animation: fadeIn 0.3s ease;
     }
-
-    .tab-content.active {
+    
+    .viewer-content.active {
         display: block;
     }
-
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+    
+    #viewer3d-container {
+        position: relative;
+        width: 100%;
+        height: 700px;
+        background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+        border-radius: 10px;
+        overflow: hidden;
     }
-
+    
     #viewer3d {
         width: 100%;
-        height: 600px;
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border-radius: 8px;
+        height: 100%;
+    }
+    
+    #viewer2d {
+        width: 100%;
+        height: 700px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         position: relative;
         overflow: hidden;
     }
-
+    
+    .plant-image {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        cursor: grab;
+    }
+    
+    .plant-image.dragging {
+        cursor: grabbing;
+    }
+    
+    .no-content-message {
+        text-align: center;
+        padding: 3rem;
+        color: #6b7280;
+    }
+    
+    .no-content-message i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
     .viewer-controls {
         margin-top: 1.5rem;
-        padding: 1rem;
+        padding: 1.5rem;
         background: #f9fafb;
-        border-radius: 8px;
+        border-radius: 10px;
         display: flex;
         gap: 1rem;
         flex-wrap: wrap;
         align-items: center;
     }
-
+    
     .control-btn {
-        padding: 0.75rem 1.5rem;
+        padding: 0.75rem 1.25rem;
         border: none;
         border-radius: 6px;
         cursor: pointer;
         font-weight: 600;
         transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
     }
-
+    
     .control-btn.primary {
         background: #2563eb;
         color: white;
     }
-
+    
     .control-btn.primary:hover {
         background: #1d4ed8;
     }
-
+    
     .control-btn.secondary {
         background: #6b7280;
         color: white;
     }
-
+    
     .control-btn.secondary:hover {
         background: #4b5563;
     }
-
-    .schedule-container {
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    .schedule-form {
-        background: #f9fafb;
-        padding: 2rem;
-        border-radius: 8px;
-        margin-bottom: 2rem;
-    }
-
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-
-    .form-group label {
-        display: block;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        color: #374151;
-    }
-
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 1rem;
-        transition: border-color 0.3s ease;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
-        outline: none;
-        border-color: #2563eb;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-    }
-
-    .form-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-    }
-
-    .submit-btn {
-        background: #10b981;
-        color: white;
-        padding: 0.875rem 2rem;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 600;
-        font-size: 1rem;
-        width: 100%;
-        transition: background 0.3s ease;
-    }
-
-    .submit-btn:hover {
-        background: #059669;
-    }
-
-    .bookings-panel {
-        background: white;
-        border-radius: 8px;
-        overflow: hidden;
-        margin-top: 2rem;
-    }
-
-    .panel-header {
-        padding: 1.5rem 2rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
-
-    .panel-header h3 {
-        margin: 0;
-        font-size: 1.3rem;
-    }
-
-    .bookings-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-        gap: 1rem;
-        padding: 1.5rem;
-    }
-
-    .booking-card {
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 1.5rem;
-        transition: all 0.3s ease;
-    }
-
-    .booking-card:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        transform: translateY(-2px);
-    }
-
-    .booking-card h4 {
-        margin: 0 0 1rem 0;
-        color: #111827;
-        font-size: 1.1rem;
-    }
-
-    .booking-info {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-
-    .booking-info-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: #6b7280;
-        font-size: 0.9rem;
-    }
-
-    .booking-info-item i {
-        width: 20px;
-        color: #2563eb;
-    }
-
-    .booking-actions {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 1rem;
-    }
-
-    .btn-edit,
-    .btn-delete {
-        flex: 1;
-        padding: 0.5rem 1rem;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.9rem;
-        font-weight: 600;
-        transition: all 0.2s ease;
-    }
-
-    .btn-edit {
-        background: #3b82f6;
-        color: white;
-    }
-
-    .btn-edit:hover {
-        background: #2563eb;
-    }
-
-    .btn-delete {
-        background: #ef4444;
-        color: white;
-    }
-
-    .btn-delete:hover {
-        background: #dc2626;
-    }
-
-    .room-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 4px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-
-    .room-badge.sala1 {
-        background: #dbeafe;
-        color: #1e40af;
-    }
-
-    .room-badge.sala2 {
-        background: #fce7f3;
-        color: #9f1239;
-    }
-
+    
     .loading-overlay {
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0,0,0,0.7);
+        background: rgba(15, 15, 35, 0.9);
         display: flex;
         align-items: center;
         justify-content: center;
         color: white;
-        font-size: 1.2rem;
-        z-index: 10;
+        z-index: 100;
     }
-
-    .empty-state {
+    
+    .loading-overlay div {
         text-align: center;
-        padding: 3rem;
-        color: #9ca3af;
     }
-
-    .empty-state i {
+    
+    .loading-overlay i {
         font-size: 3rem;
         margin-bottom: 1rem;
-        display: block;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="page-header">
-        <h1><i class="fas fa-building"></i> Instalações do CD</h1>
-        <p>Visualize o CD em 3D e agende salas de reunião</p>
+<div class="facilities-container">
+    <!-- Header -->
+    <div class="facilities-header">
+        <h1>
+            <i class="fas fa-cube"></i>
+            Visualização 3D do Centro de Distribuição
+        </h1>
+        <p>Explore o layout completo do CD através de modelos 3D interativos e plantas detalhadas</p>
+        <div class="header-actions">
+            <a href="/cd/booking" class="header-btn">
+                <i class="fas fa-calendar-plus"></i>
+                Agendar Sala
+            </a>
+            {% if session.role == 'manager' %}
+            <a href="/admin/dashboard#facilities" class="header-btn">
+                <i class="fas fa-cog"></i>
+                Configurar Ambientes
+            </a>
+            {% endif %}
+        </div>
     </div>
-
-    <div class="tabs-container">
-        <div class="tabs-header">
-            <button class="tab-button active" onclick="switchTab(event, 'viewer3d-tab')">
-                <i class="fas fa-cube"></i> Visualização 3D
+    
+    <!-- Environment Selector -->
+    <div class="environment-selector">
+        <h2>
+            <i class="fas fa-th-large"></i>
+            Selecione o Ambiente
+        </h2>
+        <div class="environment-grid" id="environmentGrid">
+            <button class="env-button active" data-env="geral" onclick="selectEnvironment('geral')">
+                <i class="fas fa-building"></i>
+                <div class="env-name">Vista Geral</div>
+                <div class="env-info">CD Completo</div>
             </button>
-            <button class="tab-button" onclick="switchTab(event, 'schedule')">
-                <i class="fas fa-calendar-alt"></i> Agendar Sala
+            <button class="env-button" data-env="recepcao" onclick="selectEnvironment('recepcao')">
+                <i class="fas fa-door-open"></i>
+                <div class="env-name">Recepção</div>
+                <div class="env-info">Entrada Principal</div>
             </button>
-            <button class="tab-button" onclick="switchTab(event, 'bookings')">
-                <i class="fas fa-list"></i> Horários Agendados
+            <button class="env-button" data-env="armazem" onclick="selectEnvironment('armazem')">
+                <i class="fas fa-warehouse"></i>
+                <div class="env-name">Armazém</div>
+                <div class="env-info">Área de Estoque</div>
+            </button>
+            <button class="env-button" data-env="expedicao" onclick="selectEnvironment('expedicao')">
+                <i class="fas fa-truck-loading"></i>
+                <div class="env-name">Expedição</div>
+                <div class="env-info">Área de Carga</div>
+            </button>
+            <button class="env-button" data-env="reuniao1" onclick="selectEnvironment('reuniao1')">
+                <i class="fas fa-users"></i>
+                <div class="env-name">Sala Reunião 1</div>
+                <div class="env-info">10 pessoas</div>
+            </button>
+            <button class="env-button" data-env="reuniao2" onclick="selectEnvironment('reuniao2')">
+                <i class="fas fa-users"></i>
+                <div class="env-name">Sala Reunião 2</div>
+                <div class="env-info">10 pessoas</div>
+            </button>
+            <button class="env-button" data-env="treinamento" onclick="selectEnvironment('treinamento')">
+                <i class="fas fa-chalkboard-teacher"></i>
+                <div class="env-name">Treinamento</div>
+                <div class="env-info">30 pessoas</div>
+            </button>
+            <button class="env-button" data-env="auditorio" onclick="selectEnvironment('auditorio')">
+                <i class="fas fa-theater-masks"></i>
+                <div class="env-name">Auditório</div>
+                <div class="env-info">50 pessoas</div>
             </button>
         </div>
-
-        <!-- Aba: Visualização 3D -->
-        <div id="viewer3d-tab" class="tab-content active">
-            <h2>Tour Virtual 3D do CD</h2>
-            <p style="color: #6b7280; margin-bottom: 1.5rem;">
-                Navegue pelo Centro de Distribuição usando os controles do mouse. Arraste para rotacionar, scroll para zoom.
-            </p>
-            
-            <div id="viewer3d">
-                <div class="loading-overlay" id="loadingOverlay">
+    </div>
+    
+    <!-- Viewer Section -->
+    <div class="viewer-section">
+        <div class="viewer-tabs">
+            <button class="viewer-tab active" onclick="switchViewMode('3d')">
+                <i class="fas fa-cube"></i>
+                Modelo 3D
+            </button>
+            <button class="viewer-tab" onclick="switchViewMode('2d')">
+                <i class="fas fa-map"></i>
+                Planta 2D
+            </button>
+            <button class="viewer-tab" onclick="switchViewMode('photos')">
+                <i class="fas fa-images"></i>
+                Fotos
+            </button>
+        </div>
+        
+        <!-- 3D View -->
+        <div id="view-3d" class="viewer-content active">
+            <div id="viewer3d-container">
+                <div class="loading-overlay" id="loadingOverlay3d">
                     <div>
-                        <i class="fas fa-spinner fa-spin" style="font-size: 2rem;"></i>
+                        <i class="fas fa-spinner"></i>
                         <p>Carregando modelo 3D...</p>
                     </div>
                 </div>
+                <div id="viewer3d"></div>
             </div>
-
+            
             <div class="viewer-controls">
                 <button class="control-btn primary" onclick="resetCamera()">
                     <i class="fas fa-redo"></i> Resetar Câmera
@@ -379,109 +400,60 @@
                     <i class="fas fa-border-all"></i> Wireframe
                 </button>
                 <button class="control-btn secondary" onclick="switchModel()">
-                    <i class="fas fa-exchange-alt"></i> Alternar Modelo (GLB/FBX)
+                    <i class="fas fa-exchange-alt"></i> Alternar Modelo
                 </button>
                 <div style="flex: 1;"></div>
                 <span style="color: #6b7280;">
                     <i class="fas fa-mouse"></i> Arraste para rotacionar | 
-                    <i class="fas fa-scroll"></i> Scroll para zoom
+                    <i class="fas fa-search-plus"></i> Scroll para zoom
                 </span>
             </div>
         </div>
-
-        <!-- Aba: Agendamento de Sala -->
-        <div id="schedule" class="tab-content">
-            <div class="schedule-container">
-                <h2>Agendar Sala de Reunião</h2>
-                
-                <form class="schedule-form" id="bookingForm" onsubmit="submitBooking(event)">
-                    <div class="form-group">
-                        <label for="meetingTitle">
-                            <i class="fas fa-heading"></i> Título da Reunião *
-                        </label>
-                        <input type="text" id="meetingTitle" name="title" required placeholder="Ex: Reunião de Planejamento">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="room">
-                            <i class="fas fa-door-open"></i> Sala *
-                        </label>
-                        <select id="room" name="room" required>
-                            <option value="">Selecione uma sala</option>
-                            <option value="sala1">Sala 1</option>
-                            <option value="sala2">Sala 2</option>
-                        </select>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="date">
-                                <i class="fas fa-calendar"></i> Data *
-                            </label>
-                            <input type="date" id="date" name="date" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="participants">
-                                <i class="fas fa-users"></i> Nº de Participantes *
-                            </label>
-                            <input type="number" id="participants" name="participants" min="1" required placeholder="Ex: 8">
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="startTime">
-                                <i class="fas fa-clock"></i> Horário Início *
-                            </label>
-                            <input type="time" id="startTime" name="start_time" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="endTime">
-                                <i class="fas fa-clock"></i> Horário Fim *
-                            </label>
-                            <input type="time" id="endTime" name="end_time" required>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="subject">
-                            <i class="fas fa-align-left"></i> Assunto da Reunião *
-                        </label>
-                        <textarea id="subject" name="subject" rows="3" required placeholder="Descreva o assunto que será tratado na reunião..."></textarea>
-                    </div>
-
-                    <button type="submit" class="submit-btn">
-                        <i class="fas fa-check"></i> Confirmar Agendamento
-                    </button>
-                </form>
+        
+        <!-- 2D View -->
+        <div id="view-2d" class="viewer-content">
+            <div id="viewer2d">
+                <div class="no-content-message" id="no2dContent">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <h3>Planta 2D não disponível</h3>
+                    <p>Nenhuma planta foi carregada para este ambiente.</p>
+                    {% if session.role == 'manager' %}
+                    <a href="/admin/dashboard#facilities" class="control-btn primary" style="margin-top: 1rem;">
+                        <i class="fas fa-upload"></i> Fazer Upload
+                    </a>
+                    {% endif %}
+                </div>
+                <img id="plantImage" class="plant-image" style="display: none;" alt="Planta 2D">
+            </div>
+            
+            <div class="viewer-controls">
+                <button class="control-btn primary" onclick="resetZoom()">
+                    <i class="fas fa-compress"></i> Ajustar Zoom
+                </button>
+                <button class="control-btn secondary" onclick="downloadPlant()">
+                    <i class="fas fa-download"></i> Baixar Planta
+                </button>
             </div>
         </div>
-
-        <!-- Aba: Horários Agendados -->
-        <div id="bookings" class="tab-content">
-            <div class="schedule-container">
-                <div class="bookings-panel">
-                    <div class="panel-header">
-                        <h3><i class="fas fa-calendar-check"></i> Painel de Horários Agendados</h3>
-                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">Visualize e gerencie todos os agendamentos</p>
-                    </div>
-                    
-                    <div class="bookings-grid" id="bookingsGrid">
-                        <div class="empty-state">
-                            <i class="fas fa-calendar-times"></i>
-                            <p>Carregando agendamentos...</p>
-                        </div>
-                    </div>
+        
+        <!-- Photos View -->
+        <div id="view-photos" class="viewer-content">
+            <div id="photosGallery" style="padding: 2rem;">
+                <div class="no-content-message">
+                    <i class="fas fa-camera"></i>
+                    <h3>Fotos não disponíveis</h3>
+                    <p>Nenhuma foto foi carregada para este ambiente.</p>
+                    {% if session.role == 'manager' %}
+                    <a href="/admin/dashboard#facilities" class="control-btn primary" style="margin-top: 1rem;">
+                        <i class="fas fa-upload"></i> Fazer Upload
+                    </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
 <script type="importmap">
 {
     "imports": {
@@ -500,6 +472,7 @@
     let scene, camera, renderer, controls, currentModel;
     let currentModelType = 'glb';
     let wireframeMode = false;
+    let currentEnvironment = 'geral';
 
     function initViewer() {
         const container = document.getElementById('viewer3d');
@@ -538,12 +511,14 @@
     }
 
     function loadModel(type) {
-        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingOverlay = document.getElementById('loadingOverlay3d');
         loadingOverlay.style.display = 'flex';
         
         if (currentModel) {
             scene.remove(currentModel);
         }
+        
+        currentModelType = type;
         
         if (type === 'glb') {
             const loader = new GLTFLoader();
@@ -552,8 +527,19 @@
                 function(gltf) {
                     currentModel = gltf.scene;
                     scene.add(currentModel);
+                    
+                    currentModel.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    
+                    const box = new THREE.Box3().setFromObject(currentModel);
+                    const center = box.getCenter(new THREE.Vector3());
+                    currentModel.position.sub(center);
+                    
                     loadingOverlay.style.display = 'none';
-                    currentModelType = 'glb';
                 },
                 function(xhr) {
                     console.log((xhr.loaded / xhr.total * 100) + '% loaded');
@@ -563,12 +549,8 @@
                     loadingOverlay.innerHTML = `
                         <div style="text-align: center; padding: 2rem; color: #f59e0b;">
                             <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                            <h3 style="margin-bottom: 1rem;">Arquivo 3D não encontrado</h3>
-                            <p style="color: #9ca3af; margin-bottom: 1rem;">Os arquivos GLB/FBX não estão disponíveis no servidor.</p>
-                            <p style="color: #9ca3af; font-size: 0.9rem;">
-                                <strong>Motivo:</strong> Arquivos muito grandes (&gt;100MB) não são enviados para o GitHub.<br>
-                                <strong>Solução:</strong> Hospedar em CDN externo ou usar Git LFS.
-                            </p>
+                            <h3 style="margin-bottom: 1rem;">Modelo 3D não encontrado</h3>
+                            <p style="color: #9ca3af;">Verifique se o arquivo foi configurado corretamente.</p>
                         </div>
                     `;
                 }
@@ -580,8 +562,17 @@
                 function(fbx) {
                     currentModel = fbx;
                     scene.add(currentModel);
+                    
+                    currentModel.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    
+                    currentModel.scale.set(0.01, 0.01, 0.01);
+                    
                     loadingOverlay.style.display = 'none';
-                    currentModelType = 'fbx';
                 },
                 function(xhr) {
                     console.log((xhr.loaded / xhr.total * 100) + '% loaded');
@@ -591,12 +582,8 @@
                     loadingOverlay.innerHTML = `
                         <div style="text-align: center; padding: 2rem; color: #f59e0b;">
                             <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                            <h3 style="margin-bottom: 1rem;">Arquivo 3D não encontrado</h3>
-                            <p style="color: #9ca3af; margin-bottom: 1rem;">Os arquivos GLB/FBX não estão disponíveis no servidor.</p>
-                            <p style="color: #9ca3af; font-size: 0.9rem;">
-                                <strong>Motivo:</strong> Arquivos muito grandes (&gt;100MB) não são enviados para o GitHub.<br>
-                                <strong>Solução:</strong> Hospedar em CDN externo ou usar Git LFS.
-                            </p>
+                            <h3 style="margin-bottom: 1rem;">Modelo 3D não encontrado</h3>
+                            <p style="color: #9ca3af;">Verifique se o arquivo foi configurado corretamente.</p>
                         </div>
                     `;
                 }
@@ -617,16 +604,15 @@
         renderer.setSize(container.clientWidth, container.clientHeight);
     }
 
-    function resetCamera() {
+    window.resetCamera = function() {
         camera.position.set(5, 5, 5);
-        controls.target.set(0, 0, 0);
-        controls.update();
+        controls.reset();
     }
 
-    function toggleWireframe() {
+    window.toggleWireframe = function() {
         wireframeMode = !wireframeMode;
         if (currentModel) {
-            currentModel.traverse(function(child) {
+            currentModel.traverse((child) => {
                 if (child.isMesh) {
                     child.material.wireframe = wireframeMode;
                 }
@@ -634,158 +620,91 @@
         }
     }
 
-    function switchModel() {
+    window.switchModel = function() {
         const newType = currentModelType === 'glb' ? 'fbx' : 'glb';
         loadModel(newType);
     }
 
-    function switchTab(event, tabId) {
-        const tabButtons = document.querySelectorAll('.tab-button');
-        const tabContents = document.querySelectorAll('.tab-content');
-        
-        tabButtons.forEach(btn => btn.classList.remove('active'));
-        tabContents.forEach(content => content.classList.remove('active'));
-        
-        event.currentTarget.classList.add('active');
-        document.getElementById(tabId).classList.add('active');
-        
-        if (tabId === 'bookings') {
-            loadBookings();
-        }
-    }
-
-    async function submitBooking(event) {
-        event.preventDefault();
-        
-        const formData = new FormData(event.target);
-        const data = Object.fromEntries(formData.entries());
-        
-        try {
-            const response = await fetch('/api/room-bookings', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            });
-            
-            const result = await response.json();
-            
-            if (response.ok) {
-                alert('Agendamento realizado com sucesso!');
-                event.target.reset();
-                loadBookings();
-            } else {
-                alert('Erro: ' + (result.error || 'Não foi possível realizar o agendamento'));
-            }
-        } catch (error) {
-            console.error('Erro:', error);
-            alert('Erro ao realizar agendamento');
-        }
-    }
-
-    async function loadBookings() {
-        const grid = document.getElementById('bookingsGrid');
-        grid.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Carregando...</p></div>';
-        
-        try {
-            const response = await fetch('/api/room-bookings');
-            const bookings = await response.json();
-            
-            if (bookings.length === 0) {
-                grid.innerHTML = '<div class="empty-state"><i class="fas fa-calendar-times"></i><p>Nenhum agendamento encontrado</p></div>';
-                return;
-            }
-            
-            grid.innerHTML = bookings.map(booking => `
-                <div class="booking-card">
-                    <h4>${booking.title}</h4>
-                    <div class="booking-info">
-                        <div class="booking-info-item">
-                            <i class="fas fa-door-open"></i>
-                            <span class="room-badge ${booking.room}">${booking.room === 'sala1' ? 'Sala 1' : 'Sala 2'}</span>
-                        </div>
-                        <div class="booking-info-item">
-                            <i class="fas fa-calendar"></i>
-                            <span>${formatDate(booking.date)}</span>
-                        </div>
-                        <div class="booking-info-item">
-                            <i class="fas fa-clock"></i>
-                            <span>${booking.start_time} - ${booking.end_time}</span>
-                        </div>
-                        <div class="booking-info-item">
-                            <i class="fas fa-users"></i>
-                            <span>${booking.participants} participantes</span>
-                        </div>
-                        <div class="booking-info-item">
-                            <i class="fas fa-user"></i>
-                            <span>${booking.user_name || 'Usuário'}</span>
-                        </div>
-                        <div class="booking-info-item" style="margin-top: 0.5rem; color: #374151;">
-                            <i class="fas fa-align-left"></i>
-                            <span><strong>Assunto:</strong> ${booking.subject}</span>
-                        </div>
-                    </div>
-                    <div class="booking-actions">
-                        <button class="btn-edit" onclick="editBooking(${booking.id})">
-                            <i class="fas fa-edit"></i> Editar
-                        </button>
-                        <button class="btn-delete" onclick="deleteBooking(${booking.id})">
-                            <i class="fas fa-trash"></i> Excluir
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        } catch (error) {
-            console.error('Erro:', error);
-            grid.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Erro ao carregar agendamentos</p></div>';
-        }
-    }
-
-    function formatDate(dateString) {
-        const date = new Date(dateString + 'T00:00:00');
-        return date.toLocaleDateString('pt-BR');
-    }
-
-    async function deleteBooking(id) {
-        if (!confirm('Tem certeza que deseja excluir este agendamento?')) {
-            return;
-        }
-        
-        try {
-            const response = await fetch(`/api/room-bookings/${id}`, {
-                method: 'DELETE'
-            });
-            
-            if (response.ok) {
-                alert('Agendamento excluído com sucesso!');
-                loadBookings();
-            } else {
-                alert('Erro ao excluir agendamento');
-            }
-        } catch (error) {
-            console.error('Erro:', error);
-            alert('Erro ao excluir agendamento');
-        }
-    }
-
-    function editBooking(id) {
-        alert('Funcionalidade de edição em desenvolvimento. ID: ' + id);
-    }
-
-    // Expor funções globalmente para serem acessíveis pelos botões HTML
-    window.switchTab = switchTab;
-    window.resetCamera = resetCamera;
-    window.toggleWireframe = toggleWireframe;
-    window.switchModel = switchModel;
-    window.submitBooking = submitBooking;
-    window.deleteBooking = deleteBooking;
-    window.editBooking = editBooking;
-
-    document.getElementById('date').min = new Date().toISOString().split('T')[0];
-    
-    if (document.getElementById('viewer3d-tab').classList.contains('active')) {
+    // Initialize viewer when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initViewer);
+    } else {
         initViewer();
     }
+</script>
+
+<script>
+    // Environment selection
+    function selectEnvironment(env) {
+        currentEnvironment = env;
+        
+        // Update active button
+        document.querySelectorAll('.env-button').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.env === env) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Load environment-specific content
+        loadEnvironmentContent(env);
+    }
+    
+    function loadEnvironmentContent(env) {
+        // This would load environment-specific 3D models, 2D plants, and photos
+        // For now, we'll just show a message
+        console.log('Loading environment:', env);
+        
+        // In a real implementation, this would:
+        // 1. Load the specific 3D model for this environment
+        // 2. Load the 2D floor plan if available
+        // 3. Load photos if available
+    }
+    
+    // View mode switching
+    function switchViewMode(mode) {
+        // Update tabs
+        document.querySelectorAll('.viewer-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        // Update content
+        document.querySelectorAll('.viewer-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        
+        if (mode === '3d') {
+            document.getElementById('view-3d').classList.add('active');
+        } else if (mode === '2d') {
+            document.getElementById('view-2d').classList.add('active');
+        } else if (mode === 'photos') {
+            document.getElementById('view-photos').classList.add('active');
+        }
+    }
+    
+    // 2D Plant functions
+    function resetZoom() {
+        const img = document.getElementById('plantImage');
+        if (img) {
+            img.style.transform = 'scale(1)';
+        }
+    }
+    
+    function downloadPlant() {
+        const img = document.getElementById('plantImage');
+        if (img && img.src) {
+            const a = document.createElement('a');
+            a.href = img.src;
+            a.download = `planta_${currentEnvironment}.jpg`;
+            a.click();
+        }
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load default environment
+        loadEnvironmentContent('geral');
+    });
 </script>
 {% endblock %}

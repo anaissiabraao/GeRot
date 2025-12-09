@@ -34,7 +34,7 @@
                         </a>
                     </li>
                     <li>
-                        <a href="{{ url_for('cd_facilities') }}#schedule" class="btn-quick-access" title="Agendar Sala de Reunião" style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.3s ease;">
+                        <a href="{{ url_for('cd_booking') }}" class="btn-quick-access" title="Agendar Sala de Reunião" style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.3s ease;">
                             <i class="fas fa-calendar-plus"></i> Agendar
                         </a>
                     </li>
@@ -87,6 +87,9 @@
                 <a href="{{ url_for('cd_facilities') }}" class="sidebar-item {% if request.endpoint == 'cd_facilities' %}active{% endif %}">
                     <i class="fas fa-cube"></i> Visualização 3D
                 </a>
+                <a href="{{ url_for('cd_booking') }}" class="sidebar-item {% if request.endpoint == 'cd_booking' %}active{% endif %}">
+                    <i class="fas fa-calendar-alt"></i> Agendamentos
+                </a>
             {% else %}
                 <!-- Menu Equipe -->
                 <a href="{{ url_for('team_dashboard') }}" class="sidebar-item {% if request.endpoint == 'team_dashboard' %}active{% endif %}">
@@ -94,6 +97,9 @@
                 </a>
                 <a href="{{ url_for('cd_facilities') }}" class="sidebar-item {% if request.endpoint == 'cd_facilities' %}active{% endif %}">
                     <i class="fas fa-cube"></i> Visualização 3D
+                </a>
+                <a href="{{ url_for('cd_booking') }}" class="sidebar-item {% if request.endpoint == 'cd_booking' %}active{% endif %}">
+                    <i class="fas fa-calendar-alt"></i> Agendamentos
                 </a>
             {% endif %}
         </nav>

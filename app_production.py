@@ -1642,8 +1642,15 @@ def team_dashboard():
 @app.route("/cd/facilities")
 @login_required
 def cd_facilities():
-    """Página para visualizar planta do CD e agendar salas de reunião"""
+    """Página para visualizar planta 3D do CD"""
     return render_template("cd_facilities.html")
+
+
+@app.route("/cd/booking")
+@login_required
+def cd_booking():
+    """Página para agendar salas de reunião"""
+    return render_template("cd_booking.html")
 
 
 @app.route("/api/room-bookings", methods=["GET", "POST"])

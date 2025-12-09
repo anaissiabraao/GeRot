@@ -1,0 +1,852 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .booking-container {
+        max-width: 1400px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+    
+    .booking-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        color: white;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    
+    .booking-header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .booking-header p {
+        opacity: 0.95;
+        font-size: 1.1rem;
+    }
+    
+    .booking-grid {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 2rem;
+    }
+    
+    @media (max-width: 768px) {
+        .booking-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .booking-form-card {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        height: fit-content;
+    }
+    
+    .booking-form-card h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #555;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .form-group textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    .room-selector {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .room-option {
+        padding: 1rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: white;
+    }
+    
+    .room-option:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+    
+    .room-option.selected {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: #667eea;
+    }
+    
+    .room-option i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .time-slots {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    
+    .btn-submit {
+        width: 100%;
+        padding: 1rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+    }
+    
+    .btn-submit:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .calendar-view {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .calendar-view h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+        color: #333;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .calendar-controls {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .calendar-controls button {
+        padding: 0.5rem 1rem;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .calendar-controls button:hover {
+        background: #5a67d8;
+    }
+    
+    .bookings-timeline {
+        position: relative;
+        min-height: 400px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        overflow-x: auto;
+    }
+    
+    .time-grid {
+        display: grid;
+        grid-template-columns: 60px repeat(3, 1fr);
+        gap: 0.5rem;
+        min-width: 600px;
+    }
+    
+    .time-label {
+        font-size: 0.85rem;
+        color: #666;
+        padding: 0.5rem;
+        text-align: right;
+        border-right: 1px solid #ddd;
+    }
+    
+    .room-column {
+        position: relative;
+        background: white;
+        border-radius: 4px;
+        min-height: 600px;
+    }
+    
+    .room-column-header {
+        padding: 0.75rem;
+        background: #667eea;
+        color: white;
+        font-weight: 600;
+        border-radius: 4px 4px 0 0;
+        text-align: center;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .booking-block {
+        position: absolute;
+        left: 0.5rem;
+        right: 0.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 0.85rem;
+        overflow: hidden;
+    }
+    
+    .booking-block:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        z-index: 5;
+    }
+    
+    .booking-block.my-booking {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .booking-block .booking-title {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    
+    .booking-block .booking-info {
+        font-size: 0.75rem;
+        opacity: 0.9;
+    }
+    
+    .booking-details-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .booking-details-modal.active {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 15px;
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    
+    .modal-header h3 {
+        font-size: 1.5rem;
+        color: #333;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #999;
+    }
+    
+    .notification-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #f5576c;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+    
+    .quick-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .stat-card i {
+        font-size: 2rem;
+        color: #667eea;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-card .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .stat-card .stat-label {
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .alert-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: none;
+        align-items: center;
+        gap: 1rem;
+        z-index: 2000;
+        animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    .alert-notification.success {
+        border-left: 4px solid #48bb78;
+    }
+    
+    .alert-notification.error {
+        border-left: 4px solid #f56565;
+    }
+    
+    .alert-notification.info {
+        border-left: 4px solid #667eea;
+    }
+</style>
+
+<div class="booking-container">
+    <!-- Header -->
+    <div class="booking-header">
+        <h1>
+            <i class="fas fa-calendar-alt"></i>
+            Agendamento de Salas
+        </h1>
+        <p>Reserve salas de reunião e auditórios do Centro de Distribuição</p>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="quick-stats">
+        <div class="stat-card">
+            <i class="fas fa-door-open"></i>
+            <div class="stat-value" id="totalRooms">6</div>
+            <div class="stat-label">Salas Disponíveis</div>
+        </div>
+        <div class="stat-card">
+            <i class="fas fa-clock"></i>
+            <div class="stat-value" id="todayBookings">0</div>
+            <div class="stat-label">Agendamentos Hoje</div>
+        </div>
+        <div class="stat-card">
+            <i class="fas fa-users"></i>
+            <div class="stat-value" id="totalCapacity">120</div>
+            <div class="stat-label">Capacidade Total</div>
+        </div>
+        <div class="stat-card">
+            <i class="fas fa-check-circle"></i>
+            <div class="stat-value" id="myBookings">0</div>
+            <div class="stat-label">Meus Agendamentos</div>
+        </div>
+    </div>
+    
+    <!-- Main Grid -->
+    <div class="booking-grid">
+        <!-- Booking Form -->
+        <div class="booking-form-card">
+            <h2>
+                <i class="fas fa-plus-circle"></i>
+                Novo Agendamento
+            </h2>
+            
+            <form id="bookingForm">
+                <!-- Room Selection -->
+                <div class="form-group">
+                    <label>Selecione a Sala</label>
+                    <div class="room-selector">
+                        <div class="room-option" data-room="reunion_1" data-capacity="10">
+                            <i class="fas fa-users"></i>
+                            <div>Reunião 1</div>
+                            <small>10 pessoas</small>
+                        </div>
+                        <div class="room-option" data-room="reunion_2" data-capacity="10">
+                            <i class="fas fa-users"></i>
+                            <div>Reunião 2</div>
+                            <small>10 pessoas</small>
+                        </div>
+                        <div class="room-option" data-room="treinamento" data-capacity="30">
+                            <i class="fas fa-chalkboard-teacher"></i>
+                            <div>Treinamento</div>
+                            <small>30 pessoas</small>
+                        </div>
+                        <div class="room-option" data-room="auditorio" data-capacity="50">
+                            <i class="fas fa-theater-masks"></i>
+                            <div>Auditório</div>
+                            <small>50 pessoas</small>
+                        </div>
+                        <div class="room-option" data-room="videoconf" data-capacity="15">
+                            <i class="fas fa-video"></i>
+                            <div>Videoconferência</div>
+                            <small>15 pessoas</small>
+                        </div>
+                        <div class="room-option" data-room="workshop" data-capacity="20">
+                            <i class="fas fa-tools"></i>
+                            <div>Workshop</div>
+                            <small>20 pessoas</small>
+                        </div>
+                    </div>
+                    <input type="hidden" id="room" name="room" required>
+                </div>
+                
+                <!-- Meeting Title -->
+                <div class="form-group">
+                    <label for="title">
+                        <i class="fas fa-heading"></i>
+                        Título da Reunião
+                    </label>
+                    <input type="text" id="title" name="title" required placeholder="Ex: Reunião de Planejamento">
+                </div>
+                
+                <!-- Date -->
+                <div class="form-group">
+                    <label for="date">
+                        <i class="fas fa-calendar"></i>
+                        Data
+                    </label>
+                    <input type="date" id="date" name="date" required min="${new Date().toISOString().split('T')[0]}">
+                </div>
+                
+                <!-- Time Slots -->
+                <div class="time-slots">
+                    <div class="form-group">
+                        <label for="start_time">
+                            <i class="fas fa-clock"></i>
+                            Início
+                        </label>
+                        <input type="time" id="start_time" name="start_time" required min="08:00" max="18:00">
+                    </div>
+                    <div class="form-group">
+                        <label for="end_time">
+                            <i class="fas fa-clock"></i>
+                            Término
+                        </label>
+                        <input type="time" id="end_time" name="end_time" required min="08:00" max="18:00">
+                    </div>
+                </div>
+                
+                <!-- Participants -->
+                <div class="form-group">
+                    <label for="participants">
+                        <i class="fas fa-user-friends"></i>
+                        Número de Participantes
+                    </label>
+                    <input type="number" id="participants" name="participants" required min="1" max="50" placeholder="Quantidade de pessoas">
+                </div>
+                
+                <!-- Subject/Description -->
+                <div class="form-group">
+                    <label for="subject">
+                        <i class="fas fa-align-left"></i>
+                        Descrição/Pauta
+                    </label>
+                    <textarea id="subject" name="subject" rows="3" placeholder="Descreva brevemente o assunto da reunião..."></textarea>
+                </div>
+                
+                <!-- Submit Button -->
+                <button type="submit" class="btn-submit">
+                    <i class="fas fa-check"></i>
+                    Confirmar Agendamento
+                </button>
+            </form>
+        </div>
+        
+        <!-- Calendar View -->
+        <div class="calendar-view">
+            <h2>
+                <span>
+                    <i class="fas fa-calendar-week"></i>
+                    Visualização da Semana
+                </span>
+                <div class="calendar-controls">
+                    <button onclick="changeWeek(-1)">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span id="weekLabel">Semana Atual</span>
+                    <button onclick="changeWeek(1)">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </h2>
+            
+            <div class="bookings-timeline" id="timeline">
+                <!-- Timeline será populado via JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalhes -->
+<div class="booking-details-modal" id="detailsModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Detalhes do Agendamento</h3>
+            <button class="modal-close" onclick="closeDetailsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="modalBody">
+            <!-- Conteúdo será inserido dinamicamente -->
+        </div>
+    </div>
+</div>
+
+<!-- Notificação -->
+<div class="alert-notification" id="alertNotification">
+    <i class="fas fa-check-circle"></i>
+    <div>
+        <strong id="alertTitle">Sucesso!</strong>
+        <p id="alertMessage">Agendamento realizado com sucesso.</p>
+    </div>
+</div>
+
+<script>
+    let selectedRoom = null;
+    let currentWeekOffset = 0;
+    let bookings = [];
+    
+    // Room selection
+    document.querySelectorAll('.room-option').forEach(room => {
+        room.addEventListener('click', function() {
+            document.querySelectorAll('.room-option').forEach(r => r.classList.remove('selected'));
+            this.classList.add('selected');
+            selectedRoom = this.dataset.room;
+            document.getElementById('room').value = selectedRoom;
+            
+            // Update max participants based on room capacity
+            const capacity = parseInt(this.dataset.capacity);
+            document.getElementById('participants').max = capacity;
+        });
+    });
+    
+    // Form submission
+    document.getElementById('bookingForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!selectedRoom) {
+            showNotification('error', 'Erro', 'Por favor, selecione uma sala');
+            return;
+        }
+        
+        const formData = {
+            room: selectedRoom,
+            title: document.getElementById('title').value,
+            date: document.getElementById('date').value,
+            start_time: document.getElementById('start_time').value,
+            end_time: document.getElementById('end_time').value,
+            participants: document.getElementById('participants').value,
+            subject: document.getElementById('subject').value
+        };
+        
+        try {
+            const response = await fetch('/api/room-bookings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            if (response.ok) {
+                showNotification('success', 'Sucesso!', 'Agendamento realizado com sucesso');
+                this.reset();
+                selectedRoom = null;
+                document.querySelectorAll('.room-option').forEach(r => r.classList.remove('selected'));
+                loadBookings();
+                
+                // Send notification to dashboards
+                await sendNotificationToDashboards(formData);
+            } else {
+                const error = await response.json();
+                showNotification('error', 'Erro', error.error || 'Erro ao realizar agendamento');
+            }
+        } catch (error) {
+            showNotification('error', 'Erro', 'Erro ao conectar com o servidor');
+        }
+    });
+    
+    // Load bookings
+    async function loadBookings() {
+        try {
+            const response = await fetch('/api/room-bookings');
+            bookings = await response.json();
+            updateTimeline();
+            updateStats();
+        } catch (error) {
+            console.error('Erro ao carregar agendamentos:', error);
+        }
+    }
+    
+    // Update timeline view
+    function updateTimeline() {
+        const timeline = document.getElementById('timeline');
+        const today = new Date();
+        today.setDate(today.getDate() + (currentWeekOffset * 7));
+        
+        // Get week start and end
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay());
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        
+        // Filter bookings for this week
+        const weekBookings = bookings.filter(booking => {
+            const bookingDate = new Date(booking.date);
+            return bookingDate >= weekStart && bookingDate <= weekEnd;
+        });
+        
+        // Build timeline HTML
+        let html = '<div class="time-grid">';
+        
+        // Time labels
+        html += '<div class="time-labels">';
+        for (let hour = 8; hour <= 18; hour++) {
+            html += `<div class="time-label">${hour}:00</div>`;
+        }
+        html += '</div>';
+        
+        // Room columns
+        const rooms = ['reunion_1', 'reunion_2', 'treinamento', 'auditorio', 'videoconf', 'workshop'];
+        const roomNames = {
+            'reunion_1': 'Reunião 1',
+            'reunion_2': 'Reunião 2',
+            'treinamento': 'Treinamento',
+            'auditorio': 'Auditório',
+            'videoconf': 'Videoconferência',
+            'workshop': 'Workshop'
+        };
+        
+        rooms.forEach(room => {
+            html += `<div class="room-column">`;
+            html += `<div class="room-column-header">${roomNames[room]}</div>`;
+            
+            // Add bookings for this room
+            const roomBookings = weekBookings.filter(b => b.room === room);
+            roomBookings.forEach(booking => {
+                const startTime = booking.start_time.split(':');
+                const endTime = booking.end_time.split(':');
+                const startHour = parseInt(startTime[0]);
+                const endHour = parseInt(endTime[0]);
+                const startMinutes = parseInt(startTime[1]);
+                const endMinutes = parseInt(endTime[1]);
+                
+                const top = ((startHour - 8) * 60 + startMinutes) * (600 / 600) + 40; // 40px for header
+                const height = ((endHour - startHour) * 60 + (endMinutes - startMinutes)) * (600 / 600);
+                
+                const isMyBooking = booking.user_name === '{{ session.nome_completo }}';
+                
+                html += `
+                    <div class="booking-block ${isMyBooking ? 'my-booking' : ''}" 
+                         style="top: ${top}px; height: ${height}px"
+                         onclick="showBookingDetails(${booking.id})">
+                        <div class="booking-title">${booking.title}</div>
+                        <div class="booking-info">${booking.start_time} - ${booking.end_time}</div>
+                        <div class="booking-info">${booking.user_name}</div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+        });
+        
+        html += '</div>';
+        timeline.innerHTML = html;
+        
+        // Update week label
+        const weekLabel = document.getElementById('weekLabel');
+        const options = { day: '2-digit', month: '2-digit' };
+        weekLabel.textContent = `${weekStart.toLocaleDateString('pt-BR', options)} - ${weekEnd.toLocaleDateString('pt-BR', options)}`;
+    }
+    
+    // Update stats
+    function updateStats() {
+        const today = new Date().toISOString().split('T')[0];
+        const todayBookings = bookings.filter(b => b.date === today);
+        const myBookings = bookings.filter(b => b.user_name === '{{ session.nome_completo }}');
+        
+        document.getElementById('todayBookings').textContent = todayBookings.length;
+        document.getElementById('myBookings').textContent = myBookings.length;
+    }
+    
+    // Change week
+    function changeWeek(offset) {
+        currentWeekOffset += offset;
+        updateTimeline();
+    }
+    
+    // Show booking details
+    function showBookingDetails(bookingId) {
+        const booking = bookings.find(b => b.id === bookingId);
+        if (!booking) return;
+        
+        const modal = document.getElementById('detailsModal');
+        const modalBody = document.getElementById('modalBody');
+        
+        modalBody.innerHTML = `
+            <div class="booking-details">
+                <p><strong>Sala:</strong> ${booking.room}</p>
+                <p><strong>Título:</strong> ${booking.title}</p>
+                <p><strong>Data:</strong> ${new Date(booking.date).toLocaleDateString('pt-BR')}</p>
+                <p><strong>Horário:</strong> ${booking.start_time} - ${booking.end_time}</p>
+                <p><strong>Participantes:</strong> ${booking.participants}</p>
+                <p><strong>Responsável:</strong> ${booking.user_name}</p>
+                <p><strong>Descrição:</strong> ${booking.subject || 'Não informada'}</p>
+            </div>
+        `;
+        
+        modal.classList.add('active');
+    }
+    
+    // Close details modal
+    function closeDetailsModal() {
+        document.getElementById('detailsModal').classList.remove('active');
+    }
+    
+    // Show notification
+    function showNotification(type, title, message) {
+        const notification = document.getElementById('alertNotification');
+        const icon = notification.querySelector('i');
+        
+        notification.className = `alert-notification ${type}`;
+        document.getElementById('alertTitle').textContent = title;
+        document.getElementById('alertMessage').textContent = message;
+        
+        // Update icon
+        if (type === 'success') {
+            icon.className = 'fas fa-check-circle';
+        } else if (type === 'error') {
+            icon.className = 'fas fa-exclamation-circle';
+        } else {
+            icon.className = 'fas fa-info-circle';
+        }
+        
+        notification.style.display = 'flex';
+        
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 5000);
+    }
+    
+    // Send notification to dashboards
+    async function sendNotificationToDashboards(bookingData) {
+        // This will be implemented to send real-time notifications
+        // For now, we'll store it in localStorage for the dashboard to check
+        const notifications = JSON.parse(localStorage.getItem('booking_notifications') || '[]');
+        notifications.push({
+            type: 'new_booking',
+            data: bookingData,
+            timestamp: new Date().toISOString()
+        });
+        localStorage.setItem('booking_notifications', JSON.stringify(notifications));
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set minimum date to today
+        document.getElementById('date').min = new Date().toISOString().split('T')[0];
+        
+        // Load bookings
+        loadBookings();
+        
+        // Refresh every 30 seconds
+        setInterval(loadBookings, 30000);
+    });
+</script>
+{% endblock %}
