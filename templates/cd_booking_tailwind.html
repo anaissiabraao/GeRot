@@ -1,0 +1,595 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Agendamento de Salas - GeRot{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-background">
+    <!-- Header com Navegação -->
+    <header class="border-b bg-card shadow-sm">
+        <div class="container mx-auto px-4">
+            <div class="flex h-16 items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl font-bold text-primary">GeRot</h1>
+                    <nav class="hidden md:flex space-x-1">
+                        <a href="{{ url_for('team_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-arrow-left mr-2"></i>Voltar ao Dashboard
+                        </a>
+                    </nav>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-muted-foreground">
+                        {{ session.nome_completo }}
+                    </span>
+                    <a href="{{ url_for('profile') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                        <i class="fas fa-user-circle"></i>
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Título e Descrição -->
+        <div class="mb-8 rounded-xl bg-gradient-to-r from-primary to-purple-600 p-8 text-white shadow-lg">
+            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h1 class="flex items-center gap-3 text-3xl font-bold">
+                        <i class="fas fa-calendar-alt"></i>
+                        Agendamento de Salas
+                    </h1>
+                    <p class="mt-2 opacity-90">Reserve salas de reunião e auditórios do Centro de Distribuição</p>
+                </div>
+                <a href="{{ url_for('team_dashboard') }}" class="inline-flex items-center rounded-lg bg-white/10 px-4 py-2 font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Voltar
+                </a>
+            </div>
+        </div>
+
+        <!-- Estatísticas Rápidas -->
+        <div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="rounded-xl border bg-card p-6 shadow-sm">
+                <div class="flex items-center gap-4">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <i class="fas fa-door-open text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold" id="totalRooms">2</div>
+                        <div class="text-xs font-medium uppercase text-muted-foreground">Salas Disponíveis</div>
+                    </div>
+                </div>
+            </div>
+            <div class="rounded-xl border bg-card p-6 shadow-sm">
+                <div class="flex items-center gap-4">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                        <i class="fas fa-clock text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold" id="todayBookings">0</div>
+                        <div class="text-xs font-medium uppercase text-muted-foreground">Agendamentos Hoje</div>
+                    </div>
+                </div>
+            </div>
+            <div class="rounded-xl border bg-card p-6 shadow-sm">
+                <div class="flex items-center gap-4">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 text-purple-600">
+                        <i class="fas fa-users text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold" id="totalCapacity">20</div>
+                        <div class="text-xs font-medium uppercase text-muted-foreground">Capacidade Total</div>
+                    </div>
+                </div>
+            </div>
+            <div class="rounded-xl border bg-card p-6 shadow-sm">
+                <div class="flex items-center gap-4">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-600">
+                        <i class="fas fa-check-circle text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold" id="myBookings">0</div>
+                        <div class="text-xs font-medium uppercase text-muted-foreground">Meus Agendamentos</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid Principal -->
+        <div class="grid gap-8 lg:grid-cols-3">
+            <!-- Formulário de Agendamento -->
+            <div class="lg:col-span-1">
+                <div class="sticky top-8 rounded-xl border bg-card p-6 shadow-sm">
+                    <h2 class="mb-6 flex items-center gap-2 text-xl font-bold text-foreground">
+                        <i class="fas fa-plus-circle text-primary"></i>
+                        Novo Agendamento
+                    </h2>
+
+                    <form id="bookingForm" class="space-y-4">
+                        <!-- Seleção de Sala -->
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-foreground">Selecione a Sala</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="room-option cursor-pointer rounded-lg border-2 border-transparent bg-muted/30 p-4 text-center transition-all hover:border-primary/50 hover:bg-muted/50" data-room="reunion_1" data-capacity="10">
+                                    <i class="fas fa-users mb-2 text-2xl text-primary"></i>
+                                    <div class="font-medium">Reunião 1</div>
+                                    <small class="text-muted-foreground">10 pessoas</small>
+                                </div>
+                                <div class="room-option cursor-pointer rounded-lg border-2 border-transparent bg-muted/30 p-4 text-center transition-all hover:border-primary/50 hover:bg-muted/50" data-room="reunion_2" data-capacity="10">
+                                    <i class="fas fa-users mb-2 text-2xl text-primary"></i>
+                                    <div class="font-medium">Reunião 2</div>
+                                    <small class="text-muted-foreground">10 pessoas</small>
+                                </div>
+                            </div>
+                            <input type="hidden" id="room" name="room" required>
+                        </div>
+
+                        <!-- Título -->
+                        <div class="space-y-2">
+                            <label for="title" class="text-sm font-medium text-foreground">
+                                <i class="fas fa-heading mr-1 text-muted-foreground"></i> Título da Reunião
+                            </label>
+                            <input type="text" id="title" name="title" required placeholder="Ex: Reunião de Planejamento"
+                                   class="w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                        </div>
+
+                        <!-- Data -->
+                        <div class="space-y-2">
+                            <label for="date" class="text-sm font-medium text-foreground">
+                                <i class="fas fa-calendar mr-1 text-muted-foreground"></i> Data
+                            </label>
+                            <input type="date" id="date" name="date" required
+                                   class="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                        </div>
+
+                        <!-- Horários -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label for="start_time" class="text-sm font-medium text-foreground">
+                                    <i class="fas fa-clock mr-1 text-muted-foreground"></i> Início
+                                </label>
+                                <input type="time" id="start_time" name="start_time" required min="08:00" max="18:00"
+                                       class="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                            </div>
+                            <div class="space-y-2">
+                                <label for="end_time" class="text-sm font-medium text-foreground">
+                                    <i class="fas fa-clock mr-1 text-muted-foreground"></i> Término
+                                </label>
+                                <input type="time" id="end_time" name="end_time" required min="08:00" max="18:00"
+                                       class="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                            </div>
+                        </div>
+
+                        <!-- Participantes -->
+                        <div class="space-y-2">
+                            <label for="participants" class="text-sm font-medium text-foreground">
+                                <i class="fas fa-user-friends mr-1 text-muted-foreground"></i> Participantes
+                            </label>
+                            <input type="number" id="participants" name="participants" required min="1" max="10" placeholder="Quantidade"
+                                   class="w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                        </div>
+
+                        <!-- Descrição -->
+                        <div class="space-y-2">
+                            <label for="subject" class="text-sm font-medium text-foreground">
+                                <i class="fas fa-align-left mr-1 text-muted-foreground"></i> Descrição
+                            </label>
+                            <textarea id="subject" name="subject" rows="3" placeholder="Pauta da reunião..."
+                                      class="w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"></textarea>
+                        </div>
+
+                        <button type="submit" class="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+                            <i class="fas fa-check mr-2"></i> Confirmar Agendamento
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Visualização do Calendário -->
+            <div class="lg:col-span-2">
+                <div class="rounded-xl border bg-card p-6 shadow-sm">
+                    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <h2 class="flex items-center gap-2 text-xl font-bold text-foreground">
+                            <i class="fas fa-calendar-week text-primary"></i>
+                            Agenda Semanal
+                        </h2>
+                        <div class="flex items-center gap-2 rounded-lg bg-muted/30 p-1">
+                            <button onclick="changeWeek(-1)" class="rounded-md p-2 hover:bg-background hover:shadow-sm transition-all">
+                                <i class="fas fa-chevron-left text-foreground"></i>
+                            </button>
+                            <span id="weekLabel" class="min-w-[140px] text-center text-sm font-medium">Semana Atual</span>
+                            <button onclick="changeWeek(1)" class="rounded-md p-2 hover:bg-background hover:shadow-sm transition-all">
+                                <i class="fas fa-chevron-right text-foreground"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bookings-timeline relative min-h-[500px] overflow-x-auto rounded-lg bg-muted/10 p-4" id="timeline">
+                        <!-- Timeline populado via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Modal de Detalhes -->
+<div id="detailsModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div class="w-full max-w-lg rounded-xl bg-card p-6 shadow-xl animate-scale-in">
+        <div class="mb-4 flex items-center justify-between">
+            <h3 class="text-xl font-bold text-foreground">Detalhes do Agendamento</h3>
+            <button onclick="closeDetailsModal()" class="text-muted-foreground hover:text-foreground">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="modalBody" class="space-y-4">
+            <!-- Conteúdo dinâmico -->
+        </div>
+    </div>
+</div>
+
+<!-- Notificação Toast -->
+<div id="alertNotification" class="fixed right-4 top-4 z-50 hidden items-center gap-3 rounded-lg bg-white px-4 py-3 shadow-lg animate-slide-in border-l-4">
+    <i class="fas text-xl"></i>
+    <div>
+        <strong id="alertTitle" class="block font-medium"></strong>
+        <p id="alertMessage" class="text-sm text-gray-600"></p>
+    </div>
+</div>
+
+<style>
+    /* Estilos específicos para a timeline que são difíceis de fazer só com Tailwind */
+    .time-grid {
+        display: grid;
+        grid-template-columns: 60px repeat(2, 1fr);
+        gap: 0.5rem;
+        min-width: 600px;
+    }
+    
+    .room-column {
+        position: relative;
+        background: hsl(var(--card));
+        border-radius: 0.5rem;
+        border: 1px solid hsl(var(--border));
+        min-height: 600px;
+    }
+    
+    .booking-block {
+        position: absolute;
+        left: 4px;
+        right: 4px;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        font-size: 0.75rem;
+        cursor: pointer;
+        overflow: hidden;
+        transition: all 0.2s;
+        background: linear-gradient(135deg, hsl(var(--primary)) 0%, #764ba2 100%);
+        color: white;
+        z-index: 10;
+    }
+    
+    .booking-block:hover {
+        transform: scale(1.02);
+        z-index: 20;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    
+    .booking-block.my-booking {
+        background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+    }
+
+    .room-option.selected {
+        border-color: hsl(var(--primary));
+        background-color: hsl(var(--primary) / 0.1);
+        color: hsl(var(--primary));
+    }
+</style>
+
+<script>
+    let selectedRoom = null;
+    let currentWeekOffset = 0;
+    let bookings = [];
+    const currentUserId = {{ session.user_id }};
+    const currentUserRole = '{{ session.role }}';
+    
+    // Room selection
+    document.querySelectorAll('.room-option').forEach(room => {
+        room.addEventListener('click', function() {
+            document.querySelectorAll('.room-option').forEach(r => r.classList.remove('selected'));
+            this.classList.add('selected');
+            selectedRoom = this.dataset.room;
+            document.getElementById('room').value = selectedRoom;
+            
+            // Update max participants based on room capacity
+            const capacity = parseInt(this.dataset.capacity);
+            document.getElementById('participants').max = capacity;
+        });
+    });
+    
+    // Form submission
+    document.getElementById('bookingForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!selectedRoom) {
+            showNotification('error', 'Erro', 'Por favor, selecione uma sala');
+            return;
+        }
+        
+        const formData = {
+            room: selectedRoom,
+            title: document.getElementById('title').value,
+            date: document.getElementById('date').value,
+            start_time: document.getElementById('start_time').value,
+            end_time: document.getElementById('end_time').value,
+            participants: document.getElementById('participants').value,
+            subject: document.getElementById('subject').value
+        };
+        
+        try {
+            const response = await fetch('/api/room-bookings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            if (response.ok) {
+                showNotification('success', 'Sucesso!', 'Agendamento realizado com sucesso');
+                this.reset();
+                selectedRoom = null;
+                document.querySelectorAll('.room-option').forEach(r => r.classList.remove('selected'));
+                loadBookings();
+            } else {
+                const error = await response.json();
+                showNotification('error', 'Erro', error.error || 'Erro ao realizar agendamento');
+            }
+        } catch (error) {
+            showNotification('error', 'Erro', 'Erro ao conectar com o servidor');
+        }
+    });
+    
+    // Load bookings
+    async function loadBookings() {
+        try {
+            const response = await fetch('/api/room-bookings');
+            bookings = await response.json();
+            updateTimeline();
+            updateStats();
+        } catch (error) {
+            console.error('Erro ao carregar agendamentos:', error);
+        }
+    }
+    
+    // Update timeline view
+    function updateTimeline() {
+        const timeline = document.getElementById('timeline');
+        const today = new Date();
+        today.setDate(today.getDate() + (currentWeekOffset * 7));
+        
+        // Get week start and end
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay());
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        
+        // Filter bookings for this week
+        const weekBookings = bookings.filter(booking => {
+            const bookingDate = new Date(booking.date);
+            return bookingDate >= weekStart && bookingDate <= weekEnd;
+        });
+        
+        // Build timeline HTML
+        let html = '<div class="time-grid">';
+        
+        // Time labels column
+        html += '<div class="flex flex-col gap-0">';
+        html += '<div class="h-10"></div>'; // Header spacer
+        for (let hour = 8; hour <= 18; hour++) {
+            html += `<div class="h-[60px] border-r border-border pr-2 text-right text-xs text-muted-foreground">${hour}:00</div>`;
+        }
+        html += '</div>';
+        
+        // Room columns
+        const rooms = ['reunion_1', 'reunion_2'];
+        const roomNames = {
+            'reunion_1': 'Reunião 1',
+            'reunion_2': 'Reunião 2'
+        };
+        
+        rooms.forEach(room => {
+            html += `<div class="room-column">`;
+            html += `<div class="sticky top-0 z-20 rounded-t-lg bg-primary px-3 py-2 text-center text-sm font-semibold text-white shadow-sm">${roomNames[room]}</div>`;
+            
+            // Grid lines background
+            html += '<div class="absolute inset-0 top-10 flex flex-col pointer-events-none">';
+            for (let i = 0; i < 11; i++) {
+                html += '<div class="h-[60px] border-b border-border/50"></div>';
+            }
+            html += '</div>';
+            
+            // Add bookings for this room
+            const roomBookings = weekBookings.filter(b => b.room === room);
+            roomBookings.forEach(booking => {
+                const startTime = booking.start_time.split(':');
+                const endTime = booking.end_time.split(':');
+                const startHour = parseInt(startTime[0]);
+                const endHour = parseInt(endTime[0]);
+                const startMinutes = parseInt(startTime[1]);
+                const endMinutes = parseInt(endTime[1]);
+                
+                const top = ((startHour - 8) * 60 + startMinutes) + 40; // 1px = 1min
+                const height = ((endHour - startHour) * 60 + (endMinutes - startMinutes));
+                
+                const isMyBooking = booking.user_name === '{{ session.nome_completo }}';
+                
+                html += `
+                    <div class="booking-block ${isMyBooking ? 'my-booking' : ''}" 
+                         style="top: ${top}px; height: ${height}px"
+                         onclick="showBookingDetails(${booking.id})">
+                        <div class="font-bold truncate">${booking.title}</div>
+                        <div class="opacity-90 truncate">${booking.start_time} - ${booking.end_time}</div>
+                        <div class="opacity-90 truncate text-[10px]">${booking.user_name}</div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+        });
+        
+        html += '</div>';
+        timeline.innerHTML = html;
+        
+        // Update week label
+        const weekLabel = document.getElementById('weekLabel');
+        const options = { day: '2-digit', month: '2-digit' };
+        weekLabel.textContent = `${weekStart.toLocaleDateString('pt-BR', options)} - ${weekEnd.toLocaleDateString('pt-BR', options)}`;
+    }
+    
+    // Update stats
+    function updateStats() {
+        const today = new Date().toISOString().split('T')[0];
+        const todayBookings = bookings.filter(b => b.date === today);
+        const myBookings = bookings.filter(b => b.user_name === '{{ session.nome_completo }}');
+        
+        document.getElementById('todayBookings').textContent = todayBookings.length;
+        document.getElementById('myBookings').textContent = myBookings.length;
+    }
+    
+    // Change week
+    function changeWeek(offset) {
+        currentWeekOffset += offset;
+        updateTimeline();
+    }
+    
+    // Show booking details
+    function showBookingDetails(bookingId) {
+        const booking = bookings.find(b => b.id === bookingId);
+        if (!booking) return;
+        
+        const modal = document.getElementById('detailsModal');
+        const modalBody = document.getElementById('modalBody');
+        
+        const isOwner = booking.user_id === currentUserId;
+        const isAdmin = currentUserRole === 'admin';
+        
+        let actionsHtml = '';
+        if (isOwner || isAdmin) {
+            actionsHtml = `
+                <div class="mt-6 flex justify-end border-t pt-4">
+                    <button onclick="deleteBooking(${booking.id})" class="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors">
+                        <i class="fas fa-trash"></i> Excluir Agendamento
+                    </button>
+                </div>
+            `;
+        }
+        
+        const roomDisplay = booking.room === 'reunion_1' ? 'Reunião 1' : 
+                          booking.room === 'reunion_2' ? 'Reunião 2' : booking.room;
+
+        modalBody.innerHTML = `
+            <div class="space-y-3 text-sm">
+                <div class="grid grid-cols-3 gap-2">
+                    <span class="font-medium text-muted-foreground">Sala:</span>
+                    <span class="col-span-2 font-medium text-foreground">${roomDisplay}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <span class="font-medium text-muted-foreground">Título:</span>
+                    <span class="col-span-2 text-foreground">${booking.title}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <span class="font-medium text-muted-foreground">Data:</span>
+                    <span class="col-span-2 text-foreground">${new Date(booking.date).toLocaleDateString('pt-BR')}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <span class="font-medium text-muted-foreground">Horário:</span>
+                    <span class="col-span-2 text-foreground">${booking.start_time} - ${booking.end_time}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <span class="font-medium text-muted-foreground">Participantes:</span>
+                    <span class="col-span-2 text-foreground">${booking.participants} pessoas</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <span class="font-medium text-muted-foreground">Responsável:</span>
+                    <span class="col-span-2 text-foreground">${booking.user_name}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <span class="font-medium text-muted-foreground">Descrição:</span>
+                    <span class="col-span-2 text-foreground">${booking.subject || 'Não informada'}</span>
+                </div>
+            </div>
+            ${actionsHtml}
+        `;
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    
+    // Delete booking
+    async function deleteBooking(id) {
+        if (!confirm('Tem certeza que deseja excluir este agendamento?')) return;
+        
+        try {
+            const response = await fetch(`/api/room-bookings/${id}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                showNotification('success', 'Sucesso', 'Agendamento excluído');
+                closeDetailsModal();
+                loadBookings();
+            } else {
+                const error = await response.json();
+                showNotification('error', 'Erro', error.error || 'Falha ao excluir');
+            }
+        } catch (error) {
+            showNotification('error', 'Erro', 'Erro de conexão');
+        }
+    }
+    
+    function closeDetailsModal() {
+        const modal = document.getElementById('detailsModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    
+    function showNotification(type, title, message) {
+        const notification = document.getElementById('alertNotification');
+        const icon = notification.querySelector('i');
+        const titleEl = document.getElementById('alertTitle');
+        const msgEl = document.getElementById('alertMessage');
+        
+        titleEl.textContent = title;
+        msgEl.textContent = message;
+        
+        notification.classList.remove('hidden', 'flex', 'border-green-500', 'border-red-500', 'border-blue-500');
+        notification.classList.add('flex');
+        
+        if (type === 'success') {
+            notification.classList.add('border-green-500');
+            icon.className = 'fas fa-check-circle text-green-500 text-xl';
+        } else if (type === 'error') {
+            notification.classList.add('border-red-500');
+            icon.className = 'fas fa-exclamation-circle text-red-500 text-xl';
+        } else {
+            notification.classList.add('border-blue-500');
+            icon.className = 'fas fa-info-circle text-blue-500 text-xl';
+        }
+        
+        setTimeout(() => {
+            notification.classList.add('hidden');
+            notification.classList.remove('flex');
+        }, 5000);
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('date').min = new Date().toISOString().split('T')[0];
+        loadBookings();
+        setInterval(loadBookings, 30000);
+    });
+</script>
+{% endblock %}

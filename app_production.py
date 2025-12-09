@@ -222,7 +222,7 @@ def admin_live_users():
     active_users = cursor.fetchall()
     
     conn.close()
-    return render_template("admin_live_users.html", users=active_users)
+    return render_template(get_template("admin_live_users.html"), users=active_users)
 
 
 def get_db():
@@ -1606,7 +1606,7 @@ def admin_planner_sync():
 @admin_required
 def admin_environments():
     """Página para gerenciar ambientes do CD"""
-    return render_template("admin_environments.html")
+    return render_template(get_template("admin_environments.html"))
 
 
 @app.route("/admin/dashboards/add", methods=["GET", "POST"])
@@ -1697,7 +1697,7 @@ def admin_add_dashboard():
             flash("Dashboard não encontrado.", "error")
             return redirect(url_for("admin_dashboard"))
     
-    return render_template("admin_add_dashboard.html", dashboard=dashboard)
+    return render_template(get_template("admin_add_dashboard.html"), dashboard=dashboard)
 
 
 @app.route("/favicon.ico")
@@ -1789,14 +1789,14 @@ def cd_facilities():
     finally:
         conn.close()
         
-    return render_template("cd_facilities.html", environments=environments)
+    return render_template(get_template("cd_facilities.html"), environments=environments)
 
 
 @app.route("/cd/booking")
 @login_required
 def cd_booking():
     """Página para agendar salas de reunião"""
-    return render_template("cd_booking.html")
+    return render_template(get_template("cd_booking.html"))
 
 
 @app.route("/api/room-bookings", methods=["GET", "POST"])

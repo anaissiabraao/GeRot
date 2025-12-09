@@ -1,0 +1,213 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Meu Perfil - GeRot{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-background">
+    <!-- Header com Navegação -->
+    <header class="border-b bg-card shadow-sm">
+        <div class="container mx-auto px-4">
+            <div class="flex h-16 items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl font-bold text-primary">GeRot</h1>
+                    <nav class="hidden md:flex space-x-1">
+                        <a href="{{ url_for('team_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-arrow-left mr-2"></i>Voltar ao Dashboard
+                        </a>
+                    </nav>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-muted-foreground">
+                        {{ user.nome_completo }}
+                    </span>
+                    <a href="{{ url_for('logout') }}" class="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mx-auto px-4 py-4">
+                {% for category, message in messages %}
+                    <div class="animate-slide-in mb-4 rounded-lg border px-4 py-3 shadow-md {% if category == 'success' %}bg-green-50 border-green-200 text-green-800{% elif category == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-orange-50 border-orange-200 text-orange-800{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <main class="container mx-auto px-4 py-8">
+        <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-foreground">Meu Perfil</h1>
+                <p class="text-muted-foreground">Gerencie suas informações e credenciais</p>
+            </div>
+            <a href="{{ url_for('team_dashboard') }}" class="inline-flex items-center rounded-md border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Voltar ao Dashboard
+            </a>
+        </div>
+
+        <div class="grid gap-6 md:grid-cols-3">
+            <!-- Coluna Esquerda: Avatar e Ações -->
+            <div class="space-y-6">
+                <div class="rounded-xl border bg-card p-6 shadow-sm animate-fade-in-up">
+                    <div class="flex flex-col items-center text-center">
+                        <div class="mb-4 flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-primary to-purple-600 text-5xl font-bold text-white shadow-lg border-4 border-background">
+                            {{ user.nome_completo[0].upper() }}
+                        </div>
+                        <h2 class="text-xl font-bold text-foreground">{{ user.nome_completo }}</h2>
+                        <p class="text-sm text-muted-foreground">{{ user.username }}</p>
+                        
+                        <div class="mt-4">
+                            <span class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium {% if user.role == 'admin' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+                                {% if user.role == 'admin' %}
+                                    <i class="fas fa-shield-alt mr-2"></i>Administrador
+                                {% else %}
+                                    <i class="fas fa-user mr-2"></i>Usuário
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 space-y-3">
+                        <h3 class="font-semibold text-foreground flex items-center gap-2">
+                            <i class="fas fa-cog text-primary"></i> Ações
+                        </h3>
+                        
+                        <a href="{{ url_for('change_password') }}" class="flex items-center gap-3 rounded-lg border bg-muted/30 p-3 transition-all hover:bg-primary/5 hover:border-primary/30">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                                <i class="fas fa-lock"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-foreground">Alterar Senha</h4>
+                                <p class="text-xs text-muted-foreground">Atualizar credenciais</p>
+                            </div>
+                        </a>
+                        
+                        <a href="{{ url_for('logout') }}" class="flex items-center gap-3 rounded-lg border border-red-100 bg-red-50/30 p-3 transition-all hover:bg-red-50 hover:border-red-200">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-red-700">Sair do Sistema</h4>
+                                <p class="text-xs text-red-500">Encerrar sessão</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Card Sistema -->
+                <div class="rounded-xl border bg-card p-6 shadow-sm animate-fade-in-up" style="animation-delay: 100ms;">
+                    <h3 class="mb-4 font-semibold text-foreground flex items-center gap-2">
+                        <i class="fas fa-server text-primary"></i> Informações do Sistema
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="rounded-lg bg-muted/30 p-3">
+                            <span class="text-xs font-medium text-muted-foreground uppercase">Sistema</span>
+                            <p class="font-semibold text-foreground">GeRot v2.0</p>
+                        </div>
+                        <div class="rounded-lg bg-muted/30 p-3">
+                            <span class="text-xs font-medium text-muted-foreground uppercase">Empresa</span>
+                            <p class="font-semibold text-foreground">Portoex</p>
+                        </div>
+                        <div class="rounded-lg bg-muted/30 p-3">
+                            <span class="text-xs font-medium text-muted-foreground uppercase">ID Usuário</span>
+                            <p class="font-semibold text-foreground">#{{ user.id }}</p>
+                        </div>
+                        <div class="rounded-lg bg-muted/30 p-3">
+                            <span class="text-xs font-medium text-muted-foreground uppercase">Ambiente</span>
+                            <p class="font-semibold text-green-600">Produção</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coluna Direita: Informações Detalhadas -->
+            <div class="md:col-span-2 space-y-6">
+                <div class="rounded-xl border bg-card p-6 shadow-sm animate-fade-in-up" style="animation-delay: 200ms;">
+                    <h3 class="mb-6 font-semibold text-lg text-foreground flex items-center gap-2 border-b pb-4">
+                        <i class="fas fa-id-card text-primary"></i> Informações Profissionais
+                    </h3>
+
+                    <div class="grid gap-6 sm:grid-cols-2">
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium text-muted-foreground uppercase">Nome Completo</label>
+                            <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium text-foreground">
+                                {{ user.nome_completo }}
+                            </div>
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium text-muted-foreground uppercase">Cargo</label>
+                            <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium text-foreground">
+                                {{ user.cargo_original }}
+                            </div>
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium text-muted-foreground uppercase">Departamento</label>
+                            <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium text-foreground">
+                                {{ user.departamento }}
+                            </div>
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium text-muted-foreground uppercase">Usuário</label>
+                            <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium text-foreground">
+                                {{ user.username }}
+                            </div>
+                        </div>
+
+                        {% if user.email %}
+                        <div class="space-y-1 sm:col-span-2">
+                            <label class="text-xs font-medium text-muted-foreground uppercase">Email</label>
+                            <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium text-foreground flex items-center gap-2">
+                                <i class="fas fa-envelope text-muted-foreground"></i>
+                                {{ user.email }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium text-muted-foreground uppercase">Status</label>
+                            <div class="flex items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3 font-medium">
+                                {% if user.is_active %}
+                                    <div class="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></div>
+                                    <span class="text-green-600">Ativo</span>
+                                {% else %}
+                                    <div class="h-2.5 w-2.5 rounded-full bg-red-500"></div>
+                                    <span class="text-red-600">Inativo</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estatísticas -->
+                <div class="grid gap-4 sm:grid-cols-3 animate-fade-in-up" style="animation-delay: 300ms;">
+                    <div class="rounded-xl border bg-card p-6 text-center shadow-sm transition-all hover:shadow-md hover:-translate-y-1">
+                        <div class="mb-2 text-3xl font-bold text-primary">0</div>
+                        <div class="text-xs font-medium uppercase text-muted-foreground">Tarefas Concluídas</div>
+                    </div>
+                    <div class="rounded-xl border bg-card p-6 text-center shadow-sm transition-all hover:shadow-md hover:-translate-y-1">
+                        <div class="mb-2 text-3xl font-bold text-purple-600">0</div>
+                        <div class="text-xs font-medium uppercase text-muted-foreground">Projetos Ativos</div>
+                    </div>
+                    <div class="rounded-xl border bg-card p-6 text-center shadow-sm transition-all hover:shadow-md hover:-translate-y-1">
+                        <div class="mb-2 text-lg font-bold text-blue-600 truncate px-2">
+                            {{ 'Admin' if user.role == 'admin' else 'Usuário' }}
+                        </div>
+                        <div class="text-xs font-medium uppercase text-muted-foreground">Nível de Acesso</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}

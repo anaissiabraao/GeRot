@@ -1,0 +1,137 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}{% if dashboard %}Editar{% else %}Adicionar{% endif %} Dashboard BI - GeRot Admin{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-background">
+    <!-- Header com Navegação -->
+    <header class="border-b bg-card shadow-sm">
+        <div class="container mx-auto px-4">
+            <div class="flex h-16 items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl font-bold text-primary">GeRot</h1>
+                    <nav class="hidden md:flex space-x-1">
+                        <a href="{{ url_for('admin_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-arrow-left mr-2"></i>Voltar ao Painel
+                        </a>
+                    </nav>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-muted-foreground">
+                        {{ session.nome_completo }}
+                    </span>
+                    <a href="{{ url_for('logout') }}" class="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <div class="mx-auto max-w-4xl">
+            <!-- Header da Página -->
+            <div class="mb-8 flex items-center justify-between">
+                <div>
+                    <h1 class="flex items-center gap-3 text-2xl font-bold text-foreground">
+                        <i class="fas fa-chart-line text-primary"></i>
+                        {% if dashboard %}Editar{% else %}Adicionar{% endif %} Dashboard BI
+                    </h1>
+                    <p class="mt-1 text-sm text-muted-foreground">Configure os detalhes do dashboard do Power BI</p>
+                </div>
+            </div>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mb-6 space-y-4">
+                        {% for category, message in messages %}
+                            <div class="animate-slide-in rounded-lg border px-4 py-3 shadow-sm {% if category == 'success' %}bg-green-50 border-green-200 text-green-800{% elif category == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-orange-50 border-orange-200 text-orange-800{% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Formulário -->
+            <div class="rounded-xl border bg-card shadow-sm animate-fade-in-up">
+                <form method="POST" class="p-6">
+                    {% if dashboard %}
+                        <input type="hidden" name="dashboard_id" value="{{ dashboard.id }}">
+                    {% endif %}
+
+                    <div class="space-y-6">
+                        <!-- Título e Categoria -->
+                        <div class="grid gap-6 md:grid-cols-2">
+                            <div class="space-y-2">
+                                <label for="title" class="text-sm font-medium text-foreground">Nome do Dashboard</label>
+                                <input type="text" id="title" name="title" 
+                                       value="{{ dashboard.title if dashboard else '' }}" 
+                                       placeholder="Ex: Cotação SP" required
+                                       class="w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                                <p class="text-xs text-muted-foreground">Nome que aparecerá na lista de dashboards</p>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label for="category" class="text-sm font-medium text-foreground">Categoria (opcional)</label>
+                                <input type="text" id="category" name="category" 
+                                       value="{{ dashboard.category if dashboard else '' }}" 
+                                       placeholder="Ex: Financeiro, Operacional"
+                                       class="w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                            </div>
+                        </div>
+
+                        <!-- Descrição e Ordem -->
+                        <div class="grid gap-6 md:grid-cols-2">
+                            <div class="space-y-2">
+                                <label for="description" class="text-sm font-medium text-foreground">Descrição (opcional)</label>
+                                <input type="text" id="description" name="description" 
+                                       value="{{ dashboard.description if dashboard else '' }}" 
+                                       placeholder="Breve descrição do dashboard"
+                                       class="w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                            </div>
+
+                            <div class="space-y-2">
+                                <label for="display_order" class="text-sm font-medium text-foreground">Ordem de Exibição</label>
+                                <input type="number" id="display_order" name="display_order" 
+                                       value="{{ dashboard.display_order if dashboard else 0 }}" 
+                                       min="0" step="1"
+                                       class="w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                                <p class="text-xs text-muted-foreground">Número menor aparece primeiro (0 = primeiro)</p>
+                            </div>
+                        </div>
+
+                        <!-- Código Embed -->
+                        <div class="space-y-2">
+                            <label for="embed_code" class="text-sm font-medium text-foreground">Código de Incorporação (iframe)</label>
+                            <div class="rounded-lg border bg-muted/30 p-4">
+                                <textarea id="embed_code" name="embed_code" rows="6"
+                                          placeholder='<iframe title="COTAÇÃO - SP" width="600" height="373.5" src="https://app.powerbi.com/view?r=..." frameborder="0" allowFullScreen="true"></iframe>' 
+                                          required
+                                          class="w-full rounded-md border bg-background font-mono text-xs px-3 py-2 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">{% if dashboard %}<iframe title="{{ dashboard.title }}" width="600" height="373.5" src="{{ dashboard.embed_url }}" frameborder="0" allowFullScreen="true"></iframe>{% endif %}</textarea>
+                                
+                                <div class="mt-3 rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+                                    <strong class="block mb-1"><i class="fas fa-info-circle mr-1"></i> Dica:</strong>
+                                    Cole o código completo do iframe fornecido pelo Power BI. O sistema extrairá automaticamente a URL correta.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ações -->
+                        <div class="flex items-center justify-end gap-3 pt-4 border-t">
+                            <a href="{{ url_for('admin_dashboard') }}" class="rounded-lg border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground">
+                                Cancelar
+                            </a>
+                            <button type="submit" class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+                                <i class="fas fa-save mr-2"></i>
+                                {% if dashboard %}Atualizar Dashboard{% else %}Adicionar Dashboard{% endif %}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}

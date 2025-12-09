@@ -1,0 +1,155 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Monitoramento em Tempo Real - GeRot Admin{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-background">
+    <!-- Header com Navegação -->
+    <header class="border-b bg-card shadow-sm">
+        <div class="container mx-auto px-4">
+            <div class="flex h-16 items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl font-bold text-primary">GeRot</h1>
+                    <nav class="hidden md:flex space-x-1">
+                        <a href="{{ url_for('admin_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-arrow-left mr-2"></i>Voltar ao Painel
+                        </a>
+                    </nav>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-muted-foreground">
+                        {{ session.nome_completo }}
+                    </span>
+                    <a href="{{ url_for('logout') }}" class="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <div class="mx-auto max-w-5xl">
+            <!-- Header da Página -->
+            <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 class="flex items-center gap-3 text-2xl font-bold text-foreground">
+                        <i class="fas fa-satellite-dish text-green-500 animate-pulse"></i>
+                        Usuários Online
+                    </h1>
+                    <p class="mt-1 text-sm text-muted-foreground">Monitoramento de atividade em tempo real (últimos 5 minutos)</p>
+                </div>
+                <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                    <i class="fas fa-sync fa-spin"></i> Atualizando a cada 10s
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="mb-8 grid gap-4 sm:grid-cols-2">
+                <div class="rounded-xl border bg-card p-6 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-muted-foreground uppercase">Usuários Ativos</p>
+                            <h3 class="mt-2 text-3xl font-bold text-green-500">{{ users|length }}</h3>
+                        </div>
+                        <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-600">
+                            <i class="fas fa-users text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="rounded-xl border bg-card p-6 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-muted-foreground uppercase">Páginas Visitadas</p>
+                            <h3 class="mt-2 text-3xl font-bold text-blue-500" id="pageViews">0</h3>
+                        </div>
+                        <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                            <i class="fas fa-eye text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabela de Usuários -->
+            <div class="rounded-xl border bg-card shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-muted/50 border-b">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Usuário</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Função</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Página Atual</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Última Ação</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border bg-card">
+                            {% for user in users %}
+                            <tr class="transition-colors hover:bg-muted/30">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-purple-600 text-white font-bold text-sm">
+                                            {{ user.nome_completo[0].upper() }}
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-foreground">{{ user.nome_completo }}</div>
+                                            <div class="text-xs text-muted-foreground">{{ user.username }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    {% if user.role == 'admin' %}
+                                        <span class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+                                            <i class="fas fa-shield-alt mr-1"></i> Admin
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                                            <i class="fas fa-user mr-1"></i> Usuário
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <code class="rounded bg-muted px-2 py-1 text-xs font-mono text-primary">
+                                        {{ user.current_page }}
+                                    </code>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                                    {% set seconds = user.seconds_ago|int %}
+                                    {% if seconds < 60 %}
+                                        {{ seconds }}s atrás
+                                    {% else %}
+                                        {{ (seconds / 60)|int }}m atrás
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <span class="relative inline-flex h-3 w-3">
+                                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                                        <span class="relative inline-flex h-3 w-3 rounded-full bg-green-500"></span>
+                                    </span>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="px-6 py-12 text-center text-muted-foreground">
+                                    <div class="flex flex-col items-center gap-2">
+                                        <i class="fas fa-ghost text-3xl opacity-50"></i>
+                                        <p>Nenhum usuário ativo no momento (além de você?)</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    // Atualizar a página a cada 10 segundos
+    setTimeout(() => {
+        window.location.reload();
+    }, 10000);
+</script>
+{% endblock %}

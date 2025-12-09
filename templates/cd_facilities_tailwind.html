@@ -1,0 +1,450 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Visualização 3D do CD - GeRot{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-background">
+    <!-- Header com Navegação -->
+    <header class="border-b bg-card shadow-sm">
+        <div class="container mx-auto px-4">
+            <div class="flex h-16 items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl font-bold text-primary">GeRot</h1>
+                    <nav class="hidden md:flex space-x-1">
+                        <a href="{{ url_for('team_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-arrow-left mr-2"></i>Voltar ao Dashboard
+                        </a>
+                    </nav>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-muted-foreground">
+                        {{ session.nome_completo }}
+                    </span>
+                    <a href="{{ url_for('logout') }}" class="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Header Principal -->
+        <div class="mb-8 rounded-xl bg-gradient-to-r from-navy-800 to-navy-900 p-8 text-white shadow-xl relative overflow-hidden">
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+            <div class="relative z-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h1 class="flex items-center gap-3 text-3xl font-bold">
+                        <i class="fas fa-cube text-primary"></i>
+                        Visualização 3D
+                    </h1>
+                    <p class="mt-2 text-gray-300 max-w-2xl">Explore o layout completo do Centro de Distribuição através de modelos 3D interativos e plantas detalhadas.</p>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <a href="{{ url_for('cd_booking') }}" class="inline-flex items-center rounded-lg bg-primary/20 backdrop-blur-md border border-primary/30 px-4 py-2 font-medium text-white transition-all hover:bg-primary/30 hover:border-primary/50">
+                        <i class="fas fa-calendar-plus mr-2"></i>
+                        Agendar Sala
+                    </a>
+                    {% if session.role == 'manager' or session.role == 'admin' %}
+                    <a href="{{ url_for('admin_dashboard') }}" class="inline-flex items-center rounded-lg bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2 font-medium text-white transition-all hover:bg-white/20">
+                        <i class="fas fa-cog mr-2"></i>
+                        Configurar
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="grid gap-8 lg:grid-cols-4">
+            <!-- Sidebar: Seletor de Ambientes -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="rounded-xl border bg-card shadow-sm overflow-hidden sticky top-8">
+                    <div class="border-b bg-muted/30 p-4">
+                        <h2 class="flex items-center gap-2 font-semibold text-foreground">
+                            <i class="fas fa-th-large text-primary"></i>
+                            Ambientes
+                        </h2>
+                    </div>
+                    <div class="p-4 max-h-[calc(100vh-300px)] overflow-y-auto space-y-2 custom-scrollbar">
+                        {% for env in environments %}
+                        <button class="env-button w-full text-left group relative overflow-hidden rounded-lg border border-transparent p-3 transition-all hover:border-primary/20 hover:bg-muted/50 {% if loop.first %}active{% endif %}" 
+                                data-env="{{ env.code }}" 
+                                data-id="{{ env.id }}"
+                                onclick="selectEnvironment('{{ env.code }}')">
+                            <div class="flex items-center gap-3">
+                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors group-hover:text-primary group-[.active]:bg-primary group-[.active]:text-white">
+                                    <i class="{{ env.icon or 'fas fa-cube' }}"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="font-medium text-foreground truncate group-[.active]:text-primary">{{ env.name }}</div>
+                                    <div class="text-xs text-muted-foreground truncate">{{ env.description or 'Sem descrição' }}</div>
+                                </div>
+                            </div>
+                            <div class="absolute inset-y-0 left-0 w-1 bg-primary opacity-0 transition-opacity group-[.active]:opacity-100"></div>
+                        </button>
+                        {% endfor %}
+                        
+                        {% if not environments %}
+                        <div class="py-8 text-center text-muted-foreground">
+                            <i class="fas fa-cube text-3xl opacity-20 mb-2"></i>
+                            <p class="text-sm">Nenhum ambiente cadastrado.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Viewer Principal -->
+            <div class="lg:col-span-3 space-y-6">
+                <div class="rounded-xl border bg-card shadow-sm overflow-hidden">
+                    <!-- Tabs do Viewer -->
+                    <div class="flex border-b bg-muted/10">
+                        <button class="viewer-tab active flex-1 py-4 text-sm font-medium text-muted-foreground border-b-2 border-transparent hover:text-foreground transition-colors" onclick="switchViewMode('3d')">
+                            <i class="fas fa-cube mr-2"></i> Modelo 3D
+                        </button>
+                        <button class="viewer-tab flex-1 py-4 text-sm font-medium text-muted-foreground border-b-2 border-transparent hover:text-foreground transition-colors" onclick="switchViewMode('2d')">
+                            <i class="fas fa-map mr-2"></i> Planta 2D
+                        </button>
+                        <button class="viewer-tab flex-1 py-4 text-sm font-medium text-muted-foreground border-b-2 border-transparent hover:text-foreground transition-colors" onclick="switchViewMode('photos')">
+                            <i class="fas fa-images mr-2"></i> Fotos
+                        </button>
+                    </div>
+
+                    <!-- Conteúdo 3D -->
+                    <div id="view-3d" class="viewer-content active relative h-[600px] bg-[#1a1a2e]">
+                        <div id="viewer3d-container" class="h-full w-full">
+                            <div class="loading-overlay absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white z-50" id="loadingOverlay3d">
+                                <i class="fas fa-spinner fa-spin text-4xl mb-4 text-primary"></i>
+                                <p class="text-sm font-medium">Carregando modelo 3D...</p>
+                            </div>
+                            <div id="viewer3d" class="h-full w-full"></div>
+                        </div>
+                        
+                        <!-- Controles Flutuantes -->
+                        <div class="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-4 rounded-lg bg-black/60 p-3 backdrop-blur-sm">
+                            <div class="flex gap-2">
+                                <button onclick="resetCamera()" class="rounded bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20 transition-colors">
+                                    <i class="fas fa-redo mr-1"></i> Resetar Câmera
+                                </button>
+                                <button onclick="toggleWireframe()" class="rounded bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20 transition-colors">
+                                    <i class="fas fa-border-all mr-1"></i> Wireframe
+                                </button>
+                            </div>
+                            <div class="text-xs text-white/60 hidden sm:block">
+                                <span class="mr-3"><i class="fas fa-mouse mr-1"></i> Arraste para rotacionar</span>
+                                <span><i class="fas fa-search-plus mr-1"></i> Scroll para zoom</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Conteúdo 2D -->
+                    <div id="view-2d" class="viewer-content hidden h-[600px] bg-muted/5 relative">
+                        <div id="viewer2d" class="flex h-full w-full items-center justify-center overflow-hidden p-4">
+                            <div class="no-content-message text-center text-muted-foreground" id="no2dContent">
+                                <div class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                                    <i class="fas fa-map-marked-alt text-3xl opacity-50"></i>
+                                </div>
+                                <h3 class="text-lg font-medium text-foreground">Planta 2D não disponível</h3>
+                                <p class="text-sm">Nenhuma planta foi carregada para este ambiente.</p>
+                            </div>
+                            <img id="plantImage" class="max-h-full max-w-full object-contain transition-transform duration-200 hidden" alt="Planta 2D">
+                        </div>
+                        
+                        <div class="absolute bottom-4 right-4 flex gap-2">
+                            <button onclick="resetZoom()" class="rounded-lg bg-card border shadow-sm px-3 py-2 text-sm font-medium hover:bg-muted transition-colors">
+                                <i class="fas fa-compress mr-2"></i> Ajustar Zoom
+                            </button>
+                            <button onclick="downloadPlant()" class="rounded-lg bg-primary text-white shadow-sm px-3 py-2 text-sm font-medium hover:bg-primary/90 transition-colors">
+                                <i class="fas fa-download mr-2"></i> Baixar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Conteúdo Fotos -->
+                    <div id="view-photos" class="viewer-content hidden min-h-[600px] bg-muted/5 p-8">
+                        <div id="photosGallery" class="h-full">
+                            <div class="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
+                                <div class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                                    <i class="fas fa-camera text-3xl opacity-50"></i>
+                                </div>
+                                <h3 class="text-lg font-medium text-foreground">Fotos não disponíveis</h3>
+                                <p class="text-sm">Nenhuma foto foi carregada para este ambiente.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<style>
+    .env-button.active .bg-muted {
+        background-color: hsl(var(--primary));
+        color: white;
+    }
+    
+    .viewer-tab.active {
+        color: hsl(var(--primary));
+        border-bottom-color: hsl(var(--primary));
+        background-color: hsl(var(--primary) / 0.05);
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: hsl(var(--border));
+        border-radius: 20px;
+    }
+</style>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
+    let scene, camera, renderer, controls, currentModel;
+    let currentModelType = 'glb';
+    let wireframeMode = false;
+    let currentEnvironment = 'geral';
+
+    function initViewer() {
+        const container = document.getElementById('viewer3d');
+        if (!container) return;
+        
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a2e);
+        
+        camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(5, 5, 5);
+        
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+        
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 10, 5);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+        
+        const gridHelper = new THREE.GridHelper(20, 20);
+        scene.add(gridHelper);
+        
+        // Initial load handled by selectEnvironment
+        animate();
+        
+        window.addEventListener('resize', onWindowResize);
+    }
+
+    function loadModel(type, url) {
+        const loadingOverlay = document.getElementById('loadingOverlay3d');
+        if (loadingOverlay) loadingOverlay.style.display = 'flex';
+        
+        if (currentModel) {
+            scene.remove(currentModel);
+            currentModel = null;
+        }
+        
+        currentModelType = type;
+        const modelUrl = url || (type === 'glb' ? '/api/3d-model/glb' : '/api/3d-model/fbx');
+        
+        const loader = type === 'glb' ? new GLTFLoader() : new FBXLoader();
+        
+        loader.load(
+            modelUrl,
+            function(object) {
+                currentModel = type === 'glb' ? object.scene : object;
+                scene.add(currentModel);
+                
+                currentModel.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                
+                if (type !== 'glb') {
+                    currentModel.scale.set(0.01, 0.01, 0.01);
+                }
+                
+                // Center model
+                const box = new THREE.Box3().setFromObject(currentModel);
+                const center = box.getCenter(new THREE.Vector3());
+                currentModel.position.sub(center);
+                
+                if (loadingOverlay) loadingOverlay.style.display = 'none';
+            },
+            undefined,
+            function(error) {
+                console.error('Error loading model:', error);
+                if (loadingOverlay) {
+                    loadingOverlay.innerHTML = `
+                        <div class="text-center p-8">
+                            <i class="fas fa-exclamation-triangle text-4xl text-amber-500 mb-4"></i>
+                            <h3 class="text-lg font-medium mb-2">Modelo 3D não encontrado</h3>
+                            <p class="text-sm opacity-80">Não foi possível carregar o modelo 3D para este ambiente.</p>
+                        </div>
+                    `;
+                }
+            }
+        );
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (controls) controls.update();
+        if (renderer && scene && camera) renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+        const container = document.getElementById('viewer3d');
+        if (container && camera && renderer) {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+    }
+
+    // Expose functions to window
+    window.resetCamera = function() {
+        if (camera && controls) {
+            camera.position.set(5, 5, 5);
+            controls.reset();
+        }
+    }
+
+    window.toggleWireframe = function() {
+        wireframeMode = !wireframeMode;
+        if (currentModel) {
+            currentModel.traverse((child) => {
+                if (child.isMesh) {
+                    child.material.wireframe = wireframeMode;
+                }
+            });
+        }
+    }
+    
+    // Expose loadModel to be called from non-module script
+    window.viewerLoadModel = loadModel;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initViewer);
+    } else {
+        initViewer();
+    }
+</script>
+
+<script>
+    const environmentsData = {{ environments | tojson | safe }};
+
+    function selectEnvironment(envCode) {
+        // Update UI
+        document.querySelectorAll('.env-button').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.env === envCode) btn.classList.add('active');
+        });
+        
+        const env = environmentsData.find(e => e.code === envCode);
+        if (!env) return;
+        
+        // Find resources
+        const models = env.resources ? env.resources.filter(r => r.resource_type === 'model_3d') : [];
+        const plants = env.resources ? env.resources.filter(r => r.resource_type === 'plant_2d') : [];
+        
+        // Load 3D Model
+        if (window.viewerLoadModel) {
+            if (models.length > 0) {
+                const modelUrl = models[0].file_url;
+                const isGlb = modelUrl.toLowerCase().endsWith('.glb') || modelUrl.toLowerCase().endsWith('.gltf');
+                window.viewerLoadModel(isGlb ? 'glb' : 'fbx', modelUrl);
+            } else {
+                // Show no model state
+                const loadingOverlay = document.getElementById('loadingOverlay3d');
+                if (loadingOverlay) {
+                    loadingOverlay.style.display = 'flex';
+                    loadingOverlay.innerHTML = `
+                        <div class="text-center p-8">
+                            <i class="fas fa-cube text-4xl text-muted-foreground mb-4"></i>
+                            <h3 class="text-lg font-medium mb-2">Sem Modelo 3D</h3>
+                            <p class="text-sm opacity-80">Este ambiente não possui modelo 3D configurado.</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+        
+        // Load 2D Plant
+        const plantImg = document.getElementById('plantImage');
+        const noContent = document.getElementById('no2dContent');
+        
+        if (plantImg && noContent) {
+            if (plants.length > 0) {
+                plantImg.src = plants[0].file_url;
+                plantImg.classList.remove('hidden');
+                noContent.classList.add('hidden');
+            } else {
+                plantImg.classList.add('hidden');
+                noContent.classList.remove('hidden');
+            }
+        }
+    }
+    
+    function switchViewMode(mode) {
+        document.querySelectorAll('.viewer-tab').forEach(t => t.classList.remove('active', 'text-primary', 'border-primary', 'bg-primary/5'));
+        event.target.classList.add('active', 'text-primary', 'border-primary', 'bg-primary/5');
+        
+        document.querySelectorAll('.viewer-content').forEach(c => c.classList.add('hidden'));
+        document.querySelectorAll('.viewer-content').forEach(c => c.classList.remove('active'));
+        
+        const activeContent = document.getElementById(`view-${mode}`);
+        activeContent.classList.remove('hidden');
+        activeContent.classList.add('active');
+    }
+    
+    function resetZoom() {
+        const img = document.getElementById('plantImage');
+        if (img) img.style.transform = 'scale(1)';
+    }
+    
+    function downloadPlant() {
+        const img = document.getElementById('plantImage');
+        if (img && !img.classList.contains('hidden')) {
+            const a = document.createElement('a');
+            a.href = img.src;
+            a.download = 'planta.jpg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    }
+
+    // Load first environment on start
+    document.addEventListener('DOMContentLoaded', function() {
+        if (environmentsData && environmentsData.length > 0) {
+            selectEnvironment(environmentsData[0].code);
+        }
+    });
+</script>
+{% endblock %}

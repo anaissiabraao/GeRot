@@ -1,0 +1,623 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Gerenciar Ambientes 3D - GeRot{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-background">
+    <!-- Header com Navegação -->
+    <header class="border-b bg-card shadow-sm">
+        <div class="container mx-auto px-4">
+            <div class="flex h-16 items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl font-bold text-primary">GeRot</h1>
+                    <nav class="hidden md:flex space-x-1">
+                        <a href="{{ url_for('admin_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-arrow-left mr-2"></i>Voltar ao Painel
+                        </a>
+                    </nav>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-muted-foreground">
+                        {{ session.nome_completo }}
+                    </span>
+                    <a href="{{ url_for('logout') }}" class="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h1 class="flex items-center gap-3 text-2xl font-bold text-foreground">
+                    <i class="fas fa-cube text-primary"></i>
+                    Gerenciar Ambientes 3D
+                </h1>
+                <p class="mt-1 text-sm text-muted-foreground">Configure os ambientes do Centro de Distribuição</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="{{ url_for('cd_facilities') }}" target="_blank" class="inline-flex items-center rounded-md border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground">
+                    <i class="fas fa-external-link-alt mr-2"></i> Ver 3D
+                </a>
+                <button onclick="openAddEnvironmentModal()" class="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90">
+                    <i class="fas fa-plus mr-2"></i> Novo Ambiente
+                </button>
+            </div>
+        </div>
+
+        <!-- Grid de Ambientes -->
+        <div id="environmentsGrid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <!-- Ambientes serão carregados aqui via JS -->
+        </div>
+    </main>
+</div>
+
+<!-- Modal de Ambiente -->
+<div id="environmentModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div class="w-full max-w-2xl rounded-xl bg-card shadow-xl animate-scale-in max-h-[90vh] flex flex-col">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between border-b p-6">
+            <h3 class="text-xl font-bold text-foreground" id="modalTitle">Adicionar Ambiente</h3>
+            <button onclick="closeModal()" class="text-muted-foreground hover:text-foreground">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex border-b px-6">
+            <button class="tab-btn active px-4 py-3 text-sm font-medium text-primary border-b-2 border-primary transition-colors" onclick="switchTab('info')">
+                <i class="fas fa-info-circle mr-2"></i> Informações
+            </button>
+            <button class="tab-btn px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors" onclick="switchTab('resources')">
+                <i class="fas fa-folder mr-2"></i> Recursos
+            </button>
+            <button class="tab-btn px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors" onclick="switchTab('3d')">
+                <i class="fas fa-cube mr-2"></i> 3D
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="flex-1 overflow-y-auto p-6">
+            <!-- Tab Info -->
+            <div id="tab-info" class="tab-content block space-y-4">
+                <form id="environmentForm">
+                    <input type="hidden" id="envId" name="id">
+                    
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-foreground">Código</label>
+                            <input type="text" id="envCode" name="code" required placeholder="ex: sala_reuniao_1"
+                                   class="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-foreground">Nome</label>
+                            <input type="text" id="envName" name="name" required placeholder="ex: Sala de Reunião 1"
+                                   class="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                        </div>
+                    </div>
+
+                    <div class="mt-4 space-y-2">
+                        <label class="text-sm font-medium text-foreground">Descrição</label>
+                        <textarea id="envDescription" name="description" rows="3" placeholder="Descrição do ambiente..."
+                                  class="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"></textarea>
+                    </div>
+
+                    <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-foreground">Ícone</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-primary">
+                                    <i id="iconPreview" class="fas fa-building"></i>
+                                </div>
+                                <select id="envIcon" name="icon" onchange="updateIconPreview(this.value)"
+                                        class="w-full rounded-md border bg-background pl-10 pr-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                                    <option value="fas fa-building">Building (Edifício)</option>
+                                    <option value="fas fa-door-open">Door Open (Entrada/Recepção)</option>
+                                    <option value="fas fa-warehouse">Warehouse (Armazém)</option>
+                                    <option value="fas fa-truck-loading">Truck Loading (Expedição)</option>
+                                    <option value="fas fa-users">Users (Reunião/Grupo)</option>
+                                    <option value="fas fa-chalkboard-teacher">Teacher (Treinamento)</option>
+                                    <option value="fas fa-theater-masks">Theater (Auditório)</option>
+                                    <option value="fas fa-video">Video (Videoconferência)</option>
+                                    <option value="fas fa-tools">Tools (Workshop/Manutenção)</option>
+                                    <option value="fas fa-briefcase">Briefcase (Escritório)</option>
+                                    <option value="fas fa-utensils">Utensils (Refeitório)</option>
+                                    <option value="fas fa-restroom">Restroom (Vestiário/Banheiro)</option>
+                                    <option value="fas fa-cube">Cube (Geral)</option>
+                                    <option value="fas fa-layer-group">Layers (Andares)</option>
+                                    <option value="fas fa-box">Box (Caixa/Estoque)</option>
+                                    <option value="fas fa-industry">Industry (Fábrica)</option>
+                                    <option value="fas fa-dolly">Dolly (Movimentação)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-foreground">Andar</label>
+                            <select id="envFloor" name="floor"
+                                    class="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                                <option value="1">Térreo</option>
+                                <option value="2">1º Andar</option>
+                                <option value="3">2º Andar</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 grid gap-4 sm:grid-cols-3">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-foreground">Capacidade</label>
+                            <input type="number" id="envCapacity" name="capacity" min="0" placeholder="Pessoas"
+                                   class="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-foreground">Área (m²)</label>
+                            <input type="number" id="envArea" name="area_m2" min="0" step="0.1" placeholder="m²"
+                                   class="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-foreground">Ordem</label>
+                            <input type="number" id="envOrder" name="display_order" min="0" value="0"
+                                   class="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tab Resources -->
+            <div id="tab-resources" class="tab-content hidden space-y-6">
+                <div id="uploadArea" class="cursor-pointer rounded-xl border-2 border-dashed border-border bg-muted/10 p-8 text-center transition-colors hover:border-primary hover:bg-primary/5">
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                            <i class="fas fa-cloud-upload-alt text-xl"></i>
+                        </div>
+                        <p class="font-medium text-foreground">Clique ou arraste arquivos aqui</p>
+                        <p class="text-xs text-muted-foreground">GLB, FBX, JPG, PNG, PDF</p>
+                    </div>
+                    <input type="file" id="fileInput" multiple accept=".glb,.fbx,.jpg,.jpeg,.png,.pdf" class="hidden">
+                </div>
+
+                <div id="fileList" class="space-y-2">
+                    <!-- Arquivos listados via JS -->
+                </div>
+            </div>
+
+            <!-- Tab 3D -->
+            <div id="tab-3d" class="tab-content hidden">
+                <form id="settings3dForm" class="space-y-6">
+                    <div>
+                        <h4 class="mb-3 font-medium text-foreground">Posição da Câmera</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="space-y-1">
+                                <label class="text-xs text-muted-foreground">X</label>
+                                <input type="number" name="camera_position_x" value="5" step="0.1" class="w-full rounded-md border bg-background px-3 py-2 text-sm">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs text-muted-foreground">Y</label>
+                                <input type="number" name="camera_position_y" value="5" step="0.1" class="w-full rounded-md border bg-background px-3 py-2 text-sm">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs text-muted-foreground">Z</label>
+                                <input type="number" name="camera_position_z" value="5" step="0.1" class="w-full rounded-md border bg-background px-3 py-2 text-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="mb-3 font-medium text-foreground">Alvo da Câmera</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="space-y-1">
+                                <label class="text-xs text-muted-foreground">X</label>
+                                <input type="number" name="camera_target_x" value="0" step="0.1" class="w-full rounded-md border bg-background px-3 py-2 text-sm">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs text-muted-foreground">Y</label>
+                                <input type="number" name="camera_target_y" value="0" step="0.1" class="w-full rounded-md border bg-background px-3 py-2 text-sm">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs text-muted-foreground">Z</label>
+                                <input type="number" name="camera_target_z" value="0" step="0.1" class="w-full rounded-md border bg-background px-3 py-2 text-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-foreground">Escala</label>
+                            <input type="number" name="model_scale" value="1.0" min="0.1" max="10" step="0.1" class="w-full rounded-md border bg-background px-3 py-2 text-sm">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-foreground">Cor de Fundo</label>
+                            <input type="color" name="background_color" value="#1a1a2e" class="h-9 w-full rounded-md border bg-background p-1">
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="border-t p-6 flex justify-end gap-3">
+            <button onclick="closeModal()" class="rounded-lg border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground">
+                Cancelar
+            </button>
+            <button onclick="saveEnvironment()" class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90">
+                Salvar Ambiente
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-4 right-4 z-50 hidden items-center gap-3 rounded-lg bg-white px-4 py-3 shadow-lg animate-slide-up border-l-4">
+    <i class="fas text-xl"></i>
+    <div>
+        <strong id="toastTitle" class="block font-medium"></strong>
+        <p id="toastMessage" class="text-sm text-gray-600"></p>
+    </div>
+</div>
+
+<script>
+    let environments = [];
+    let currentEnvironmentId = null;
+    let currentTab = 'info';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadEnvironments();
+    });
+
+    async function loadEnvironments() {
+        try {
+            const response = await fetch('/api/environments');
+            environments = await response.json();
+            displayEnvironments();
+        } catch (error) {
+            console.error('Erro:', error);
+            showToast('error', 'Erro', 'Falha ao carregar ambientes');
+        }
+    }
+
+    function displayEnvironments() {
+        const grid = document.getElementById('environmentsGrid');
+        
+        if (environments.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-full flex flex-col items-center justify-center py-12 text-center">
+                    <div class="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                        <i class="fas fa-cube text-3xl text-muted-foreground"></i>
+                    </div>
+                    <h3 class="mt-4 text-lg font-medium text-foreground">Nenhum ambiente cadastrado</h3>
+                    <p class="mt-2 text-sm text-muted-foreground">Comece adicionando um novo ambiente.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        grid.innerHTML = environments.map(env => `
+            <div class="group relative overflow-hidden rounded-xl border bg-card p-6 shadow-sm transition-all hover:border-primary/50 hover:shadow-md">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-muted/50 text-xl text-primary">
+                            <i class="${env.icon || 'fas fa-building'}"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-foreground">${env.name}</h3>
+                            <code class="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">${env.code}</code>
+                        </div>
+                    </div>
+                </div>
+                
+                ${env.description ? `<p class="mt-4 text-sm text-muted-foreground line-clamp-2">${env.description}</p>` : ''}
+                
+                <div class="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span class="flex items-center gap-1">
+                        <i class="fas fa-layer-group"></i> ${env.floor === 1 ? 'Térreo' : env.floor + 'º Andar'}
+                    </span>
+                    ${env.capacity ? `
+                        <span class="flex items-center gap-1">
+                            <i class="fas fa-users"></i> ${env.capacity}
+                        </span>
+                    ` : ''}
+                    ${env.area_m2 ? `
+                        <span class="flex items-center gap-1">
+                            <i class="fas fa-ruler-combined"></i> ${env.area_m2}m²
+                        </span>
+                    ` : ''}
+                </div>
+                
+                <div class="mt-4 flex gap-2 border-t pt-4">
+                    <span class="inline-flex items-center rounded-full bg-muted/50 px-2 py-1 text-xs font-medium ${env.models_3d > 0 ? 'text-green-600 bg-green-50' : 'text-muted-foreground'}">
+                        <i class="fas fa-cube mr-1"></i> ${env.models_3d || 0}
+                    </span>
+                    <span class="inline-flex items-center rounded-full bg-muted/50 px-2 py-1 text-xs font-medium ${env.photos > 0 ? 'text-blue-600 bg-blue-50' : 'text-muted-foreground'}">
+                        <i class="fas fa-images mr-1"></i> ${env.photos || 0}
+                    </span>
+                </div>
+                
+                <div class="absolute right-4 top-4 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button onclick="editEnvironment(${env.id})" class="rounded-md bg-background p-2 text-muted-foreground shadow-sm hover:text-primary transition-colors">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deleteEnvironment(${env.id})" class="rounded-md bg-background p-2 text-muted-foreground shadow-sm hover:text-destructive transition-colors">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function openAddEnvironmentModal() {
+        currentEnvironmentId = null;
+        document.getElementById('modalTitle').textContent = 'Adicionar Ambiente';
+        document.getElementById('environmentForm').reset();
+        updateIconPreview('fas fa-building');
+        
+        const modal = document.getElementById('environmentModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        
+        switchTab('info');
+    }
+
+    async function editEnvironment(id) {
+        try {
+            const response = await fetch(`/api/environments/${id}`);
+            const env = await response.json();
+            
+            currentEnvironmentId = id;
+            document.getElementById('modalTitle').textContent = 'Editar Ambiente';
+            
+            // Preencher campos
+            document.getElementById('envId').value = env.id;
+            document.getElementById('envCode').value = env.code;
+            document.getElementById('envName').value = env.name;
+            document.getElementById('envDescription').value = env.description || '';
+            document.getElementById('envIcon').value = env.icon || 'fas fa-building';
+            updateIconPreview(env.icon || 'fas fa-building');
+            document.getElementById('envFloor').value = env.floor || 1;
+            document.getElementById('envCapacity').value = env.capacity || '';
+            document.getElementById('envArea').value = env.area_m2 || '';
+            document.getElementById('envOrder').value = env.display_order || 0;
+            
+            // 3D Settings
+            if (env.camera_position_x !== null) {
+                document.querySelector('[name="camera_position_x"]').value = env.camera_position_x;
+                document.querySelector('[name="camera_position_y"]').value = env.camera_position_y;
+                document.querySelector('[name="camera_position_z"]').value = env.camera_position_z;
+                document.querySelector('[name="camera_target_x"]').value = env.camera_target_x;
+                document.querySelector('[name="camera_target_y"]').value = env.camera_target_y;
+                document.querySelector('[name="camera_target_z"]').value = env.camera_target_z;
+                document.querySelector('[name="model_scale"]').value = env.model_scale || 1.0;
+                document.querySelector('[name="background_color"]').value = env.background_color || '#1a1a2e';
+            }
+            
+            if (env.resources && env.resources.length > 0) {
+                displayResources(env.resources);
+            } else {
+                document.getElementById('fileList').innerHTML = '<p class="text-sm text-muted-foreground text-center py-4">Nenhum recurso encontrado</p>';
+            }
+            
+            const modal = document.getElementById('environmentModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            switchTab('info');
+            
+        } catch (error) {
+            console.error(error);
+            showToast('error', 'Erro', 'Falha ao carregar dados');
+        }
+    }
+
+    function closeModal() {
+        const modal = document.getElementById('environmentModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        currentEnvironmentId = null;
+    }
+
+    function switchTab(tab) {
+        currentTab = tab;
+        
+        // Update buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active', 'text-primary', 'border-b-2', 'border-primary');
+            btn.classList.add('text-muted-foreground');
+        });
+        
+        // Highlight active button (this logic assumes order: info, resources, 3d)
+        const buttons = document.querySelectorAll('.tab-btn');
+        const activeBtn = tab === 'info' ? buttons[0] : tab === 'resources' ? buttons[1] : buttons[2];
+        activeBtn.classList.add('active', 'text-primary', 'border-b-2', 'border-primary');
+        activeBtn.classList.remove('text-muted-foreground');
+        
+        // Show content
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+        document.getElementById(`tab-${tab}`).classList.remove('hidden');
+    }
+
+    function updateIconPreview(icon) {
+        document.getElementById('iconPreview').className = icon;
+    }
+
+    async function saveEnvironment() {
+        const form = document.getElementById('environmentForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+        
+        // Add 3D settings
+        const settings3d = {};
+        document.querySelectorAll('#settings3dForm input').forEach(input => {
+            settings3d[input.name] = input.value;
+        });
+        data['3d_settings'] = settings3d;
+        
+        try {
+            const url = currentEnvironmentId ? `/api/environments/${currentEnvironmentId}` : '/api/environments';
+            const method = currentEnvironmentId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                showToast('success', 'Sucesso', 'Ambiente salvo com sucesso');
+                closeModal();
+                loadEnvironments();
+            } else {
+                showToast('error', 'Erro', 'Falha ao salvar ambiente');
+            }
+        } catch (error) {
+            showToast('error', 'Erro', 'Erro de conexão');
+        }
+    }
+
+    async function deleteEnvironment(id) {
+        if (!confirm('Tem certeza que deseja excluir este ambiente?')) return;
+        
+        try {
+            const response = await fetch(`/api/environments/${id}`, { method: 'DELETE' });
+            if (response.ok) {
+                showToast('success', 'Sucesso', 'Ambiente excluído');
+                loadEnvironments();
+            } else {
+                showToast('error', 'Erro', 'Falha ao excluir');
+            }
+        } catch (error) {
+            showToast('error', 'Erro', 'Erro de conexão');
+        }
+    }
+
+    // Upload handling
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+
+    uploadArea.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('border-primary', 'bg-primary/5');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('border-primary', 'bg-primary/5');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('border-primary', 'bg-primary/5');
+        handleFiles(e.dataTransfer.files);
+    });
+
+    async function handleFiles(files) {
+        if (!currentEnvironmentId) {
+            showToast('error', 'Atenção', 'Salve o ambiente antes de enviar arquivos');
+            return;
+        }
+
+        let successCount = 0;
+        const originalContent = uploadArea.innerHTML;
+        uploadArea.innerHTML = '<div class="py-4"><i class="fas fa-spinner fa-spin text-2xl text-primary"></i><p class="mt-2 text-sm text-muted-foreground">Enviando...</p></div>';
+
+        for (const file of Array.from(files)) {
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await fetch(`/api/environments/${currentEnvironmentId}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) successCount++;
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        uploadArea.innerHTML = originalContent;
+        
+        if (successCount > 0) {
+            showToast('success', 'Sucesso', `${successCount} arquivos enviados`);
+            const response = await fetch(`/api/environments/${currentEnvironmentId}/resources`);
+            const resources = await response.json();
+            displayResources(resources);
+            loadEnvironments(); // Update counters
+        }
+    }
+
+    function displayResources(resources) {
+        const list = document.getElementById('fileList');
+        if (!resources || resources.length === 0) {
+            list.innerHTML = '<p class="text-sm text-muted-foreground text-center py-4">Nenhum recurso encontrado</p>';
+            return;
+        }
+
+        list.innerHTML = resources.map(res => `
+            <div class="flex items-center justify-between rounded-lg border bg-muted/30 p-3">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-8 w-8 items-center justify-center rounded bg-background text-primary">
+                        <i class="fas ${getResourceIcon(res.resource_type)}"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-foreground">${res.file_name || 'Arquivo'}</p>
+                        <p class="text-xs text-muted-foreground capitalize">${res.resource_type.replace('_', ' ')}</p>
+                    </div>
+                </div>
+                <button onclick="deleteResource(${res.id})" class="text-muted-foreground hover:text-destructive transition-colors">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    async function deleteResource(id) {
+        if (!confirm('Excluir este arquivo?')) return;
+        
+        try {
+            const response = await fetch(`/api/resources/${id}`, { method: 'DELETE' });
+            if (response.ok) {
+                showToast('success', 'Sucesso', 'Arquivo excluído');
+                // Reload resources
+                const resResponse = await fetch(`/api/environments/${currentEnvironmentId}/resources`);
+                const resources = await resResponse.json();
+                displayResources(resources);
+                loadEnvironments();
+            }
+        } catch (error) {
+            showToast('error', 'Erro', 'Erro de conexão');
+        }
+    }
+
+    function getResourceIcon(type) {
+        const icons = {
+            'model_3d': 'fa-cube',
+            'plant_2d': 'fa-map',
+            'photo': 'fa-image',
+            'document': 'fa-file-alt'
+        };
+        return icons[type] || 'fa-file';
+    }
+
+    function showToast(type, title, message) {
+        const toast = document.getElementById('toast');
+        const icon = toast.querySelector('i');
+        
+        document.getElementById('toastTitle').textContent = title;
+        document.getElementById('toastMessage').textContent = message;
+        
+        toast.className = `fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg bg-white px-4 py-3 shadow-lg animate-slide-up border-l-4 ${type === 'success' ? 'border-green-500' : 'border-red-500'}`;
+        icon.className = `fas text-xl ${type === 'success' ? 'fa-check-circle text-green-500' : 'fa-exclamation-circle text-red-500'}`;
+        
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+</script>
+{% endblock %}
