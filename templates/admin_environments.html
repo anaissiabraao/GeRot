@@ -508,9 +508,30 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="envIcon">
-                                <i class="fas fa-icons"></i> Ícone (FontAwesome)
+                                <i class="fas fa-icons"></i> Ícone
                             </label>
-                            <input type="text" id="envIcon" name="icon" placeholder="fas fa-building" value="fas fa-building">
+                            <div style="position: relative;">
+                                <select id="envIcon" name="icon" onchange="updateIconPreview(this.value)" style="padding-left: 2.5rem;">
+                                    <option value="fas fa-building">Building (Edifício)</option>
+                                    <option value="fas fa-door-open">Door Open (Entrada/Recepção)</option>
+                                    <option value="fas fa-warehouse">Warehouse (Armazém)</option>
+                                    <option value="fas fa-truck-loading">Truck Loading (Expedição)</option>
+                                    <option value="fas fa-users">Users (Reunião/Grupo)</option>
+                                    <option value="fas fa-chalkboard-teacher">Teacher (Treinamento)</option>
+                                    <option value="fas fa-theater-masks">Theater (Auditório)</option>
+                                    <option value="fas fa-video">Video (Videoconferência)</option>
+                                    <option value="fas fa-tools">Tools (Workshop/Manutenção)</option>
+                                    <option value="fas fa-briefcase">Briefcase (Escritório)</option>
+                                    <option value="fas fa-utensils">Utensils (Refeitório)</option>
+                                    <option value="fas fa-restroom">Restroom (Vestiário/Banheiro)</option>
+                                    <option value="fas fa-cube">Cube (Geral)</option>
+                                    <option value="fas fa-layer-group">Layers (Andares)</option>
+                                    <option value="fas fa-box">Box (Caixa/Estoque)</option>
+                                    <option value="fas fa-industry">Industry (Fábrica)</option>
+                                    <option value="fas fa-dolly">Dolly (Movimentação)</option>
+                                </select>
+                                <i id="iconPreview" class="fas fa-building" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--accent);"></i>
+                            </div>
                         </div>
                         
                         <div class="form-group">
@@ -732,6 +753,7 @@
             currentEnvironmentId = null;
             document.getElementById('modalTitle').textContent = 'Adicionar Ambiente';
             document.getElementById('environmentForm').reset();
+            updateIconPreview('fas fa-building');
             document.getElementById('environmentModal').classList.add('active');
             switchTab('info');
         }
@@ -750,6 +772,7 @@
                 document.getElementById('envName').value = env.name;
                 document.getElementById('envDescription').value = env.description || '';
                 document.getElementById('envIcon').value = env.icon || 'fas fa-building';
+                updateIconPreview(env.icon || 'fas fa-building');
                 document.getElementById('envFloor').value = env.floor || 1;
                 document.getElementById('envCapacity').value = env.capacity || '';
                 document.getElementById('envArea').value = env.area_m2 || '';
@@ -1025,6 +1048,13 @@
                 case 'photo': return 'fa-image';
                 case 'document': return 'fa-file-alt';
                 default: return 'fa-file';
+            }
+        }
+
+        function updateIconPreview(iconClass) {
+            const preview = document.getElementById('iconPreview');
+            if (preview) {
+                preview.className = iconClass;
             }
         }
     </script>
