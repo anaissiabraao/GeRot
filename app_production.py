@@ -1774,7 +1774,7 @@ def room_bookings_api():
                 data['subject']
             ))
             
-            booking_id = cursor.fetchone()[0]
+            booking_id = cursor.fetchone()['id']
             conn.commit()
             
             app.logger.info(f"Agendamento criado com sucesso: ID={booking_id}")
@@ -2051,7 +2051,7 @@ def environments_api():
                 data.get('display_order', 0)
             ))
             
-            environment_id = cursor.fetchone()[0]
+            environment_id = cursor.fetchone()['id']
             conn.commit()
             
             return jsonify({"success": True, "id": environment_id}), 201
@@ -2276,7 +2276,7 @@ def environment_resources_api(environment_id):
                 session.get('user_id')
             ))
             
-            resource_id = cursor.fetchone()[0]
+            resource_id = cursor.fetchone()['id']
             conn.commit()
             
             return jsonify({"success": True, "id": resource_id}), 201
@@ -2415,7 +2415,7 @@ def environment_upload_api(environment_id):
                 session.get('user_id')
             ))
             
-            resource_id = cursor.fetchone()[0]
+            resource_id = cursor.fetchone()['id']
             conn.commit()
             conn.close()
             
