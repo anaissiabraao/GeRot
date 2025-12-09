@@ -1722,7 +1722,18 @@ def room_bookings_api():
                 ORDER BY rb.date DESC, rb.start_time DESC
             """)
             bookings = cursor.fetchall()
-            return jsonify([dict(row) for row in bookings])
+            
+            # Serializar objetos de data/hora
+            result = []
+            for row in bookings:
+                booking = dict(row)
+                booking['date'] = str(booking['date'])
+                booking['start_time'] = str(booking['start_time'])
+                booking['end_time'] = str(booking['end_time'])
+                booking['created_at'] = str(booking['created_at'])
+                result.append(booking)
+                
+            return jsonify(result)
         
         elif request.method == "POST":
             data = request.get_json()
@@ -1814,7 +1825,14 @@ def room_booking_detail_api(booking_id):
             if not booking:
                 return jsonify({"error": "Agendamento não encontrado"}), 404
             
-            return jsonify(dict(booking))
+            # Serializar
+            result = dict(booking)
+            result['date'] = str(result['date'])
+            result['start_time'] = str(result['start_time'])
+            result['end_time'] = str(result['end_time'])
+            result['created_at'] = str(result['created_at'])
+            
+            return jsonify(result)
         
         elif request.method == "PUT":
             cursor.execute(
