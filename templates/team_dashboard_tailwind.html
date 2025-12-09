@@ -13,12 +13,15 @@
                         <img src="{{ url_for('static', filename='portoex-logo.png') }}" alt="PortoEx" class="h-8 w-auto">
                         <span class="text-xl font-bold text-primary border-l border-muted-foreground/30 pl-2 ml-2">GeRot</span>
                     </div>
-                    <nav class="hidden md:flex space-x-1">
+                    <nav class="flex flex-wrap space-x-1">
                         <a href="{{ url_for('index') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
                             <i class="fas fa-home mr-2"></i>Início
                         </a>
                         <a href="{{ url_for('cd_booking') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
                             <i class="fas fa-calendar mr-2"></i>Agenda CD
+                        </a>
+                        <a href="{{ url_for('cd_facilities') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-building mr-2"></i>Instalações CD
                         </a>
                         {% if session.role == 'admin' %}
                         <a href="{{ url_for('admin_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
