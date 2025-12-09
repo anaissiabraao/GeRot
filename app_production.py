@@ -1732,6 +1732,13 @@ def room_bookings_api():
                 if field not in data:
                     return jsonify({"error": f"Campo obrigatório ausente: {field}"}), 400
             
+            user_id = session.get('user_id')
+            if not user_id:
+                app.logger.error("Tentativa de agendamento sem user_id na sessão")
+                return jsonify({"error": "Sessão inválida. Faça login novamente."}), 401
+                
+            app.logger.info(f"Tentando criar agendamento: User={user_id}, Room={data['room']}, Date={data['date']}")
+            
             cursor.execute("""
                 SELECT id FROM room_bookings
                 WHERE room = %s AND date = %s AND is_active = true
@@ -1757,7 +1764,7 @@ def room_bookings_api():
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (
-                session['user_id'],
+                user_id,
                 data['room'],
                 data['title'],
                 data['date'],
@@ -1770,11 +1777,16 @@ def room_bookings_api():
             booking_id = cursor.fetchone()[0]
             conn.commit()
             
+            app.logger.info(f"Agendamento criado com sucesso: ID={booking_id}")
             return jsonify({"success": True, "id": booking_id}), 201
     
     except Exception as e:
         conn.rollback()
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        error_details = traceback.format_exc()
+        app.logger.error(f"Erro ao criar agendamento: {str(e)}\n{error_details}")
+        # Retorna o erro detalhado apenas em debug, ou uma mensagem genérica
+        return jsonify({"error": f"Erro interno: {str(e)}"}), 500
     finally:
         conn.close()
 
