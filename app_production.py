@@ -1502,6 +1502,14 @@ def admin_planner_sync():
     return redirect(url_for("admin_dashboard"))
 
 
+@app.route("/admin/environments")
+@login_required
+@admin_required
+def admin_environments():
+    """Página para gerenciar ambientes do CD"""
+    return render_template("admin_environments.html")
+
+
 @app.route("/admin/dashboards/add", methods=["GET", "POST"])
 @login_required
 @admin_required
@@ -1928,6 +1936,304 @@ class UsersAPI(Resource):
 
 
 api.add_resource(UsersAPI, "/api/users", "/api/users/<int:user_id>")
+
+
+# --------------------------------------------------------------------------- #
+# API para gerenciar ambientes do CD
+# --------------------------------------------------------------------------- #
+@app.route("/api/environments", methods=["GET", "POST"])
+@login_required
+def environments_api():
+    """API para listar e criar ambientes"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        if request.method == "GET":
+            cursor.execute(""" 
+                SELECT 
+                    e.id, e.code, e.name, e.description, e.icon, 
+                    e.capacity, e.area_m2, e.floor, e.is_active,
+                    e.display_order, e.created_at,
+                    COUNT(DISTINCT er.id) as resource_count,
+                    COUNT(DISTINCT CASE WHEN er.resource_type = 'model_3d' THEN er.id END) as models_3d,
+                    COUNT(DISTINCT CASE WHEN er.resource_type = 'plant_2d' THEN er.id END) as plants_2d,
+                    COUNT(DISTINCT CASE WHEN er.resource_type = 'photo' THEN er.id END) as photos
+                FROM environments e
+                LEFT JOIN environment_resources er ON e.id = er.environment_id
+                WHERE e.is_active = true
+                GROUP BY e.id, e.code, e.name, e.description, e.icon, 
+                         e.capacity, e.area_m2, e.floor, e.is_active,
+                         e.display_order, e.created_at
+                ORDER BY e.display_order, e.name
+            """)
+            environments = cursor.fetchall()
+            return jsonify([dict(row) for row in environments])
+        
+        elif request.method == "POST":
+            # Apenas admins podem criar ambientes
+            if session.get("role") != "manager":
+                return jsonify({"error": "Apenas administradores podem criar ambientes"}), 403
+            
+            data = request.get_json()
+            
+            required_fields = ['code', 'name']
+            for field in required_fields:
+                if field not in data:
+                    return jsonify({"error": f"Campo obrigatório ausente: {field}"}), 400
+            
+            cursor.execute(""" 
+                INSERT INTO environments 
+                (code, name, description, icon, capacity, area_m2, floor, display_order)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                data['code'],
+                data['name'],
+                data.get('description', ''),
+                data.get('icon', 'fas fa-building'),
+                data.get('capacity'),
+                data.get('area_m2'),
+                data.get('floor', 1),
+                data.get('display_order', 0)
+            ))
+            
+            environment_id = cursor.fetchone()[0]
+            conn.commit()
+            
+            return jsonify({"success": True, "id": environment_id}), 201
+    
+    except Exception as e:
+        conn.rollback()
+        app.logger.error(f"Erro ao processar ambientes: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/environments/<int:environment_id>", methods=["GET", "PUT", "DELETE"])
+@login_required
+def environment_detail_api(environment_id):
+    """API para obter, atualizar ou deletar um ambiente específico"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        if request.method == "GET":
+            cursor.execute(""" 
+                SELECT 
+                    e.*, 
+                    s.camera_position_x, s.camera_position_y, s.camera_position_z,
+                    s.camera_target_x, s.camera_target_y, s.camera_target_z,
+                    s.model_scale, s.rotation_speed, s.enable_shadows,
+                    s.background_color, s.grid_size
+                FROM environments e
+                LEFT JOIN environment_3d_settings s ON e.id = s.environment_id
+                WHERE e.id = %s AND e.is_active = true
+            """, (environment_id,))
+            
+            environment = cursor.fetchone()
+            if not environment:
+                return jsonify({"error": "Ambiente não encontrado"}), 404
+            
+            # Buscar recursos associados
+            cursor.execute(""" 
+                SELECT * FROM environment_resources 
+                WHERE environment_id = %s 
+                ORDER BY resource_type, display_order
+            """, (environment_id,))
+            resources = cursor.fetchall()
+            
+            result = dict(environment)
+            result['resources'] = [dict(r) for r in resources]
+            
+            return jsonify(result)
+        
+        elif request.method == "PUT":
+            # Apenas admins podem atualizar ambientes
+            if session.get("role") != "manager":
+                return jsonify({"error": "Apenas administradores podem editar ambientes"}), 403
+            
+            data = request.get_json()
+            
+            # Atualizar ambiente
+            cursor.execute(""" 
+                UPDATE environments 
+                SET name = %s, description = %s, icon = %s, 
+                    capacity = %s, area_m2 = %s, floor = %s, 
+                    display_order = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND is_active = true
+            """, (
+                data.get('name'),
+                data.get('description'),
+                data.get('icon'),
+                data.get('capacity'),
+                data.get('area_m2'),
+                data.get('floor'),
+                data.get('display_order'),
+                environment_id
+            ))
+            
+            # Atualizar configurações 3D se fornecidas
+            if '3d_settings' in data:
+                settings = data['3d_settings']
+                
+                # Verificar se já existe configuração
+                cursor.execute(
+                    "SELECT id FROM environment_3d_settings WHERE environment_id = %s",
+                    (environment_id,)
+                )
+                exists = cursor.fetchone()
+                
+                if exists:
+                    cursor.execute(""" 
+                        UPDATE environment_3d_settings
+                        SET camera_position_x = %s, camera_position_y = %s, camera_position_z = %s,
+                            camera_target_x = %s, camera_target_y = %s, camera_target_z = %s,
+                            model_scale = %s, rotation_speed = %s, enable_shadows = %s,
+                            background_color = %s, grid_size = %s,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE environment_id = %s
+                    """, (
+                        settings.get('camera_position_x', 5),
+                        settings.get('camera_position_y', 5),
+                        settings.get('camera_position_z', 5),
+                        settings.get('camera_target_x', 0),
+                        settings.get('camera_target_y', 0),
+                        settings.get('camera_target_z', 0),
+                        settings.get('model_scale', 1.0),
+                        settings.get('rotation_speed', 0.01),
+                        settings.get('enable_shadows', True),
+                        settings.get('background_color', '#1a1a2e'),
+                        settings.get('grid_size', 20),
+                        environment_id
+                    ))
+                else:
+                    cursor.execute(""" 
+                        INSERT INTO environment_3d_settings
+                        (environment_id, camera_position_x, camera_position_y, camera_position_z,
+                         camera_target_x, camera_target_y, camera_target_z,
+                         model_scale, rotation_speed, enable_shadows, background_color, grid_size)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        environment_id,
+                        settings.get('camera_position_x', 5),
+                        settings.get('camera_position_y', 5),
+                        settings.get('camera_position_z', 5),
+                        settings.get('camera_target_x', 0),
+                        settings.get('camera_target_y', 0),
+                        settings.get('camera_target_z', 0),
+                        settings.get('model_scale', 1.0),
+                        settings.get('rotation_speed', 0.01),
+                        settings.get('enable_shadows', True),
+                        settings.get('background_color', '#1a1a2e'),
+                        settings.get('grid_size', 20)
+                    ))
+            
+            conn.commit()
+            return jsonify({"success": True})
+        
+        elif request.method == "DELETE":
+            # Apenas admins podem deletar ambientes
+            if session.get("role") != "manager":
+                return jsonify({"error": "Apenas administradores podem excluir ambientes"}), 403
+            
+            # Soft delete - apenas marca como inativo
+            cursor.execute(""" 
+                UPDATE environments 
+                SET is_active = false, updated_at = CURRENT_TIMESTAMP 
+                WHERE id = %s
+            """, (environment_id,))
+            
+            conn.commit()
+            return jsonify({"success": True})
+    
+    except Exception as e:
+        conn.rollback()
+        app.logger.error(f"Erro ao processar ambiente {environment_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/environments/<int:environment_id>/resources", methods=["GET", "POST"])
+@login_required
+def environment_resources_api(environment_id):
+    """API para gerenciar recursos (imagens, modelos 3D) de um ambiente"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        if request.method == "GET":
+            resource_type = request.args.get('type')
+            
+            query = """
+                SELECT * FROM environment_resources 
+                WHERE environment_id = %s
+            """
+            params = [environment_id]
+            
+            if resource_type:
+                query += " AND resource_type = %s"
+                params.append(resource_type)
+            
+            query += " ORDER BY display_order, created_at DESC"
+            
+            cursor.execute(query, params)
+            resources = cursor.fetchall()
+            
+            return jsonify([dict(r) for r in resources])
+        
+        elif request.method == "POST":
+            # Apenas admins podem adicionar recursos
+            if session.get("role") != "manager":
+                return jsonify({"error": "Apenas administradores podem adicionar recursos"}), 403
+            
+            data = request.get_json()
+            
+            required_fields = ['resource_type', 'file_name', 'file_url']
+            for field in required_fields:
+                if field not in data:
+                    return jsonify({"error": f"Campo obrigatório ausente: {field}"}), 400
+            
+            # Se marcar como primário, desmarcar outros do mesmo tipo
+            if data.get('is_primary'):
+                cursor.execute(""" 
+                    UPDATE environment_resources 
+                    SET is_primary = false 
+                    WHERE environment_id = %s AND resource_type = %s
+                """, (environment_id, data['resource_type']))
+            
+            cursor.execute(""" 
+                INSERT INTO environment_resources
+                (environment_id, resource_type, file_name, file_url, file_size, 
+                 mime_type, description, is_primary, display_order, uploaded_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                environment_id,
+                data['resource_type'],
+                data['file_name'],
+                data['file_url'],
+                data.get('file_size'),
+                data.get('mime_type'),
+                data.get('description'),
+                data.get('is_primary', False),
+                data.get('display_order', 0),
+                session.get('user_id')
+            ))
+            
+            resource_id = cursor.fetchone()[0]
+            conn.commit()
+            
+            return jsonify({"success": True, "id": resource_id}), 201
+    
+    except Exception as e:
+        conn.rollback()
+        app.logger.error(f"Erro ao processar recursos do ambiente {environment_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 # --------------------------------------------------------------------------- #
