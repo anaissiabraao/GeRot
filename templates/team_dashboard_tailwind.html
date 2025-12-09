@@ -118,11 +118,11 @@
                             <p class="mb-4 text-sm text-muted-foreground">
                                 {{ dashboard.description }}
                             </p>
-                            <a href="{{ url_for('view_dashboard', slug=dashboard.slug) }}" 
-                               class="inline-flex items-center justify-center w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+                            <button onclick="openDashboard('{{ dashboard.embed_url }}', '{{ dashboard.title }}')"
+                               class="inline-flex items-center justify-center w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors cursor-pointer">
                                 <i class="fas fa-chart-line mr-2"></i>
                                 Acessar Dashboard
-                            </a>
+                            </button>
                         </div>
                     </div>
                 {% endfor %}
@@ -162,4 +162,81 @@
         </div>
     </main>
 </div>
+
+<!-- Modal Fullscreen para Dashboard -->
+<div id="dashboardModal" class="fixed inset-0 z-50 hidden flex-col bg-background">
+    <div class="flex items-center justify-between border-b bg-card px-4 py-3 shadow-sm">
+        <h2 id="modalTitle" class="text-lg font-semibold text-foreground">Visualizando Dashboard</h2>
+        <div class="flex items-center space-x-2">
+            <button onclick="toggleFullscreen()" class="rounded-md bg-muted px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition-colors">
+                <i class="fas fa-expand mr-2"></i>Expandir
+            </button>
+            <button onclick="closeDashboard()" class="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-white hover:bg-destructive/90 transition-colors">
+                <i class="fas fa-times mr-2"></i>Fechar
+            </button>
+        </div>
+    </div>
+    <div class="flex-1 bg-muted/20 p-0 relative">
+        <div id="loadingSpinner" class="absolute inset-0 flex items-center justify-center">
+            <div class="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+        </div>
+        <iframe id="dashboardFrame" class="h-full w-full border-none" allowfullscreen></iframe>
+    </div>
+</div>
+
+<script>
+function openDashboard(url, title) {
+    const modal = document.getElementById('dashboardModal');
+    const iframe = document.getElementById('dashboardFrame');
+    const titleEl = document.getElementById('modalTitle');
+    const spinner = document.getElementById('loadingSpinner');
+    
+    titleEl.textContent = title;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.body.style.overflow = 'hidden'; // Previne scroll na página principal
+    
+    spinner.style.display = 'flex';
+    iframe.style.opacity = '0';
+    
+    iframe.onload = function() {
+        spinner.style.display = 'none';
+        iframe.style.opacity = '1';
+    };
+    
+    iframe.src = url;
+}
+
+function closeDashboard() {
+    const modal = document.getElementById('dashboardModal');
+    const iframe = document.getElementById('dashboardFrame');
+    
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    document.body.style.overflow = ''; // Restaura scroll
+    
+    iframe.src = '';
+}
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.getElementById('dashboardModal').requestFullscreen().catch(err => {
+            console.error(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+// Fechar com ESC
+document.addEventListener('keydown', function(event) {
+    if (event.key === "Escape") {
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else {
+            closeDashboard();
+        }
+    }
+});
+</script>
 {% endblock %}
