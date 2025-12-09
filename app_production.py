@@ -190,19 +190,27 @@ def _as_bytes(value):
 
 @app.before_request
 def update_last_seen():
-    if session.get('user_id') and request.endpoint and request.endpoint != 'static':
+    if session.get('user_id'):
+        # Ignora rotas estáticas
+        if request.path.startswith('/static') or request.endpoint == 'static':
+            return
+
         try:
             conn = get_db()
             cursor = conn.cursor()
+            # Usar request.path para mostrar a URL real
+            current_page = request.path
+            
             cursor.execute("""
                 UPDATE users_new 
-                SET last_seen_at = NOW(), current_page = %s 
+                SET last_seen_at = CURRENT_TIMESTAMP, current_page = %s 
                 WHERE id = %s
-            """, (request.endpoint, session['user_id']))
+            """, (current_page, session['user_id']))
             conn.commit()
             conn.close()
-        except Exception:
-            pass
+        except Exception as e:
+            # Logar erro para debug
+            app.logger.error(f"Erro ao atualizar last_seen: {e}")
 
 
 @app.route("/admin/live-users")
