@@ -1358,7 +1358,7 @@ def admin_users():
         departments = [row["departamento"] for row in cursor.fetchall()]
         
         return render_template(
-            "admin_users.html",
+            get_template("admin_users.html"),
             users=users,
             departments=departments
         )

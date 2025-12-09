@@ -9,7 +9,10 @@
         <div class="container mx-auto px-4">
             <div class="flex h-16 items-center justify-between">
                 <div class="flex items-center space-x-4">
-                    <h1 class="text-xl font-bold text-primary">GeRot</h1>
+                    <div class="flex items-center gap-2">
+                        <img src="{{ url_for('static', filename='portoex-logo.png') }}" alt="PortoEx" class="h-8 w-auto">
+                        <span class="text-xl font-bold text-primary border-l border-muted-foreground/30 pl-2 ml-2">GeRot</span>
+                    </div>
                     <nav class="hidden md:flex space-x-1">
                         <a href="{{ url_for('index') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
                             <i class="fas fa-home mr-2"></i>Início
