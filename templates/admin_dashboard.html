@@ -297,25 +297,6 @@
                     <i class="fas fa-satellite-dish"></i> Ao Vivo
                 </a>
                 <a class="btn btn-outline" href="{{ url_for('admin_add_dashboard') }}">
-                    <i class="fas fa-plus"></i> Adicionar Dashboard BI
-                </a>
-                <a class="btn btn-outline" href="{{ url_for('admin_users') }}">
-                    <i class="fas fa-users"></i> Gerenciar Usuários
-                </a>
-                <a class="btn btn-outline" href="{{ url_for('admin_environments') }}" style="background: rgba(168, 85, 247, 0.2); border-color: var(--accent);">
-                    <i class="fas fa-cube"></i> Ambientes 3D
-                </a>
-                <a class="btn btn-outline" href="{{ url_for('team_dashboard') }}">Ver janela de dashboards</a>
-                <a class="btn btn-primary" href="{{ url_for('logout') }}">Sair</a>
-            </div>
-        </header>
-
-        <section class="grid stats">
-            <article class="card stat-card">
-                <h3>Usuários ativos</h3>
-                <div class="value">{{ stats.total_users }}</div>
-                <p class="hint">{{ stats.total_admins }} administradores</p>
-            </article>
             <article class="card stat-card">
                 <h3>Dashboards liberados</h3>
                 <div class="value">{{ stats.active_dashboards }}</div>
@@ -443,7 +424,28 @@
         </section>
     </div>
 
+    <div id="schemaModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 1rem; border-radius: 8px; max-width: 90vw; max-height: 90vh; overflow: auto; position: relative;">
+            <button onclick="closeSchemaModal()" style="position: absolute; top: 10px; right: 10px; border: none; background: transparent; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            <h2 style="margin-bottom: 1rem; color: #333;">Supabase Public Schema</h2>
+            <img src="{{ url_for('static', filename='supabase-public.svg') }}" alt="Database Schema" style="max-width: 100%; height: auto;">
+        </div>
+    </div>
+
     <script>
+        function openSchemaModal() {
+            document.getElementById('schemaModal').style.display = 'flex';
+        }
+        function closeSchemaModal() {
+            document.getElementById('schemaModal').style.display = 'none';
+        }
+        // Close on click outside
+        document.getElementById('schemaModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeSchemaModal();
+            }
+        });
+
         const userSelector = document.getElementById('userSelector');
         const formUserId = document.getElementById('formUserId');
         if (userSelector && formUserId) {
