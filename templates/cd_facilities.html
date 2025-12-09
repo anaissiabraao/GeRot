@@ -320,46 +320,22 @@
             Selecione o Ambiente
         </h2>
         <div class="environment-grid" id="environmentGrid">
-            <button class="env-button active" data-env="geral" onclick="selectEnvironment('geral')">
-                <i class="fas fa-building"></i>
-                <div class="env-name">Vista Geral</div>
-                <div class="env-info">CD Completo</div>
+            {% for env in environments %}
+            <button class="env-button {% if loop.first %}active{% endif %}" 
+                    data-env="{{ env.code }}" 
+                    data-id="{{ env.id }}"
+                    onclick="selectEnvironment('{{ env.code }}')">
+                <i class="{{ env.icon or 'fas fa-cube' }}"></i>
+                <div class="env-name">{{ env.name }}</div>
+                <div class="env-info">{{ env.description or '' }}</div>
             </button>
-            <button class="env-button" data-env="recepcao" onclick="selectEnvironment('recepcao')">
-                <i class="fas fa-door-open"></i>
-                <div class="env-name">Recepção</div>
-                <div class="env-info">Entrada Principal</div>
-            </button>
-            <button class="env-button" data-env="armazem" onclick="selectEnvironment('armazem')">
-                <i class="fas fa-warehouse"></i>
-                <div class="env-name">Armazém</div>
-                <div class="env-info">Área de Estoque</div>
-            </button>
-            <button class="env-button" data-env="expedicao" onclick="selectEnvironment('expedicao')">
-                <i class="fas fa-truck-loading"></i>
-                <div class="env-name">Expedição</div>
-                <div class="env-info">Área de Carga</div>
-            </button>
-            <button class="env-button" data-env="reuniao1" onclick="selectEnvironment('reuniao1')">
-                <i class="fas fa-users"></i>
-                <div class="env-name">Sala Reunião 1</div>
-                <div class="env-info">10 pessoas</div>
-            </button>
-            <button class="env-button" data-env="reuniao2" onclick="selectEnvironment('reuniao2')">
-                <i class="fas fa-users"></i>
-                <div class="env-name">Sala Reunião 2</div>
-                <div class="env-info">10 pessoas</div>
-            </button>
-            <button class="env-button" data-env="treinamento" onclick="selectEnvironment('treinamento')">
-                <i class="fas fa-chalkboard-teacher"></i>
-                <div class="env-name">Treinamento</div>
-                <div class="env-info">30 pessoas</div>
-            </button>
-            <button class="env-button" data-env="auditorio" onclick="selectEnvironment('auditorio')">
-                <i class="fas fa-theater-masks"></i>
-                <div class="env-name">Auditório</div>
-                <div class="env-info">50 pessoas</div>
-            </button>
+            {% endfor %}
+            
+            {% if not environments %}
+            <div style="grid-column: 1/-1; text-align: center; padding: 2rem; color: #6b7280;">
+                <p>Nenhum ambiente cadastrado.</p>
+            </div>
+            {% endif %}
         </div>
     </div>
     
@@ -599,14 +575,18 @@
 
     function onWindowResize() {
         const container = document.getElementById('viewer3d');
-        camera.aspect = container.clientWidth / container.clientHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(container.clientWidth, container.clientHeight);
+        if (container && camera && renderer) {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
     }
 
     window.resetCamera = function() {
-        camera.position.set(5, 5, 5);
-        controls.reset();
+        if (camera && controls) {
+            camera.position.set(5, 5, 5);
+            controls.reset();
+        }
     }
 
     window.toggleWireframe = function() {
@@ -621,8 +601,12 @@
     }
 
     window.switchModel = function() {
-        const newType = currentModelType === 'glb' ? 'fbx' : 'glb';
-        loadModel(newType);
+        // Esta função alterna entre formatos se disponíveis
+        // Por enquanto, vamos apenas recarregar o atual
+        const env = environmentsData.find(e => e.code === currentEnvironment);
+        if (env) {
+            loadEnvironmentContent(env.code);
+        }
     }
 
     // Initialize viewer when DOM is ready
@@ -634,31 +618,155 @@
 </script>
 
 <script>
+    // Dados dos ambientes injetados pelo backend
+    const environmentsData = {{ environments | tojson | safe }};
+
     // Environment selection
-    function selectEnvironment(env) {
-        currentEnvironment = env;
+    function selectEnvironment(envCode) {
+        currentEnvironment = envCode;
         
         // Update active button
         document.querySelectorAll('.env-button').forEach(btn => {
             btn.classList.remove('active');
-            if (btn.dataset.env === env) {
+            if (btn.dataset.env === envCode) {
                 btn.classList.add('active');
             }
         });
         
         // Load environment-specific content
-        loadEnvironmentContent(env);
+        loadEnvironmentContent(envCode);
     }
     
-    function loadEnvironmentContent(env) {
-        // This would load environment-specific 3D models, 2D plants, and photos
-        // For now, we'll just show a message
-        console.log('Loading environment:', env);
+    function loadEnvironmentContent(envCode) {
+        console.log('Loading environment:', envCode);
+        const env = environmentsData.find(e => e.code === envCode);
         
-        // In a real implementation, this would:
-        // 1. Load the specific 3D model for this environment
-        // 2. Load the 2D floor plan if available
-        // 3. Load photos if available
+        if (!env) {
+            console.error('Ambiente não encontrado:', envCode);
+            return;
+        }
+        
+        // Encontrar recursos
+        const models = env.resources.filter(r => r.resource_type === 'model_3d');
+        const plants = env.resources.filter(r => r.resource_type === 'plant_2d');
+        // const photos = env.resources.filter(r => r.resource_type === 'photo');
+        
+        // Carregar Modelo 3D
+        if (models.length > 0) {
+            // Usa o primeiro modelo encontrado (priorizando is_primary se ordenado)
+            const modelUrl = models[0].file_url;
+            const isGlb = modelUrl.toLowerCase().endsWith('.glb') || modelUrl.toLowerCase().endsWith('.gltf');
+            loadModel(isGlb ? 'glb' : 'fbx', modelUrl);
+        } else {
+            // Se não tiver modelo, tentar carregar o padrão (proxy)
+            // loadModel('glb', '/api/3d-model/glb');
+            console.log('Nenhum modelo 3D específico encontrado para este ambiente');
+            // Opcional: Limpar a cena ou mostrar placeholder
+        }
+        
+        // Carregar Planta 2D
+        const plantImg = document.getElementById('plantImage');
+        if (plantImg) {
+            if (plants.length > 0) {
+                plantImg.src = plants[0].file_url;
+                plantImg.style.display = 'block';
+            } else {
+                // Placeholder se não tiver planta
+                plantImg.src = '/static/img/blueprint-placeholder.jpg'; 
+                // Ou esconder: plantImg.style.display = 'none';
+            }
+        }
+    }
+    
+    // Atualizar loadModel para aceitar URL
+    function loadModel(type, url) {
+        const loadingOverlay = document.getElementById('loadingOverlay3d');
+        if (loadingOverlay) loadingOverlay.style.display = 'flex';
+        
+        if (currentModel) {
+            scene.remove(currentModel);
+            currentModel = null;
+        }
+        
+        currentModelType = type;
+        
+        // Se não passar URL, usar as rotas de proxy padrão (fallback)
+        const modelUrl = url || (type === 'glb' ? '/api/3d-model/glb' : '/api/3d-model/fbx');
+        
+        if (type === 'glb') {
+            const loader = new GLTFLoader();
+            loader.load(
+                modelUrl,
+                function(gltf) {
+                    currentModel = gltf.scene;
+                    scene.add(currentModel);
+                    
+                    currentModel.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    
+                    // Centralizar e ajustar escala
+                    const box = new THREE.Box3().setFromObject(currentModel);
+                    const center = box.getCenter(new THREE.Vector3());
+                    currentModel.position.sub(center);
+                    
+                    if (loadingOverlay) loadingOverlay.style.display = 'none';
+                },
+                function(xhr) {
+                    // console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
+                function(error) {
+                    console.error('Erro ao carregar GLB:', error);
+                    if (loadingOverlay) {
+                        loadingOverlay.innerHTML = `
+                            <div style="text-align: center; padding: 2rem; color: #f59e0b;">
+                                <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                                <h3 style="margin-bottom: 1rem;">Modelo 3D não encontrado</h3>
+                                <p style="color: #9ca3af;">Não há modelo 3D disponível para este ambiente.</p>
+                            </div>
+                        `;
+                    }
+                }
+            );
+        } else {
+            const loader = new FBXLoader();
+            loader.load(
+                modelUrl,
+                function(fbx) {
+                    currentModel = fbx;
+                    scene.add(currentModel);
+                    
+                    currentModel.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    
+                    currentModel.scale.set(0.01, 0.01, 0.01);
+                    
+                    if (loadingOverlay) loadingOverlay.style.display = 'none';
+                },
+                function(xhr) {
+                    // console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
+                function(error) {
+                    console.error('Erro ao carregar FBX:', error);
+                    if (loadingOverlay) {
+                        loadingOverlay.innerHTML = `
+                            <div style="text-align: center; padding: 2rem; color: #f59e0b;">
+                                <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                                <h3 style="margin-bottom: 1rem;">Modelo 3D não encontrado</h3>
+                                <p style="color: #9ca3af;">Não há modelo 3D disponível para este ambiente.</p>
+                            </div>
+                        `;
+                    }
+                }
+            );
+        }
     }
     
     // View mode switching
@@ -703,8 +811,10 @@
     
     // Initialize
     document.addEventListener('DOMContentLoaded', function() {
-        // Load default environment
-        loadEnvironmentContent('geral');
+        // Load default environment (first one or 'geral')
+        if (environmentsData && environmentsData.length > 0) {
+            selectEnvironment(environmentsData[0].code);
+        }
     });
 </script>
 {% endblock %}

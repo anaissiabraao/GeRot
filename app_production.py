@@ -1651,7 +1651,46 @@ def team_dashboard():
 @login_required
 def cd_facilities():
     """Página para visualizar planta 3D do CD"""
-    return render_template("cd_facilities.html")
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # Buscar ambientes ordenados por display_order
+        cursor.execute("""
+            SELECT id, code, name, description, icon, floor
+            FROM environments 
+            WHERE is_active = true 
+            ORDER BY display_order ASC
+        """)
+        environments = [dict(row) for row in cursor.fetchall()]
+        
+        # Buscar recursos (modelos 3D, fotos, plantas) para cada ambiente
+        # Isso é importante para que o JS saiba o que carregar
+        cursor.execute("""
+            SELECT environment_id, resource_type, file_url, is_primary
+            FROM environment_resources
+            ORDER BY is_primary DESC
+        """)
+        resources = [dict(row) for row in cursor.fetchall()]
+        
+        # Agrupar recursos por ambiente
+        env_resources = {}
+        for res in resources:
+            env_id = res['environment_id']
+            if env_id not in env_resources:
+                env_resources[env_id] = []
+            env_resources[env_id].append(res)
+            
+        # Adicionar recursos aos ambientes
+        for env in environments:
+            env['resources'] = env_resources.get(env['id'], [])
+            
+    except Exception as e:
+        app.logger.error(f"Erro ao carregar ambientes: {str(e)}")
+        environments = []
+    finally:
+        conn.close()
+        
+    return render_template("cd_facilities.html", environments=environments)
 
 
 @app.route("/cd/booking")
