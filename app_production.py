@@ -414,21 +414,28 @@ def normalize_roles() -> None:
         try:
             conn = get_db()
             cursor = conn.cursor()
-            # Atualiza em ordem para reduzir deadlocks
+            
+            # Otimização: Só atualiza se o valor for diferente
+            # Isso evita locks desnecessários em linhas que já estão corretas
+            
+            # 1. Normalizar admin_master -> admin
             cursor.execute(
                 """
                 UPDATE users_new
                 SET role = 'admin'
-                WHERE role IN ('admin', 'admin_master')
+                WHERE role = 'admin_master'
                 """
             )
+            
+            # 2. Definir 'usuario' para quem não é admin e não é usuario (ex: null ou outros)
             cursor.execute(
                 """
                 UPDATE users_new
                 SET role = 'usuario'
-                WHERE role NOT IN ('admin')
+                WHERE role IS NULL OR (role != 'admin' AND role != 'usuario')
                 """
             )
+            
             conn.commit()
             conn.close()
             return
