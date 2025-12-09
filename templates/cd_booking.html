@@ -581,6 +581,8 @@
     let selectedRoom = null;
     let currentWeekOffset = 0;
     let bookings = [];
+    const currentUserId = {{ session.user_id }};
+    const currentUserRole = '{{ session.role }}';
     
     // Room selection
     document.querySelectorAll('.room-option').forEach(room => {
@@ -755,9 +757,27 @@
         const modal = document.getElementById('detailsModal');
         const modalBody = document.getElementById('modalBody');
         
+        const isOwner = booking.user_id === currentUserId;
+        const isAdmin = currentUserRole === 'admin';
+        
+        let actionsHtml = '';
+        if (isOwner || isAdmin) {
+            actionsHtml = `
+                <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid #eee;">
+                    <button onclick="deleteBooking(${booking.id})" style="padding: 0.5rem 1rem; border-radius: 5px; border: none; cursor: pointer; background: #e74c3c; color: white; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-trash"></i> Excluir
+                    </button>
+                </div>
+            `;
+        }
+        
+        // Mapear nome da sala para exibição amigável
+        const roomDisplay = booking.room === 'reunion_1' ? 'Reunião 1' : 
+                          booking.room === 'reunion_2' ? 'Reunião 2' : booking.room;
+
         modalBody.innerHTML = `
             <div class="booking-details">
-                <p><strong>Sala:</strong> ${booking.room}</p>
+                <p><strong>Sala:</strong> ${roomDisplay}</p>
                 <p><strong>Título:</strong> ${booking.title}</p>
                 <p><strong>Data:</strong> ${new Date(booking.date).toLocaleDateString('pt-BR')}</p>
                 <p><strong>Horário:</strong> ${booking.start_time} - ${booking.end_time}</p>
@@ -765,9 +785,32 @@
                 <p><strong>Responsável:</strong> ${booking.user_name}</p>
                 <p><strong>Descrição:</strong> ${booking.subject || 'Não informada'}</p>
             </div>
+            ${actionsHtml}
         `;
         
         modal.classList.add('active');
+    }
+    
+    // Delete booking
+    async function deleteBooking(id) {
+        if (!confirm('Tem certeza que deseja excluir este agendamento?')) return;
+        
+        try {
+            const response = await fetch(`/api/room-bookings/${id}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                showNotification('success', 'Sucesso', 'Agendamento excluído');
+                closeDetailsModal();
+                loadBookings();
+            } else {
+                const error = await response.json();
+                showNotification('error', 'Erro', error.error || 'Falha ao excluir');
+            }
+        } catch (error) {
+            showNotification('error', 'Erro', 'Erro de conexão');
+        }
     }
     
     // Close details modal
