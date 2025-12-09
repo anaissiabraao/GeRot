@@ -1,0 +1,155 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Login - GeRot{% endblock %}
+
+{% block content %}
+<div class="flex min-h-screen items-center justify-center bg-gradient-to-br from-secondary via-secondary/95 to-primary/20 p-4">
+    <!-- Background decoration -->
+    <div class="absolute inset-0 overflow-hidden">
+        <div class="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-primary/10 blur-3xl"></div>
+        <div class="absolute -bottom-20 -right-20 h-96 w-96 rounded-full bg-primary/5 blur-3xl"></div>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="fixed top-4 right-4 z-50 space-y-2">
+                {% for category, message in messages %}
+                    <div class="animate-slide-in rounded-lg border px-4 py-3 shadow-lg {% if category == 'success' %}bg-green-50 border-green-200 text-green-800{% elif category == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-orange-50 border-orange-200 text-orange-800{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="relative z-10 w-full max-w-md">
+        <div class="rounded-xl border bg-card/95 p-8 shadow-2xl backdrop-blur-sm">
+            <!-- Logo e Header -->
+            <div class="mb-8 space-y-3 text-center">
+                <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+                    <i class="fas fa-rocket text-3xl text-primary"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-foreground">GeRot</h1>
+                <p class="text-sm text-muted-foreground">
+                    Gestão de Rotinas PORTOEX
+                </p>
+            </div>
+
+            <!-- Formulário -->
+            <form method="POST" action="{{ url_for('login') }}" class="space-y-6">
+                <div class="space-y-2">
+                    <label for="username" class="block text-sm font-medium text-foreground">
+                        Usuário
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3">
+                            <i class="fas fa-user text-muted-foreground"></i>
+                        </div>
+                        <input
+                            id="username"
+                            name="username"
+                            type="text"
+                            required
+                            class="block w-full rounded-lg border bg-background pl-10 pr-3 py-2.5 text-sm placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                            placeholder="Digite seu usuário"
+                            value="{{ request.form.username }}"
+                        >
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label for="password" class="block text-sm font-medium text-foreground">
+                        Senha
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3">
+                            <i class="fas fa-lock text-muted-foreground"></i>
+                        </div>
+                        <input
+                            id="password"
+                            name="password"
+                            type="password"
+                            required
+                            class="block w-full rounded-lg border bg-background pl-10 pr-10 py-2.5 text-sm placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                            placeholder="Digite sua senha"
+                        >
+                        <button type="button" onclick="togglePassword()" class="absolute inset-y-0 right-0 flex items-center pr-3">
+                            <i id="toggleIcon" class="fas fa-eye text-muted-foreground hover:text-foreground transition-colors"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input
+                            id="remember"
+                            name="remember"
+                            type="checkbox"
+                            class="h-4 w-4 rounded border-input text-primary focus:ring-primary/20"
+                        >
+                        <label for="remember" class="ml-2 block text-sm text-muted-foreground">
+                            Lembrar-me
+                        </label>
+                    </div>
+                    <a href="#" class="text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+                        Esqueceu a senha?
+                    </a>
+                </div>
+
+                <button
+                    type="submit"
+                    class="group relative w-full flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all"
+                >
+                    <i class="fas fa-sign-in-alt mr-2"></i>
+                    Entrar
+                    <div class="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                </button>
+            </form>
+
+            <!-- Footer -->
+            <div class="mt-8 border-t pt-6">
+                <p class="text-center text-xs text-muted-foreground">
+                    © 2025 PORTOEX - Transportando Soluções
+                </p>
+                <p class="mt-2 text-center text-xs text-muted-foreground">
+                    Versão 2.0.0 | Ambiente: Produção
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes slide-in {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .animate-slide-in {
+        animation: slide-in 0.3s ease-out;
+    }
+</style>
+
+<script>
+function togglePassword() {
+    const passwordInput = document.getElementById('password');
+    const toggleIcon = document.getElementById('toggleIcon');
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+    }
+}
+</script>
+{% endblock %}

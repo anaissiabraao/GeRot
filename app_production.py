@@ -65,6 +65,9 @@ BASE_DIR = Path(__file__).resolve().parent
 PLANILHA_USUARIOS = BASE_DIR / "dados.xlsx"
 ADMIN_CARGOS = {"CONSULTOR", "COORDENADOR", "DIRETOR"}
 
+# Configuração para usar o novo tema Tailwind (True) ou o tema antigo (False)
+USE_TAILWIND_THEME = os.getenv("USE_TAILWIND_THEME", "true").lower() == "true"
+
 DEFAULT_DASHBOARDS = [
     {
         "slug": "comercial_sc",
@@ -162,6 +165,17 @@ def admin_required(f):
 
 def is_admin_session() -> bool:
     return session.get("role") == "admin"
+
+
+def get_template(template_base_name: str) -> str:
+    """Retorna o template correto baseado na configuração USE_TAILWIND_THEME."""
+    if USE_TAILWIND_THEME:
+        # Verifica se existe uma versão Tailwind do template
+        tailwind_template = f"{template_base_name.replace('.html', '')}_tailwind.html"
+        template_path = Path(BASE_DIR) / "templates" / tailwind_template
+        if template_path.exists():
+            return tailwind_template
+    return template_base_name
 
 
 def _as_bytes(value):
@@ -1092,19 +1106,19 @@ def login():
             if len(new_password) < 6:
                 flash("A nova senha deve ter pelo menos 6 caracteres.", "error")
                 user = get_user_by_id(user_id)
-                return render_template("first_login.html", user=user)
+                return render_template(get_template("first_login.html"), user=user)
 
             if new_password != confirm_password:
                 flash("As senhas não coincidem.", "error")
                 user = get_user_by_id(user_id)
-                return render_template("first_login.html", user=user)
+                return render_template(get_template("first_login.html"), user=user)
 
             # Permite atualizar email no primeiro acesso se fornecido
             new_email = request.form.get("new_email", "").strip()
             if new_email and not new_email.lower().endswith("@portoex.com.br"):
                 flash("O email deve terminar com @portoex.com.br", "error")
                 user = get_user_by_id(user_id)
-                return render_template("first_login.html", user=user)
+                return render_template(get_template("first_login.html"), user=user)
             
             if update_user_password(user_id, new_password, new_email if new_email else None):
                 user = get_user_by_id(user_id)
@@ -1129,7 +1143,7 @@ def login():
             else:
                 flash("Erro ao atualizar senha. Tente novamente.", "error")
                 user = get_user_by_id(user_id)
-                return render_template("first_login.html", user=user)
+                return render_template(get_template("first_login.html"), user=user)
 
         identifier = (
             request.form.get("username") or request.form.get("email", "")
@@ -1154,7 +1168,7 @@ def login():
                                 "Se este é seu primeiro acesso, use seu email pessoal para definir a senha.",
                                 "error",
                             )
-                            return render_template("enterprise_login.html")
+                            return render_template(get_template("login.html"))
                 
                 # Primeiro acesso: redireciona para definir senha
                 if user["first_login"]:
@@ -1163,7 +1177,7 @@ def login():
                         f"Bem-vindo, {user['nome_completo']}! Defina uma nova senha.",
                         "info",
                     )
-                    return render_template("first_login.html", user=user)
+                    return render_template(get_template("first_login.html"), user=user)
 
                 session.update(
                     {
@@ -1182,7 +1196,7 @@ def login():
         else:
             flash("Por favor, informe usuário/email e senha.", "error")
 
-    return render_template("enterprise_login.html")
+    return render_template(get_template("login.html"))
 
 
 @app.route("/logout")
@@ -1199,7 +1213,7 @@ def profile():
     if not user:
         flash("Não foi possível carregar seu perfil.", "error")
         return redirect(url_for("index"))
-    return render_template("profile.html", user=user)
+    return render_template(get_template("profile.html"), user=user)
 
 
 @app.route("/profile/change-password", methods=["GET", "POST"])
@@ -1287,7 +1301,7 @@ def admin_dashboard():
     }
 
     return render_template(
-        "admin_dashboard.html",
+        get_template("admin_dashboard.html"),
         stats=stats,
         users=users,
         dashboards=dashboards,
@@ -1723,7 +1737,7 @@ def team_dashboard():
 
     today_label = datetime.now().strftime("%d/%m/%Y")
     return render_template(
-        "team_dashboard.html",
+        get_template("team_dashboard.html"),
         user=session.get("nome_completo", "Usuário"),
         dashboards=dashboards,
         today=today_label,

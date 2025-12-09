@@ -1,0 +1,401 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Painel Administrativo - GeRot{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-background">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="fixed top-4 right-4 z-50 space-y-2">
+                {% for category, message in messages %}
+                    <div class="animate-slide-in rounded-lg border px-4 py-3 shadow-lg {% if category == 'success' %}bg-green-50 border-green-200 text-green-800{% elif category == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-orange-50 border-orange-200 text-orange-800{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="container mx-auto px-4 py-6">
+        <!-- Header -->
+        <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-foreground md:text-3xl">
+                    Painel Administrativo
+                </h1>
+                <p class="text-sm text-muted-foreground">
+                    Controle total do sistema GeRot
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ url_for('admin_live_users') }}" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors bg-green-50 text-green-700 hover:bg-green-100">
+                    <i class="fas fa-satellite-dish mr-2"></i>
+                    Ao Vivo
+                </a>
+                <button onclick="openSchemaModal()" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+                    <i class="fas fa-database mr-2"></i>
+                    Schema DB
+                </button>
+                <a href="{{ url_for('admin_add_dashboard') }}" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+                    <i class="fas fa-plus mr-2"></i>
+                    Add Dashboard
+                </a>
+                <a href="{{ url_for('admin_users') }}" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+                    <i class="fas fa-users mr-2"></i>
+                    Usuários
+                </a>
+                <a href="{{ url_for('admin_environments') }}" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors bg-purple-50 text-purple-700 hover:bg-purple-100">
+                    <i class="fas fa-cube mr-2"></i>
+                    Ambientes 3D
+                </a>
+                <a href="{{ url_for('team_dashboard') }}" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+                    <i class="fas fa-th mr-2"></i>
+                    Dashboards
+                </a>
+                <a href="{{ url_for('logout') }}" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-white transition-colors bg-primary hover:bg-primary/90">
+                    <i class="fas fa-sign-out-alt mr-2"></i>
+                    Sair
+                </a>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <!-- Users Card -->
+            <div class="rounded-lg border bg-card p-4 shadow-sm">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Usuários Ativos
+                        </p>
+                        <p class="mt-1 text-2xl font-bold">{{ stats.total_users }}</p>
+                        <p class="text-xs text-muted-foreground">{{ stats.total_admins }} administradores</p>
+                    </div>
+                    <div class="rounded-xl bg-primary/10 p-2.5 text-primary">
+                        <i class="fas fa-users text-lg"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboards Card -->
+            <div class="rounded-lg border bg-card p-4 shadow-sm">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Dashboards Liberados
+                        </p>
+                        <p class="mt-1 text-2xl font-bold">{{ stats.active_dashboards }}</p>
+                        <p class="text-xs text-muted-foreground">{{ stats.total_assignments }} atribuições</p>
+                    </div>
+                    <div class="rounded-xl bg-green-100 p-2.5 text-green-600">
+                        <i class="fas fa-check-circle text-lg"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Planner Card -->
+            <div class="rounded-lg border bg-card p-4 shadow-sm">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Planner
+                        </p>
+                        {% if planner_enabled %}
+                            <p class="mt-1 text-2xl font-bold text-green-600">Ativo</p>
+                        {% else %}
+                            <p class="mt-1 text-2xl font-bold text-amber-600">Pendente</p>
+                        {% endif %}
+                        <p class="text-xs text-muted-foreground">
+                            {% if stats.last_sync %}
+                                {{ stats.last_sync }}
+                            {% else %}
+                                Sem sincronização
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="rounded-xl bg-amber-100 p-2.5 text-amber-600">
+                        <i class="fas fa-clock text-lg"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Card -->
+            <div class="rounded-lg border bg-card p-4 shadow-sm">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Produtividade
+                        </p>
+                        <p class="mt-1 text-2xl font-bold">94%</p>
+                        <p class="text-xs text-muted-foreground">Meta: 90%</p>
+                    </div>
+                    <div class="rounded-xl bg-primary/10 p-2.5 text-primary">
+                        <i class="fas fa-chart-line text-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-3">
+            <!-- Dashboards Configuration Section -->
+            <div class="lg:col-span-2">
+                <div class="rounded-lg border bg-card">
+                    <div class="border-b px-6 py-4">
+                        <div class="flex items-center justify-between">
+                            <h2 class="flex items-center gap-2 text-lg font-semibold">
+                                <i class="fas fa-folder text-primary"></i>
+                                Configurar Visibilidade
+                            </h2>
+                            <select id="userSelector" class="rounded-md border border-input bg-background px-3 py-1.5 text-sm">
+                                {% for user in users %}
+                                    <option value="{{ user.id }}" {% if user.id == selected_user_id %}selected{% endif %}>
+                                        {{ user.nome_completo }} · {{ 'Admin' if user.role == 'admin' else 'Usuário' }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <form method="POST" action="{{ url_for('update_dashboard_permissions') }}">
+                            <input type="hidden" name="user_id" id="formUserId" value="{{ selected_user_id }}">
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                {% for dash in dashboards %}
+                                    {% set selected = selected_user_id and dash.id in user_dashboards[selected_user_id]['ids'] %}
+                                    <div class="relative rounded-lg border p-4 transition-colors hover:bg-muted/50">
+                                        <div class="flex items-start gap-3">
+                                            <input type="checkbox" 
+                                                   id="dash-{{ dash.id }}" 
+                                                   name="dashboards" 
+                                                   value="{{ dash.id }}" 
+                                                   {% if selected %}checked{% endif %}
+                                                   class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-primary">
+                                            <label for="dash-{{ dash.id }}" class="flex-1 cursor-pointer">
+                                                <span class="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                                                    {{ dash.category }}
+                                                </span>
+                                                <h4 class="mt-1 font-medium">{{ dash.title }}</h4>
+                                                <p class="text-sm text-muted-foreground">{{ dash.description }}</p>
+                                            </label>
+                                        </div>
+                                        <div class="mt-3 flex justify-end">
+                                            <a href="{{ url_for('admin_add_dashboard', dashboard_id=dash.id) }}" 
+                                               class="text-xs font-medium text-primary hover:underline">
+                                                ✏️ Editar
+                                            </a>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <div class="mt-6 flex justify-end">
+                                <button type="submit" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90">
+                                    Salvar Permissões
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity Section -->
+            <div>
+                <div class="rounded-lg border bg-card">
+                    <div class="border-b px-6 py-4">
+                        <h2 class="flex items-center gap-2 text-lg font-semibold">
+                            <i class="fas fa-bell text-primary"></i>
+                            Atividade Recente
+                        </h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="space-y-4">
+                            {% if planner_logs %}
+                                {% for log in planner_logs[:5] %}
+                                    <div class="flex items-start gap-3">
+                                        <div class="rounded-full p-2 {% if log.status == 'success' %}bg-green-100 text-green-600{% else %}bg-red-100 text-red-600{% endif %}">
+                                            <i class="fas {% if log.status == 'success' %}fa-check{% else %}fa-times{% endif %} text-xs"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="text-sm font-medium">{{ log.user_name or 'Sistema' }}</p>
+                                            <p class="text-xs text-muted-foreground">{{ log.message }}</p>
+                                            <p class="text-xs text-muted-foreground">{{ log.created_at }}</p>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-center text-sm text-muted-foreground">Nenhuma atividade recente</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users x Dashboards Table -->
+        <div class="mt-6 rounded-lg border bg-card">
+            <div class="border-b px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="flex items-center gap-2 text-lg font-semibold">
+                        <i class="fas fa-table text-primary"></i>
+                        Usuários x Dashboards
+                    </h2>
+                    <form method="POST" action="{{ url_for('admin_planner_sync') }}" style="margin:0">
+                        <button class="rounded-md bg-muted px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent {% if not planner_enabled %}opacity-50 cursor-not-allowed{% endif %}" 
+                                {% if not planner_enabled %}disabled{% endif %}>
+                            <i class="fas fa-upload mr-2"></i>
+                            Sincronizar Planner
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="border-b bg-muted/50 text-xs uppercase text-muted-foreground">
+                        <tr>
+                            <th class="px-6 py-3 text-left font-medium">Usuário</th>
+                            <th class="px-6 py-3 text-left font-medium">Tipo</th>
+                            <th class="px-6 py-3 text-left font-medium">Dashboards Liberados</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        {% for user in users %}
+                            {% set info = user_dashboards.get(user.id, {"ids": [], "items": []}) %}
+                            <tr class="transition-colors hover:bg-muted/50">
+                                <td class="px-6 py-4 text-sm">{{ user.nome_completo }}</td>
+                                <td class="px-6 py-4 text-sm">
+                                    <span class="rounded-full px-2 py-0.5 text-xs font-medium {% if user.role == 'admin' %}bg-primary/10 text-primary{% else %}bg-muted text-muted-foreground{% endif %}">
+                                        {{ 'Admin' if user.role == 'admin' else 'Usuário' }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm">
+                                    {% if info.get("items") %}
+                                        <div class="flex flex-wrap gap-1">
+                                            {% for dash in info["items"] %}
+                                                <span class="rounded-full bg-accent/10 px-2 py-0.5 text-xs text-accent-foreground">
+                                                    {{ dash.title }}
+                                                </span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted-foreground">Nenhum dashboard atribuído</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schema Modal -->
+    <div id="schemaModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80">
+        <div class="relative flex h-[95vh] w-[95vw] flex-col rounded-xl bg-card">
+            <div class="flex items-center justify-between border-b px-6 py-4">
+                <h2 class="flex items-center gap-2 text-lg font-semibold">
+                    <i class="fas fa-database text-primary"></i>
+                    Supabase Public Schema
+                </h2>
+                <div class="flex items-center gap-2">
+                    <button onclick="zoomSchema(-0.2)" class="rounded-md bg-muted px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <span id="zoomLevel" class="min-w-[50px] text-center text-sm">100%</span>
+                    <button onclick="zoomSchema(0.2)" class="rounded-md bg-muted px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button onclick="resetZoom()" class="rounded-md bg-muted px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent">
+                        Reset
+                    </button>
+                    <button onclick="closeSchemaModal()" class="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-destructive/90">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="svgContainer" class="flex-1 overflow-auto bg-muted/20 p-4">
+                <object id="schemaSvg" type="image/svg+xml" data="{{ url_for('static', filename='supabase-public.svg') }}" class="h-auto w-full min-w-[1200px]">
+                    Seu navegador não suporta SVG
+                </object>
+            </div>
+            <p class="border-t px-6 py-3 text-center text-xs text-muted-foreground">
+                Use a roda do mouse com Ctrl para zoom, arraste para navegar, ou use os botões acima.
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes slide-in {
+        from {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    .animate-slide-in {
+        animation: slide-in 0.3s ease-out;
+    }
+</style>
+
+<script>
+    let currentZoom = 1;
+    
+    function openSchemaModal() {
+        document.getElementById('schemaModal').style.display = 'flex';
+        currentZoom = 1;
+        updateZoom();
+    }
+    
+    function closeSchemaModal() {
+        document.getElementById('schemaModal').style.display = 'none';
+    }
+    
+    function zoomSchema(delta) {
+        currentZoom = Math.max(0.2, Math.min(3, currentZoom + delta));
+        updateZoom();
+    }
+    
+    function resetZoom() {
+        currentZoom = 1;
+        updateZoom();
+        document.getElementById('svgContainer').scrollTo(0, 0);
+    }
+    
+    function updateZoom() {
+        const svg = document.getElementById('schemaSvg');
+        svg.style.transform = `scale(${currentZoom})`;
+        svg.style.transformOrigin = 'top left';
+        document.getElementById('zoomLevel').textContent = Math.round(currentZoom * 100) + '%';
+    }
+    
+    // Zoom com roda do mouse
+    document.getElementById('svgContainer')?.addEventListener('wheel', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            zoomSchema(e.deltaY > 0 ? -0.1 : 0.1);
+        }
+    });
+    
+    // Close on click outside
+    document.getElementById('schemaModal')?.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeSchemaModal();
+        }
+    });
+
+    // User selector
+    const userSelector = document.getElementById('userSelector');
+    const formUserId = document.getElementById('formUserId');
+    if (userSelector && formUserId) {
+        userSelector.addEventListener('change', (event) => {
+            const selected = event.target.value;
+            formUserId.value = selected;
+            const params = new URLSearchParams(window.location.search);
+            params.set('user_id', selected);
+            window.location.search = params.toString();
+        });
+    }
+</script>
+{% endblock %}

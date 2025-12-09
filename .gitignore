@@ -31,6 +31,9 @@ Thumbs.db
 # Render / deployment artifacts
 /terminals/
 
+# React project folder (reference only)
+/update/
+
 
 # Arquivos 3D grandes (não fazer upload para GitHub)
 static/docs/*.glb

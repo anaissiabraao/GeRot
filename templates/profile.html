@@ -291,7 +291,7 @@
                         {{ user.nome_completo[0].upper() }}
                     </div>
                     <h2>{{ user.nome_completo }}</h2>
-                    <p style="color: var(--text-light);">@{{ user.username }}</p>
+                    <p style="color: var(--text-light);">{{ user.username }}</p>
                     <div class="role-badge {{ 'role-admin' if user.role == 'admin' else 'role-user' }}">
                         {% if user.role == 'admin' %}
                             👤 Administrador

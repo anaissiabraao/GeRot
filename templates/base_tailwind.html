@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#1B2B4D">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <title>{% block title %}GeRot - Gestão de Rotinas | PORTOEX{% endblock %}</title>
+    <meta name="description" content="Sistema de gestão de rotinas empresariais PORTOEX. Gerencie tarefas, equipes e relatórios de forma eficiente.">
+    <meta name="author" content="PORTOEX">
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'background': 'hsl(var(--background))',
+                        'foreground': 'hsl(var(--foreground))',
+                        'card': 'hsl(var(--card))',
+                        'card-foreground': 'hsl(var(--card-foreground))',
+                        'primary': 'hsl(var(--primary))',
+                        'primary-foreground': 'hsl(var(--primary-foreground))',
+                        'secondary': 'hsl(var(--secondary))',
+                        'secondary-foreground': 'hsl(var(--secondary-foreground))',
+                        'muted': 'hsl(var(--muted))',
+                        'muted-foreground': 'hsl(var(--muted-foreground))',
+                        'accent': 'hsl(var(--accent))',
+                        'accent-foreground': 'hsl(var(--accent-foreground))',
+                        'destructive': 'hsl(var(--destructive))',
+                        'destructive-foreground': 'hsl(var(--destructive-foreground))',
+                        'border': 'hsl(var(--border))',
+                        'input': 'hsl(var(--input))',
+                        'ring': 'hsl(var(--ring))',
+                    },
+                    borderRadius: {
+                        'lg': 'var(--radius)',
+                        'md': 'calc(var(--radius) - 2px)',
+                        'sm': 'calc(var(--radius) - 4px)',
+                    },
+                    fontFamily: {
+                        sans: ['DM Sans', 'system-ui', '-apple-system', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <!-- Custom Theme CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-background text-foreground antialiased">
+    {% block content %}{% endblock %}
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,165 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Dashboard da Equipe - GeRot{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-background">
+    <!-- Header com Navegação -->
+    <header class="border-b bg-card shadow-sm">
+        <div class="container mx-auto px-4">
+            <div class="flex h-16 items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl font-bold text-primary">GeRot</h1>
+                    <nav class="hidden md:flex space-x-1">
+                        <a href="{{ url_for('index') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-home mr-2"></i>Início
+                        </a>
+                        <a href="{{ url_for('cd_booking') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-calendar mr-2"></i>Agenda CD
+                        </a>
+                        {% if session.role == 'admin' %}
+                        <a href="{{ url_for('admin_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-cog mr-2"></i>Admin
+                        </a>
+                        {% endif %}
+                    </nav>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-muted-foreground">
+                        Olá, {{ session.nome_completo }}
+                    </span>
+                    <a href="{{ url_for('profile') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                        <i class="fas fa-user-circle"></i>
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mx-auto px-4 py-4">
+                {% for category, message in messages %}
+                    <div class="mb-4 rounded-lg border px-4 py-3 {% if category == 'success' %}bg-green-50 border-green-200 text-green-800{% elif category == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-orange-50 border-orange-200 text-orange-800{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Conteúdo Principal -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Título e Descrição -->
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold text-foreground">Dashboards da Equipe</h2>
+            <p class="mt-2 text-muted-foreground">
+                Acesse os dashboards liberados para sua equipe. Clique em um dashboard para visualizar.
+            </p>
+        </div>
+
+        <!-- Estatísticas Rápidas -->
+        <div class="mb-8 grid gap-4 md:grid-cols-3">
+            <div class="rounded-lg border bg-card p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-muted-foreground">Dashboards Disponíveis</p>
+                        <p class="text-2xl font-bold">{{ dashboards|length }}</p>
+                    </div>
+                    <div class="rounded-full bg-primary/10 p-3">
+                        <i class="fas fa-chart-bar text-primary text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="rounded-lg border bg-card p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-muted-foreground">Último Acesso</p>
+                        <p class="text-lg font-semibold">Hoje</p>
+                    </div>
+                    <div class="rounded-full bg-green-100 p-3">
+                        <i class="fas fa-clock text-green-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="rounded-lg border bg-card p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-muted-foreground">Status</p>
+                        <p class="text-lg font-semibold text-green-600">Ativo</p>
+                    </div>
+                    <div class="rounded-full bg-green-100 p-3">
+                        <i class="fas fa-check-circle text-green-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid de Dashboards -->
+        {% if dashboards %}
+            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {% for dashboard in dashboards %}
+                    <div class="group relative overflow-hidden rounded-lg border bg-card transition-all hover:shadow-lg hover:scale-[1.02]">
+                        <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div class="relative p-6">
+                            <div class="mb-4 flex items-center justify-between">
+                                <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                                    {{ dashboard.category }}
+                                </span>
+                                <i class="fas fa-external-link-alt text-muted-foreground group-hover:text-primary transition-colors"></i>
+                            </div>
+                            <h3 class="mb-2 text-lg font-semibold text-foreground">
+                                {{ dashboard.title }}
+                            </h3>
+                            <p class="mb-4 text-sm text-muted-foreground">
+                                {{ dashboard.description }}
+                            </p>
+                            <a href="{{ url_for('view_dashboard', slug=dashboard.slug) }}" 
+                               class="inline-flex items-center justify-center w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+                                <i class="fas fa-chart-line mr-2"></i>
+                                Acessar Dashboard
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="rounded-lg border-2 border-dashed bg-card p-12 text-center">
+                <i class="fas fa-inbox text-6xl text-muted-foreground mb-4"></i>
+                <h3 class="text-lg font-medium text-foreground mb-2">
+                    Nenhum dashboard disponível
+                </h3>
+                <p class="text-sm text-muted-foreground">
+                    Entre em contato com o administrador para liberar acesso aos dashboards.
+                </p>
+            </div>
+        {% endif %}
+
+        <!-- Ações Rápidas -->
+        <div class="mt-12 rounded-lg border bg-card p-6">
+            <h3 class="mb-4 text-lg font-semibold text-foreground">Ações Rápidas</h3>
+            <div class="grid gap-4 md:grid-cols-3">
+                <a href="{{ url_for('cd_booking') }}" 
+                   class="flex items-center justify-center rounded-md border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground">
+                    <i class="fas fa-calendar-alt mr-2"></i>
+                    Agendar Sala de Reunião
+                </a>
+                <a href="{{ url_for('profile') }}" 
+                   class="flex items-center justify-center rounded-md border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground">
+                    <i class="fas fa-user-edit mr-2"></i>
+                    Editar Perfil
+                </a>
+                <a href="#" 
+                   class="flex items-center justify-center rounded-md border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground">
+                    <i class="fas fa-headset mr-2"></i>
+                    Suporte
+                </a>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}
