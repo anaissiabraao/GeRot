@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeRot • Gerenciar Ambientes 3D</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #111c33;
+            --card-alt: #172544;
+            --primary: #60a5fa;
+            --primary-dark: #2563eb;
+            --accent: #a855f7;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f97316;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: radial-gradient(circle at top, #1e293b, #020617 55%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 2rem 1rem 4rem;
+        }
+
+        .layout {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            font-size: 1.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 999px;
+            padding: 0.65rem 1.25rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            text-decoration: none;
+            color: white;
+        }
+
+        .btn-primary {
+            background: linear-gradient(120deg, var(--primary-dark), var(--accent));
+        }
+
+        .btn-outline {
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: transparent;
+        }
+
+        .btn-success {
+            background: var(--success);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+
+        .btn-small {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+        }
+
+        .environments-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .env-card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: relative;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .env-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        .env-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .env-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--card-alt);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .env-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .env-code {
+            font-size: 0.85rem;
+            color: var(--muted);
+            font-family: monospace;
+        }
+
+        .env-description {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .env-stats {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .env-stat {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            color: var(--muted);
+        }
+
+        .env-resources {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .resource-badge {
+            padding: 0.3rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            background: var(--card-alt);
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .resource-badge.has-resource {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--success);
+        }
+
+        .env-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: var(--card-alt);
+            color: var(--text);
+            font-size: 1rem;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: var(--accent);
+            background: rgba(168, 85, 247, 0.1);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--primary);
+            background: rgba(96, 165, 250, 0.1);
+        }
+
+        .file-list {
+            margin-top: 1rem;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: var(--card-alt);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .file-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--card);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .tab {
+            padding: 0.75rem 1rem;
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-weight: 500;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: var(--text);
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--card);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+            z-index: 2000;
+            animation: slideUp 0.3s ease;
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger);
+        }
+
+        .toast.active {
+            display: flex;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--muted);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .add-environment-btn {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(120deg, var(--primary-dark), var(--accent));
+            color: white;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .add-environment-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <header>
+            <h1>
+                <i class="fas fa-cube"></i>
+                Gerenciar Ambientes 3D
+            </h1>
+            <div style="display: flex; gap: 0.75rem;">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline">
+                    <i class="fas fa-arrow-left"></i> Voltar
+                </a>
+                <a href="{{ url_for('cd_facilities') }}" class="btn btn-outline" target="_blank">
+                    <i class="fas fa-external-link-alt"></i> Ver 3D
+                </a>
+            </div>
+        </header>
+
+        <div class="environments-grid" id="environmentsGrid">
+            <!-- Ambientes serão carregados aqui -->
+        </div>
+
+        <button class="add-environment-btn" onclick="openAddEnvironmentModal()">
+            <i class="fas fa-plus"></i>
+        </button>
+    </div>
+
+    <!-- Modal de Edição/Criação de Ambiente -->
+    <div class="modal" id="environmentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Adicionar Ambiente</h3>
+                <button class="btn btn-small" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('info')">
+                    <i class="fas fa-info-circle"></i> Informações
+                </button>
+                <button class="tab" onclick="switchTab('resources')">
+                    <i class="fas fa-folder"></i> Recursos
+                </button>
+                <button class="tab" onclick="switchTab('3d')">
+                    <i class="fas fa-cube"></i> Configurações 3D
+                </button>
+            </div>
+
+            <!-- Tab: Informações -->
+            <div class="tab-content active" id="tab-info">
+                <form id="environmentForm">
+                    <input type="hidden" id="envId" name="id">
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="envCode">
+                                <i class="fas fa-code"></i> Código
+                            </label>
+                            <input type="text" id="envCode" name="code" required placeholder="ex: sala_reuniao_1">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="envName">
+                                <i class="fas fa-heading"></i> Nome
+                            </label>
+                            <input type="text" id="envName" name="name" required placeholder="ex: Sala de Reunião 1">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="envDescription">
+                            <i class="fas fa-align-left"></i> Descrição
+                        </label>
+                        <textarea id="envDescription" name="description" rows="3" placeholder="Descrição do ambiente..."></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="envIcon">
+                                <i class="fas fa-icons"></i> Ícone (FontAwesome)
+                            </label>
+                            <input type="text" id="envIcon" name="icon" placeholder="fas fa-building" value="fas fa-building">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="envFloor">
+                                <i class="fas fa-layer-group"></i> Andar
+                            </label>
+                            <select id="envFloor" name="floor">
+                                <option value="1">Térreo</option>
+                                <option value="2">1º Andar</option>
+                                <option value="3">2º Andar</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="envCapacity">
+                                <i class="fas fa-users"></i> Capacidade (pessoas)
+                            </label>
+                            <input type="number" id="envCapacity" name="capacity" min="0" placeholder="Opcional">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="envArea">
+                                <i class="fas fa-ruler-combined"></i> Área (m²)
+                            </label>
+                            <input type="number" id="envArea" name="area_m2" min="0" step="0.1" placeholder="Opcional">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="envOrder">
+                            <i class="fas fa-sort"></i> Ordem de Exibição
+                        </label>
+                        <input type="number" id="envOrder" name="display_order" min="0" value="0">
+                    </div>
+                    
+                    <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Salvar Ambiente</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tab: Recursos -->
+            <div class="tab-content" id="tab-resources">
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                    <p>Arraste arquivos aqui ou clique para selecionar</p>
+                    <p style="font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem;">
+                        Formatos: GLB, FBX (3D) | JPG, PNG (Imagens)
+                    </p>
+                    <input type="file" id="fileInput" multiple accept=".glb,.fbx,.jpg,.jpeg,.png,.pdf" style="display: none;">
+                </div>
+                
+                <div class="file-list" id="fileList">
+                    <!-- Lista de arquivos será exibida aqui -->
+                </div>
+            </div>
+
+            <!-- Tab: Configurações 3D -->
+            <div class="tab-content" id="tab-3d">
+                <form id="settings3dForm">
+                    <h4 style="margin-bottom: 1rem;">Posição da Câmera</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>X</label>
+                            <input type="number" name="camera_position_x" value="5" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Y</label>
+                            <input type="number" name="camera_position_y" value="5" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Z</label>
+                            <input type="number" name="camera_position_z" value="5" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <h4 style="margin-bottom: 1rem; margin-top: 1.5rem;">Alvo da Câmera</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>X</label>
+                            <input type="number" name="camera_target_x" value="0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Y</label>
+                            <input type="number" name="camera_target_y" value="0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Z</label>
+                            <input type="number" name="camera_target_z" value="0" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Escala do Modelo</label>
+                            <input type="number" name="model_scale" value="1.0" min="0.1" max="10" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Cor de Fundo</label>
+                            <input type="color" name="background_color" value="#1a1a2e">
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast de Notificação -->
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle"></i>
+        <div>
+            <strong id="toastTitle">Sucesso!</strong>
+            <p id="toastMessage" style="margin: 0; font-size: 0.9rem;">Operação realizada com sucesso.</p>
+        </div>
+    </div>
+
+    <script>
+        let environments = [];
+        let currentEnvironmentId = null;
+        let currentTab = 'info';
+
+        // Carregar ambientes ao iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            loadEnvironments();
+        });
+
+        async function loadEnvironments() {
+            try {
+                const response = await fetch('/api/environments');
+                environments = await response.json();
+                displayEnvironments();
+            } catch (error) {
+                console.error('Erro ao carregar ambientes:', error);
+                showToast('error', 'Erro', 'Falha ao carregar ambientes');
+            }
+        }
+
+        function displayEnvironments() {
+            const grid = document.getElementById('environmentsGrid');
+            
+            if (environments.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1/-1;">
+                        <i class="fas fa-cube"></i>
+                        <h3>Nenhum ambiente cadastrado</h3>
+                        <p>Clique no botão + para adicionar o primeiro ambiente</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = environments.map(env => `
+                <div class="env-card">
+                    <div class="env-card-header">
+                        <div>
+                            <div class="env-icon">
+                                <i class="${env.icon || 'fas fa-building'}"></i>
+                            </div>
+                            <h3 class="env-title">${env.name}</h3>
+                            <p class="env-code">Código: ${env.code}</p>
+                        </div>
+                    </div>
+                    
+                    ${env.description ? `<p class="env-description">${env.description}</p>` : ''}
+                    
+                    <div class="env-stats">
+                        ${env.capacity ? `
+                            <div class="env-stat">
+                                <i class="fas fa-users"></i>
+                                ${env.capacity} pessoas
+                            </div>
+                        ` : ''}
+                        ${env.area_m2 ? `
+                            <div class="env-stat">
+                                <i class="fas fa-ruler-combined"></i>
+                                ${env.area_m2} m²
+                            </div>
+                        ` : ''}
+                        <div class="env-stat">
+                            <i class="fas fa-layer-group"></i>
+                            ${env.floor === 1 ? 'Térreo' : env.floor + 'º Andar'}
+                        </div>
+                    </div>
+                    
+                    <div class="env-resources">
+                        <span class="resource-badge ${env.models_3d > 0 ? 'has-resource' : ''}">
+                            <i class="fas fa-cube"></i>
+                            ${env.models_3d || 0} Modelo 3D
+                        </span>
+                        <span class="resource-badge ${env.plants_2d > 0 ? 'has-resource' : ''}">
+                            <i class="fas fa-map"></i>
+                            ${env.plants_2d || 0} Planta 2D
+                        </span>
+                        <span class="resource-badge ${env.photos > 0 ? 'has-resource' : ''}">
+                            <i class="fas fa-images"></i>
+                            ${env.photos || 0} Fotos
+                        </span>
+                    </div>
+                    
+                    <div class="env-actions">
+                        <button class="btn btn-outline btn-small" onclick="editEnvironment(${env.id})">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button class="btn btn-success btn-small" onclick="manageResources(${env.id})">
+                            <i class="fas fa-folder"></i> Recursos
+                        </button>
+                        <button class="btn btn-danger btn-small" onclick="deleteEnvironment(${env.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openAddEnvironmentModal() {
+            currentEnvironmentId = null;
+            document.getElementById('modalTitle').textContent = 'Adicionar Ambiente';
+            document.getElementById('environmentForm').reset();
+            document.getElementById('environmentModal').classList.add('active');
+            switchTab('info');
+        }
+
+        async function editEnvironment(id) {
+            try {
+                const response = await fetch(`/api/environments/${id}`);
+                const env = await response.json();
+                
+                currentEnvironmentId = id;
+                document.getElementById('modalTitle').textContent = 'Editar Ambiente';
+                
+                // Preencher formulário
+                document.getElementById('envId').value = env.id;
+                document.getElementById('envCode').value = env.code;
+                document.getElementById('envName').value = env.name;
+                document.getElementById('envDescription').value = env.description || '';
+                document.getElementById('envIcon').value = env.icon || 'fas fa-building';
+                document.getElementById('envFloor').value = env.floor || 1;
+                document.getElementById('envCapacity').value = env.capacity || '';
+                document.getElementById('envArea').value = env.area_m2 || '';
+                document.getElementById('envOrder').value = env.display_order || 0;
+                
+                // Preencher configurações 3D se existirem
+                if (env.camera_position_x !== null) {
+                    document.querySelector('[name="camera_position_x"]').value = env.camera_position_x;
+                    document.querySelector('[name="camera_position_y"]').value = env.camera_position_y;
+                    document.querySelector('[name="camera_position_z"]').value = env.camera_position_z;
+                    document.querySelector('[name="camera_target_x"]').value = env.camera_target_x;
+                    document.querySelector('[name="camera_target_y"]').value = env.camera_target_y;
+                    document.querySelector('[name="camera_target_z"]').value = env.camera_target_z;
+                    document.querySelector('[name="model_scale"]').value = env.model_scale || 1.0;
+                    document.querySelector('[name="background_color"]').value = env.background_color || '#1a1a2e';
+                }
+                
+                // Mostrar recursos se existirem
+                if (env.resources && env.resources.length > 0) {
+                    displayResources(env.resources);
+                }
+                
+                document.getElementById('environmentModal').classList.add('active');
+                switchTab('info');
+                
+            } catch (error) {
+                console.error('Erro ao carregar ambiente:', error);
+                showToast('error', 'Erro', 'Falha ao carregar dados do ambiente');
+            }
+        }
+
+        function manageResources(id) {
+            editEnvironment(id);
+            setTimeout(() => switchTab('resources'), 100);
+        }
+
+        async function deleteEnvironment(id) {
+            if (!confirm('Tem certeza que deseja excluir este ambiente?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/environments/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showToast('success', 'Sucesso', 'Ambiente excluído com sucesso');
+                    loadEnvironments();
+                } else {
+                    showToast('error', 'Erro', 'Falha ao excluir ambiente');
+                }
+            } catch (error) {
+                console.error('Erro ao excluir ambiente:', error);
+                showToast('error', 'Erro', 'Erro ao conectar com servidor');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('environmentModal').classList.remove('active');
+            currentEnvironmentId = null;
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Atualizar tabs
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab')[
+                tab === 'info' ? 0 : tab === 'resources' ? 1 : 2
+            ].classList.add('active');
+            
+            // Atualizar conteúdo
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+        }
+
+        // Form submission
+        document.getElementById('environmentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            // Adicionar configurações 3D
+            const settings3d = {};
+            document.querySelectorAll('#settings3dForm input').forEach(input => {
+                settings3d[input.name] = input.value;
+            });
+            data['3d_settings'] = settings3d;
+            
+            try {
+                const url = currentEnvironmentId 
+                    ? `/api/environments/${currentEnvironmentId}`
+                    : '/api/environments';
+                    
+                const method = currentEnvironmentId ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    showToast('success', 'Sucesso', 'Ambiente salvo com sucesso');
+                    closeModal();
+                    loadEnvironments();
+                } else {
+                    showToast('error', 'Erro', 'Falha ao salvar ambiente');
+                }
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                showToast('error', 'Erro', 'Erro de conexão');
+            }
+        });
+
+        function showToast(type, title, message) {
+            const toast = document.getElementById('toast');
+            toast.className = `toast ${type} active`;
+            document.getElementById('toastTitle').textContent = title;
+            document.getElementById('toastMessage').textContent = message;
+            
+            setTimeout(() => {
+                toast.classList.remove('active');
+            }, 3000);
+        }
+
+        // Drag and Drop para upload
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            if (!currentEnvironmentId) {
+                showToast('error', 'Atenção', 'Salve o ambiente antes de adicionar arquivos');
+                switchTab('info');
+                return;
+            }
+            
+            // Implementar lógica de upload aqui
+            // Por enquanto apenas mostrar mensagem
+            showToast('warning', 'Pendente', 'Funcionalidade de upload será implementada em breve');
+            console.log('Arquivos selecionados:', files);
+        }
+
+        function displayResources(resources) {
+            const list = document.getElementById('fileList');
+            if (!resources || resources.length === 0) {
+                list.innerHTML = '<p class="text-muted text-center">Nenhum recurso encontrado</p>';
+                return;
+            }
+            
+            list.innerHTML = resources.map(res => `
+                <div class="file-item">
+                    <div class="file-info">
+                        <div class="file-icon">
+                            <i class="fas ${getResourceIcon(res.resource_type)}"></i>
+                        </div>
+                        <div>
+                            <strong>${res.file_name || 'Arquivo'}</strong>
+                            <p style="font-size: 0.8rem; color: var(--muted);">${res.resource_type}</p>
+                        </div>
+                    </div>
+                    <button class="btn btn-danger btn-small" onclick="deleteResource(${res.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function getResourceIcon(type) {
+            switch(type) {
+                case 'model_3d': return 'fa-cube';
+                case 'plant_2d': return 'fa-map';
+                case 'photo': return 'fa-image';
+                case 'document': return 'fa-file-alt';
+                default: return 'fa-file';
+            }
+        }
+    </script>
+</body>
+</html>
