@@ -28,6 +28,8 @@ from datetime import datetime, date, timedelta
 from functools import wraps
 from typing import Dict, List, Tuple
 import requests
+import mimetypes
+from werkzeug.utils import secure_filename
 
 from openpyxl import load_workbook
 
@@ -2270,6 +2272,179 @@ def environment_resources_api(environment_id):
     except Exception as e:
         conn.rollback()
         app.logger.error(f"Erro ao processar recursos do ambiente {environment_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+def get_supabase_config():
+    """Recupera configurações do Supabase das variáveis de ambiente"""
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_KEY")
+    return url, key
+
+
+def upload_to_supabase(file_obj, filename, content_type):
+    """Realiza upload de arquivo para o Supabase Storage"""
+    url, key = get_supabase_config()
+    
+    if not url or not key:
+        # Fallback para desenvolvimento local ou erro
+        app.logger.error("Supabase credentials not found")
+        raise Exception("Serviço de armazenamento não configurado")
+    
+    # Limpar URL base
+    url = url.rstrip('/')
+    bucket = "environment-assets"
+    
+    # Caminho no bucket: environments/filename
+    storage_path = f"environments/{filename}"
+    
+    # Endpoint da API de Storage
+    # POST /storage/v1/object/{bucket}/{path}
+    api_url = f"{url}/storage/v1/object/{bucket}/{storage_path}"
+    
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": content_type,
+        "x-upsert": "true"
+    }
+    
+    # Ler conteúdo do arquivo
+    file_content = file_obj.read()
+    
+    try:
+        response = requests.post(api_url, data=file_content, headers=headers)
+        
+        if response.status_code not in [200, 201]:
+            # Se falhar, tentar criar o bucket e tentar novamente?
+            # Por simplicidade, assumimos que o bucket existe.
+            # Se o erro for 404 (bucket not found), logar erro específico.
+            error_msg = f"Supabase Upload Failed ({response.status_code}): {response.text}"
+            app.logger.error(error_msg)
+            raise Exception("Falha no upload para o storage remoto")
+            
+        # Retornar URL pública
+        # {supabase_url}/storage/v1/object/public/{bucket}/{path}
+        public_url = f"{url}/storage/v1/object/public/{bucket}/{storage_path}"
+        return public_url, len(file_content)
+        
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Erro de conexão com Supabase: {e}")
+        raise Exception("Erro de conexão com serviço de storage")
+
+
+@app.route("/api/environments/<int:environment_id>/upload", methods=["POST"])
+@login_required
+def environment_upload_api(environment_id):
+    """API para upload de arquivos de ambiente"""
+    # Validar permissão (admin/manager)
+    if session.get("role") not in ["admin", "manager"]:
+        return jsonify({"error": "Permissão negada"}), 403
+
+    if "file" not in request.files:
+        return jsonify({"error": "Nenhum arquivo enviado"}), 400
+        
+    file = request.files["file"]
+    
+    if file.filename == "":
+        return jsonify({"error": "Nome de arquivo inválido"}), 400
+        
+    if file:
+        try:
+            filename = secure_filename(file.filename)
+            
+            # Adicionar timestamp para evitar colisão de nomes
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            unique_filename = f"{environment_id}_{timestamp}_{filename}"
+            
+            # Detectar tipo de recurso baseado na extensão
+            ext = os.path.splitext(filename)[1].lower()
+            mime_type = file.mimetype or mimetypes.guess_type(filename)[0]
+            
+            resource_type = "document"
+            if ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                resource_type = "photo"
+            elif ext in ['.glb', '.gltf', '.fbx', '.obj']:
+                resource_type = "model_3d"
+            elif ext in ['.pdf']:
+                # PDFs podem ser plantas ou docs
+                resource_type = "plant_2d" # Assumindo planta por padrão para PDF neste contexto
+            
+            # Realizar upload
+            public_url, file_size = upload_to_supabase(file, unique_filename, mime_type)
+            
+            # Salvar no banco
+            conn = get_db()
+            cursor = conn.cursor()
+            
+            # Verificar se já existe um recurso primário deste tipo
+            cursor.execute("""
+                SELECT id FROM environment_resources 
+                WHERE environment_id = %s AND resource_type = %s AND is_primary = true
+            """, (environment_id, resource_type))
+            has_primary = cursor.fetchone() is not None
+            
+            # Inserir novo recurso
+            cursor.execute("""
+                INSERT INTO environment_resources
+                (environment_id, resource_type, file_name, file_url, file_size, 
+                 mime_type, is_primary, uploaded_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                environment_id,
+                resource_type,
+                filename,
+                public_url,
+                file_size,
+                mime_type,
+                not has_primary, # Se não tem primário, este será o primeiro
+                session.get('user_id')
+            ))
+            
+            resource_id = cursor.fetchone()[0]
+            conn.commit()
+            conn.close()
+            
+            return jsonify({
+                "success": True, 
+                "id": resource_id, 
+                "url": public_url,
+                "type": resource_type
+            }), 201
+            
+        except Exception as e:
+            app.logger.error(f"Erro no upload: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    return jsonify({"error": "Erro desconhecido"}), 500
+
+
+@app.route("/api/resources/<int:resource_id>", methods=["DELETE"])
+@login_required
+def delete_resource_api(resource_id):
+    """API para excluir um recurso"""
+    if session.get("role") not in ["admin", "manager"]:
+        return jsonify({"error": "Permissão negada"}), 403
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar se existe
+        cursor.execute("SELECT id FROM environment_resources WHERE id = %s", (resource_id,))
+        if not cursor.fetchone():
+            return jsonify({"error": "Recurso não encontrado"}), 404
+            
+        # Deletar do banco
+        cursor.execute("DELETE FROM environment_resources WHERE id = %s", (resource_id,))
+        conn.commit()
+        
+        return jsonify({"success": True}), 200
+        
+    except Exception as e:
+        conn.rollback()
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()

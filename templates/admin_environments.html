@@ -905,17 +905,68 @@
             handleFiles(e.target.files);
         });
 
-        function handleFiles(files) {
+        async function handleFiles(files) {
             if (!currentEnvironmentId) {
                 showToast('error', 'Atenção', 'Salve o ambiente antes de adicionar arquivos');
                 switchTab('info');
                 return;
             }
             
-            // Implementar lógica de upload aqui
-            // Por enquanto apenas mostrar mensagem
-            showToast('warning', 'Pendente', 'Funcionalidade de upload será implementada em breve');
-            console.log('Arquivos selecionados:', files);
+            const fileArray = Array.from(files);
+            let successCount = 0;
+            
+            // Mostrar indicador visual de carregamento
+            const uploadArea = document.getElementById('uploadArea');
+            const originalText = uploadArea.innerHTML;
+            uploadArea.innerHTML = '<div style="padding: 2rem"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Enviando arquivos...</p></div>';
+            
+            for (const file of fileArray) {
+                try {
+                    await uploadFile(file);
+                    successCount++;
+                } catch (error) {
+                    console.error('Erro ao enviar arquivo:', error);
+                    showToast('error', 'Erro', `Falha ao enviar ${file.name}: ${error.message}`);
+                }
+            }
+            
+            // Restaurar área de upload
+            uploadArea.innerHTML = originalText;
+            
+            if (successCount > 0) {
+                showToast('success', 'Upload Concluído', `${successCount} arquivo(s) enviado(s)`);
+                // Recarregar recursos do ambiente atual
+                loadResources(currentEnvironmentId);
+                // Atualizar lista principal
+                loadEnvironments();
+            }
+        }
+        
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const response = await fetch(`/api/environments/${currentEnvironmentId}/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Falha no upload');
+            }
+            
+            return await response.json();
+        }
+
+        async function loadResources(envId) {
+            try {
+                const response = await fetch(`/api/environments/${envId}/resources`);
+                const resources = await response.json();
+                displayResources(resources);
+            } catch (error) {
+                console.error('Erro ao carregar recursos:', error);
+            }
         }
 
         function displayResources(resources) {
@@ -941,6 +992,30 @@
                     </button>
                 </div>
             `).join('');
+        }
+
+        async function deleteResource(id) {
+            if (!confirm('Tem certeza que deseja excluir este arquivo?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/resources/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showToast('success', 'Sucesso', 'Arquivo excluído');
+                    loadResources(currentEnvironmentId);
+                    loadEnvironments();
+                } else {
+                    const error = await response.json();
+                    showToast('error', 'Erro', error.error || 'Falha ao excluir');
+                }
+            } catch (error) {
+                console.error('Erro ao excluir:', error);
+                showToast('error', 'Erro', 'Erro de conexão');
+            }
         }
 
         function getResourceIcon(type) {
