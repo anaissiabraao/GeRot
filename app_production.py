@@ -3062,6 +3062,488 @@ def delete_dashboard_gen(request_id):
 
 
 # --------------------------------------------------------------------------- #
+# Executor de RPAs - Conexão MySQL Brudam
+# --------------------------------------------------------------------------- #
+def get_brudam_db():
+    """Conecta ao banco MySQL Brudam (azportoex). Credenciais via .env"""
+    import pymysql
+    
+    host = os.getenv("MYSQL_AZ_HOST", "")
+    port = int(os.getenv("MYSQL_AZ_PORT", "3307"))
+    user = os.getenv("MYSQL_AZ_USER", "")
+    password = os.getenv("MYSQL_AZ_PASSWORD", "")
+    database = os.getenv("MYSQL_AZ_DB", "")
+    
+    if not all([host, user, password, database]):
+        raise ValueError("Credenciais MySQL Brudam não configuradas no .env")
+    
+    return pymysql.connect(
+        host=host,
+        port=port,
+        user=user,
+        password=password,
+        database=database,
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor,
+        connect_timeout=30,
+        read_timeout=60
+    )
+
+
+def execute_rpa(rpa_id: int) -> dict:
+    """Executa uma automação RPA e retorna o resultado."""
+    import json
+    from datetime import datetime
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    logs = []
+    result = {"success": False, "data": None, "error": None}
+    
+    try:
+        # Buscar RPA
+        cursor.execute("""
+            SELECT r.*, t.name as type_name 
+            FROM agent_rpas r
+            LEFT JOIN agent_rpa_types t ON r.rpa_type_id = t.id
+            WHERE r.id = %s
+        """, (rpa_id,))
+        rpa = cursor.fetchone()
+        
+        if not rpa:
+            return {"success": False, "error": "RPA não encontrada"}
+        
+        # Atualizar status para 'running'
+        cursor.execute("""
+            UPDATE agent_rpas 
+            SET status = 'running', executed_at = NOW() 
+            WHERE id = %s
+        """, (rpa_id,))
+        conn.commit()
+        
+        logs.append(f"[{datetime.now().isoformat()}] Iniciando execução: {rpa['name']}")
+        logs.append(f"[{datetime.now().isoformat()}] Tipo: {rpa['type_name']}")
+        
+        # Executar baseado no tipo
+        type_name = rpa['type_name'] or ''
+        parameters = rpa['parameters'] or {}
+        
+        if 'Extração de Dados' in type_name or 'brudam' in str(parameters).lower():
+            # Conectar ao Brudam e executar query
+            logs.append(f"[{datetime.now().isoformat()}] Conectando ao MySQL Brudam...")
+            
+            try:
+                brudam_conn = get_brudam_db()
+                brudam_cursor = brudam_conn.cursor()
+                logs.append(f"[{datetime.now().isoformat()}] Conexão estabelecida com sucesso!")
+                
+                # Query padrão ou customizada
+                query = parameters.get('query', 'SELECT 1 as test')
+                limit = parameters.get('limit', 100)
+                
+                # Adicionar LIMIT se não existir
+                if 'LIMIT' not in query.upper():
+                    query = f"{query} LIMIT {limit}"
+                
+                logs.append(f"[{datetime.now().isoformat()}] Executando query...")
+                brudam_cursor.execute(query)
+                data = brudam_cursor.fetchall()
+                
+                logs.append(f"[{datetime.now().isoformat()}] Query executada! {len(data)} registros retornados.")
+                
+                result["success"] = True
+                result["data"] = data
+                result["row_count"] = len(data)
+                
+                brudam_cursor.close()
+                brudam_conn.close()
+                logs.append(f"[{datetime.now().isoformat()}] Conexão fechada.")
+                
+            except Exception as e:
+                logs.append(f"[{datetime.now().isoformat()}] ERRO ao conectar/executar: {str(e)}")
+                result["error"] = str(e)
+        
+        else:
+            # Tipo genérico - apenas simula execução
+            logs.append(f"[{datetime.now().isoformat()}] Executando automação genérica...")
+            import time as time_module
+            time_module.sleep(1)  # Simula processamento
+            result["success"] = True
+            result["data"] = {"message": "Automação executada com sucesso (simulação)"}
+            logs.append(f"[{datetime.now().isoformat()}] Automação concluída.")
+        
+        # Atualizar RPA com resultado
+        final_status = 'completed' if result["success"] else 'failed'
+        cursor.execute("""
+            UPDATE agent_rpas 
+            SET status = %s, 
+                completed_at = NOW(),
+                result = %s,
+                error_message = %s,
+                updated_at = NOW()
+            WHERE id = %s
+        """, (
+            final_status,
+            psycopg2.extras.Json({"data": result.get("data"), "row_count": result.get("row_count", 0)}),
+            result.get("error"),
+            rpa_id
+        ))
+        conn.commit()
+        
+        # Salvar logs
+        cursor.execute("""
+            INSERT INTO agent_logs (action_type, entity_type, entity_id, user_id, details)
+            VALUES ('execute', 'rpa', %s, %s, %s)
+        """, (rpa_id, rpa['created_by'], psycopg2.extras.Json({"logs": logs, "success": result["success"]})))
+        conn.commit()
+        
+        result["logs"] = logs
+        return result
+        
+    except Exception as e:
+        app.logger.error(f"[RPA] Erro ao executar RPA {rpa_id}: {e}")
+        logs.append(f"[{datetime.now().isoformat()}] ERRO FATAL: {str(e)}")
+        
+        # Atualizar status para failed
+        try:
+            cursor.execute("""
+                UPDATE agent_rpas 
+                SET status = 'failed', error_message = %s, updated_at = NOW()
+                WHERE id = %s
+            """, (str(e), rpa_id))
+            conn.commit()
+        except:
+            pass
+        
+        result["error"] = str(e)
+        result["logs"] = logs
+        return result
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/rpa/<int:rpa_id>/execute", methods=["POST"])
+@login_required
+def execute_rpa_api(rpa_id):
+    """API para executar uma automação RPA manualmente."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar permissão
+        cursor.execute("SELECT created_by, status FROM agent_rpas WHERE id = %s", (rpa_id,))
+        rpa = cursor.fetchone()
+        
+        if not rpa:
+            return jsonify({"error": "RPA não encontrada"}), 404
+        
+        if rpa['created_by'] != session['user_id'] and session.get('role') != 'admin':
+            return jsonify({"error": "Permissão negada"}), 403
+        
+        if rpa['status'] == 'running':
+            return jsonify({"error": "RPA já está em execução"}), 400
+        
+        conn.close()
+        
+        # Executar RPA
+        result = execute_rpa(rpa_id)
+        
+        return jsonify(result), 200 if result["success"] else 500
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
+
+
+@app.route("/api/agent/rpa/<int:rpa_id>/logs", methods=["GET"])
+@login_required
+def get_rpa_logs(rpa_id):
+    """API para buscar logs de execução de uma RPA."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar permissão
+        cursor.execute("SELECT created_by FROM agent_rpas WHERE id = %s", (rpa_id,))
+        rpa = cursor.fetchone()
+        
+        if not rpa:
+            return jsonify({"error": "RPA não encontrada"}), 404
+        
+        if rpa['created_by'] != session['user_id'] and session.get('role') != 'admin':
+            return jsonify({"error": "Permissão negada"}), 403
+        
+        # Buscar logs
+        cursor.execute("""
+            SELECT action_type, details, created_at
+            FROM agent_logs
+            WHERE entity_type = 'rpa' AND entity_id = %s
+            ORDER BY created_at DESC
+            LIMIT 50
+        """, (rpa_id,))
+        logs = [dict(row) for row in cursor.fetchall()]
+        
+        # Buscar resultado atual da RPA
+        cursor.execute("""
+            SELECT status, result, error_message, executed_at, completed_at
+            FROM agent_rpas WHERE id = %s
+        """, (rpa_id,))
+        rpa_status = dict(cursor.fetchone())
+        
+        return jsonify({
+            "logs": logs,
+            "status": rpa_status
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/brudam/test", methods=["POST"])
+@login_required
+@admin_required
+def test_brudam_connection():
+    """API para testar conexão com o banco Brudam."""
+    logs = []
+    
+    try:
+        from datetime import datetime
+        logs.append(f"[{datetime.now().isoformat()}] Iniciando teste de conexão...")
+        
+        brudam_conn = get_brudam_db()
+        logs.append(f"[{datetime.now().isoformat()}] Conexão estabelecida!")
+        
+        brudam_cursor = brudam_conn.cursor()
+        
+        # Listar tabelas
+        brudam_cursor.execute("SHOW TABLES")
+        tables = [list(row.values())[0] for row in brudam_cursor.fetchall()]
+        logs.append(f"[{datetime.now().isoformat()}] {len(tables)} tabelas encontradas")
+        
+        brudam_cursor.close()
+        brudam_conn.close()
+        logs.append(f"[{datetime.now().isoformat()}] Conexão fechada com sucesso!")
+        
+        return jsonify({
+            "success": True,
+            "tables": tables[:20],  # Primeiras 20 tabelas
+            "total_tables": len(tables),
+            "logs": logs
+        }), 200
+        
+    except Exception as e:
+        logs.append(f"[{datetime.now().isoformat()}] ERRO: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "logs": logs
+        }), 500
+
+
+@app.route("/api/agent/brudam/query", methods=["POST"])
+@login_required
+@admin_required
+def execute_brudam_query():
+    """API para executar query no banco Brudam (apenas admin)."""
+    data = request.get_json()
+    query = data.get('query', '')
+    limit = data.get('limit', 100)
+    
+    if not query:
+        return jsonify({"error": "Query é obrigatória"}), 400
+    
+    # Segurança: apenas SELECT permitido
+    if not query.strip().upper().startswith('SELECT'):
+        return jsonify({"error": "Apenas queries SELECT são permitidas"}), 403
+    
+    # Adicionar LIMIT se não existir
+    if 'LIMIT' not in query.upper():
+        query = f"{query} LIMIT {limit}"
+    
+    logs = []
+    
+    try:
+        from datetime import datetime
+        logs.append(f"[{datetime.now().isoformat()}] Executando query...")
+        
+        brudam_conn = get_brudam_db()
+        brudam_cursor = brudam_conn.cursor()
+        
+        brudam_cursor.execute(query)
+        data = brudam_cursor.fetchall()
+        
+        logs.append(f"[{datetime.now().isoformat()}] {len(data)} registros retornados")
+        
+        brudam_cursor.close()
+        brudam_conn.close()
+        
+        return jsonify({
+            "success": True,
+            "data": data,
+            "row_count": len(data),
+            "logs": logs
+        }), 200
+        
+    except Exception as e:
+        logs.append(f"[{datetime.now().isoformat()}] ERRO: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "logs": logs
+        }), 500
+
+
+# --------------------------------------------------------------------------- #
+# APIs para Agente Local (Brudam)
+# --------------------------------------------------------------------------- #
+AGENT_API_KEY = os.getenv("AGENT_API_KEY", "")
+
+
+def verify_agent_api_key():
+    """Verifica a chave de API do agente local."""
+    if not AGENT_API_KEY:
+        return False  # API key não configurada no servidor
+    api_key = request.headers.get("X-API-Key", "")
+    return api_key and api_key == AGENT_API_KEY
+
+
+@app.route("/api/agent/rpas/pending", methods=["GET"])
+def get_pending_rpas():
+    """API para o agente local buscar RPAs pendentes."""
+    if not verify_agent_api_key():
+        return jsonify({"error": "API Key inválida"}), 401
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Buscar RPAs pendentes do tipo "Extração de Dados" ou com parâmetros brudam
+        cursor.execute("""
+            SELECT r.id, r.name, r.description, r.parameters, r.priority,
+                   t.name as type_name
+            FROM agent_rpas r
+            LEFT JOIN agent_rpa_types t ON r.rpa_type_id = t.id
+            WHERE r.status = 'pending'
+              AND (t.name LIKE '%Extração%' OR r.parameters::text LIKE '%brudam%' OR r.parameters::text LIKE '%query%')
+            ORDER BY 
+                CASE r.priority 
+                    WHEN 'critical' THEN 1 
+                    WHEN 'high' THEN 2 
+                    WHEN 'medium' THEN 3 
+                    ELSE 4 
+                END,
+                r.created_at ASC
+            LIMIT 10
+        """)
+        rpas = [dict(row) for row in cursor.fetchall()]
+        
+        # Marcar como "running" para evitar execução duplicada
+        for rpa in rpas:
+            cursor.execute("""
+                UPDATE agent_rpas 
+                SET status = 'running', executed_at = NOW() 
+                WHERE id = %s AND status = 'pending'
+            """, (rpa['id'],))
+        conn.commit()
+        
+        return jsonify({"rpas": rpas}), 200
+        
+    except Exception as e:
+        app.logger.error(f"[AGENT-API] Erro ao buscar RPAs pendentes: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/rpa/<int:rpa_id>/result", methods=["POST"])
+def receive_rpa_result(rpa_id):
+    """API para o agente local enviar resultado da execução."""
+    if not verify_agent_api_key():
+        return jsonify({"error": "API Key inválida"}), 401
+    
+    data = request.get_json()
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar se RPA existe
+        cursor.execute("SELECT id, created_by FROM agent_rpas WHERE id = %s", (rpa_id,))
+        rpa = cursor.fetchone()
+        
+        if not rpa:
+            return jsonify({"error": "RPA não encontrada"}), 404
+        
+        # Atualizar RPA com resultado
+        success = data.get("success", False)
+        final_status = "completed" if success else "failed"
+        
+        # Limitar tamanho dos dados para evitar problemas de armazenamento
+        result_data = data.get("data", [])
+        if isinstance(result_data, list) and len(result_data) > 1000:
+            result_data = result_data[:1000]  # Limitar a 1000 registros
+        
+        cursor.execute("""
+            UPDATE agent_rpas 
+            SET status = %s, 
+                completed_at = NOW(),
+                result = %s,
+                error_message = %s,
+                updated_at = NOW()
+            WHERE id = %s
+        """, (
+            final_status,
+            psycopg2.extras.Json({
+                "data": result_data,
+                "row_count": data.get("row_count", 0),
+                "source": "agent_local"
+            }),
+            data.get("error"),
+            rpa_id
+        ))
+        
+        # Salvar logs
+        logs = data.get("logs", [])
+        cursor.execute("""
+            INSERT INTO agent_logs (action_type, entity_type, entity_id, user_id, details)
+            VALUES ('execute_remote', 'rpa', %s, %s, %s)
+        """, (rpa_id, rpa['created_by'], psycopg2.extras.Json({
+            "logs": logs,
+            "success": success,
+            "source": "agent_local"
+        })))
+        
+        conn.commit()
+        
+        app.logger.info(f"[AGENT-API] Resultado recebido para RPA #{rpa_id}: {final_status}")
+        return jsonify({"success": True}), 200
+        
+    except Exception as e:
+        conn.rollback()
+        app.logger.error(f"[AGENT-API] Erro ao salvar resultado: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/health", methods=["GET"])
+def agent_health_check():
+    """Health check para o agente local."""
+    return jsonify({
+        "status": "ok",
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0"
+    }), 200
+
+
+# --------------------------------------------------------------------------- #
 # Tratamento de erros
 # --------------------------------------------------------------------------- #
 @app.errorhandler(404)

@@ -21,6 +21,8 @@ Thumbs.db
 
 # Local configs / secrets
 .env
+agent_local/.env
+agent_local/*.log
 
 # Data / exports
 *.sqlite3

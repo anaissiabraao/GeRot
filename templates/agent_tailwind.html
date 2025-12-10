@@ -1,6 +1,6 @@
 {% extends "base_tailwind.html" %}
 
-{% block title %}Agente IA - GeRot{% endblock %}
+{% block title %}Agente{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-background">
@@ -86,6 +86,10 @@
                     <button onclick="switchTab('dashboard')" id="tab-dashboard" 
                             class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground">
                         <i class="fas fa-chart-pie mr-2"></i>Gerar Dashboard
+                    </button>
+                    <button onclick="switchTab('executables')" id="tab-executables" 
+                            class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground">
+                        <i class="fas fa-play-circle mr-2"></i>Executáveis
                     </button>
                 </nav>
             </div>
@@ -284,10 +288,19 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{{ rpa.created_at }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    <button onclick="viewRPA({{ rpa.id }})" class="text-primary hover:underline mr-3">
-                                        <i class="fas fa-eye"></i>
+                                    {% if rpa.status != 'running' %}
+                                    <button onclick="executeRPA({{ rpa.id }})" class="text-green-600 hover:underline mr-3" title="Executar">
+                                        <i class="fas fa-play"></i>
                                     </button>
-                                    <button onclick="deleteRPA({{ rpa.id }})" class="text-destructive hover:underline">
+                                    {% else %}
+                                    <span class="text-blue-500 mr-3" title="Em execução">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                    </span>
+                                    {% endif %}
+                                    <button onclick="viewRPALogs({{ rpa.id }})" class="text-primary hover:underline mr-3" title="Ver Logs">
+                                        <i class="fas fa-file-alt"></i>
+                                    </button>
+                                    <button onclick="deleteRPA({{ rpa.id }})" class="text-destructive hover:underline" title="Excluir">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </td>
@@ -536,6 +549,44 @@
                 </div>
             </div>
         </div>
+
+        <!-- Conteúdo da Tab Executáveis -->
+        <div id="content-executables" class="tab-content hidden">
+            <div class="rounded-lg border bg-card shadow-sm">
+                <div class="border-b px-6 py-4">
+                    <h3 class="flex items-center gap-2 text-lg font-semibold">
+                        <i class="fas fa-play-circle text-primary"></i>
+                        Executáveis Disponíveis
+                    </h3>
+                    <p class="text-sm text-muted-foreground mt-1">
+                        Selecione um executável para iniciar uma automação predefinida
+                    </p>
+                </div>
+                <div class="p-6">
+                    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        {% for tipo in rpa_types %}
+                        <div class="rounded-lg border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="rounded-lg bg-primary/10 p-3 text-primary">
+                                    <i class="fas {{ tipo.icon }} text-xl"></i>
+                                </div>
+                                <span class="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
+                                    Ativo
+                                </span>
+                            </div>
+                            <h4 class="mb-2 font-semibold">{{ tipo.name }}</h4>
+                            <p class="mb-4 text-sm text-muted-foreground">{{ tipo.description }}</p>
+                            <button onclick="initiateRPA({{ tipo.id }}, '{{ tipo.name }}')" 
+                                    class="w-full inline-flex items-center justify-center rounded-md bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors">
+                                <i class="fas fa-play mr-2"></i>
+                                Configurar Execução
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 </div>
 
@@ -544,19 +595,31 @@ function switchTab(tabName) {
     // Esconde todos os conteúdos
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     
-    // Remove estilo ativo de todas as tabs
+    // Reseta cor de borda e texto
     document.querySelectorAll('.tab-button').forEach(el => {
         el.classList.remove('border-primary', 'text-primary');
         el.classList.add('border-transparent', 'text-muted-foreground');
     });
     
-    // Mostra o conteúdo selecionado
-    document.getElementById('content-' + tabName).classList.remove('hidden');
+    // Mostra conteúdo selecionado
+    document.getElementById(`content-${tabName}`).classList.remove('hidden');
     
-    // Ativa a tab selecionada
-    const activeTab = document.getElementById('tab-' + tabName);
+    // Ativa aba selecionada
+    const activeTab = document.getElementById(`tab-${tabName}`);
     activeTab.classList.remove('border-transparent', 'text-muted-foreground');
     activeTab.classList.add('border-primary', 'text-primary');
+}
+
+function initiateRPA(typeId, typeName) {
+    switchTab('rpa');
+    const select = document.querySelector('select[name="rpa_type"]');
+    if (select) {
+        select.value = typeId;
+        // Scroll para o formulário
+        document.getElementById('rpaForm').scrollIntoView({ behavior: 'smooth' });
+        // Focar no nome
+        document.querySelector('input[name="name"]').focus();
+    }
 }
 
 async function submitRPA(event) {
@@ -624,6 +687,138 @@ async function submitDashboardGen(event) {
 
 function viewRPA(id) {
     window.location.href = '/agent/rpa/' + id;
+}
+
+async function executeRPA(id) {
+    if (!confirm('Deseja executar esta automação agora?')) return;
+    
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/agent/rpa/' + id + '/execute', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Automação executada com sucesso!\n\nRegistros: ' + (data.row_count || 0));
+            window.location.reload();
+        } else {
+            alert('Erro na execução: ' + (data.error || 'Erro desconhecido'));
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    } catch (error) {
+        alert('Erro ao executar: ' + error.message);
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+async function viewRPALogs(id) {
+    try {
+        const response = await fetch('/api/agent/rpa/' + id + '/logs');
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Erro: ' + data.error);
+            return;
+        }
+        
+        // Criar modal de logs
+        let logsHtml = '<div class="space-y-4">';
+        
+        // Status atual
+        logsHtml += '<div class="p-4 rounded-lg bg-muted">';
+        logsHtml += '<h4 class="font-semibold mb-2">Status Atual</h4>';
+        logsHtml += '<p><strong>Status:</strong> ' + (data.status.status || 'N/A') + '</p>';
+        if (data.status.executed_at) {
+            logsHtml += '<p><strong>Executado em:</strong> ' + data.status.executed_at + '</p>';
+        }
+        if (data.status.completed_at) {
+            logsHtml += '<p><strong>Concluído em:</strong> ' + data.status.completed_at + '</p>';
+        }
+        if (data.status.error_message) {
+            logsHtml += '<p class="text-red-600"><strong>Erro:</strong> ' + data.status.error_message + '</p>';
+        }
+        logsHtml += '</div>';
+        
+        // Resultado
+        if (data.status.result) {
+            logsHtml += '<div class="p-4 rounded-lg bg-green-50 border border-green-200">';
+            logsHtml += '<h4 class="font-semibold mb-2 text-green-800">Resultado</h4>';
+            logsHtml += '<pre class="text-xs overflow-auto max-h-40">' + JSON.stringify(data.status.result, null, 2) + '</pre>';
+            logsHtml += '</div>';
+        }
+        
+        // Logs de execução
+        if (data.logs && data.logs.length > 0) {
+            logsHtml += '<div class="p-4 rounded-lg bg-gray-50 border">';
+            logsHtml += '<h4 class="font-semibold mb-2">Histórico de Execuções</h4>';
+            logsHtml += '<div class="space-y-2 max-h-60 overflow-auto">';
+            data.logs.forEach(log => {
+                const details = log.details || {};
+                const logLines = details.logs || [];
+                logsHtml += '<div class="text-xs border-b pb-2">';
+                logsHtml += '<p class="text-muted-foreground">' + log.created_at + ' - ' + log.action_type + '</p>';
+                if (logLines.length > 0) {
+                    logsHtml += '<pre class="mt-1 text-xs bg-black text-green-400 p-2 rounded overflow-auto max-h-32">';
+                    logLines.forEach(line => {
+                        logsHtml += line + '\n';
+                    });
+                    logsHtml += '</pre>';
+                }
+                logsHtml += '</div>';
+            });
+            logsHtml += '</div></div>';
+        }
+        
+        logsHtml += '</div>';
+        
+        // Mostrar modal
+        showModal('Logs da Automação', logsHtml);
+        
+    } catch (error) {
+        alert('Erro ao buscar logs: ' + error.message);
+    }
+}
+
+function showModal(title, content) {
+    // Remove modal existente se houver
+    const existingModal = document.getElementById('rpaLogsModal');
+    if (existingModal) existingModal.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'rpaLogsModal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50';
+    modal.innerHTML = `
+        <div class="bg-card rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            <div class="flex items-center justify-between border-b px-6 py-4">
+                <h3 class="text-lg font-semibold">${title}</h3>
+                <button onclick="document.getElementById('rpaLogsModal').remove()" class="text-muted-foreground hover:text-foreground">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-auto max-h-[60vh]">
+                ${content}
+            </div>
+            <div class="border-t px-6 py-4 flex justify-end">
+                <button onclick="document.getElementById('rpaLogsModal').remove()" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Fechar ao clicar fora
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
 }
 
 function deleteRPA(id) {
