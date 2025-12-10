@@ -3061,6 +3061,223 @@ def delete_dashboard_gen(request_id):
         conn.close()
 
 
+@app.route("/api/agent/dashboard-gen/<int:request_id>", methods=["GET"])
+@login_required
+def get_dashboard_gen(request_id):
+    """API para obter detalhes de uma solicitação de dashboard."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT d.*, u.nome_completo as created_by_name
+            FROM agent_dashboard_requests d
+            LEFT JOIN users_new u ON d.created_by = u.id
+            WHERE d.id = %s
+        """, (request_id,))
+        dash = cursor.fetchone()
+        
+        if not dash:
+            return jsonify({"error": "Solicitação não encontrada"}), 404
+        
+        if dash['created_by'] != session['user_id'] and session.get('role') != 'admin':
+            return jsonify({"error": "Permissão negada"}), 403
+        
+        return jsonify(dict(dash)), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/rpa/<int:rpa_id>", methods=["GET"])
+@login_required
+def get_rpa_details(rpa_id):
+    """API para obter detalhes de uma RPA."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT r.*, t.name as type_name, u.nome_completo as created_by_name
+            FROM agent_rpas r
+            LEFT JOIN agent_rpa_types t ON r.rpa_type_id = t.id
+            LEFT JOIN users_new u ON r.created_by = u.id
+            WHERE r.id = %s
+        """, (rpa_id,))
+        rpa = cursor.fetchone()
+        
+        if not rpa:
+            return jsonify({"error": "RPA não encontrada"}), 404
+        
+        if rpa['created_by'] != session['user_id'] and session.get('role') != 'admin':
+            return jsonify({"error": "Permissão negada"}), 403
+        
+        return jsonify(dict(rpa)), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/rpa/<int:rpa_id>/export", methods=["GET"])
+@login_required
+def export_rpa_to_excel(rpa_id):
+    """Exporta os resultados de uma RPA para Excel."""
+    from io import BytesIO
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT r.name, r.result, r.created_by
+            FROM agent_rpas r
+            WHERE r.id = %s
+        """, (rpa_id,))
+        rpa = cursor.fetchone()
+        
+        if not rpa:
+            return jsonify({"error": "RPA não encontrada"}), 404
+        
+        if rpa['created_by'] != session['user_id'] and session.get('role') != 'admin':
+            return jsonify({"error": "Permissão negada"}), 403
+        
+        result = rpa.get('result') or {}
+        data = result.get('data', [])
+        
+        if not data:
+            return jsonify({"error": "Nenhum dado para exportar"}), 400
+        
+        # Criar Excel
+        wb = load_workbook(filename=None) if False else None
+        from openpyxl import Workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Dados"
+        
+        # Cabeçalhos
+        if data and isinstance(data, list) and len(data) > 0:
+            headers = list(data[0].keys())
+            for col, header in enumerate(headers, 1):
+                ws.cell(row=1, column=col, value=header)
+            
+            # Dados
+            for row_idx, row_data in enumerate(data, 2):
+                for col_idx, header in enumerate(headers, 1):
+                    value = row_data.get(header, '')
+                    ws.cell(row=row_idx, column=col_idx, value=str(value) if value else '')
+        
+        # Salvar em memória
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        # Nome do arquivo
+        safe_name = re.sub(r'[^\w\s-]', '', rpa['name'])[:30]
+        filename = f"rpa_{rpa_id}_{safe_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        
+        from flask import send_file
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        app.logger.error(f"[EXPORT] Erro ao exportar RPA {rpa_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/agent/rpa/<int:rpa_id>")
+@login_required
+def view_rpa_page(rpa_id):
+    """Página para visualizar detalhes de uma RPA."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT r.*, t.name as type_name, u.nome_completo as created_by_name
+            FROM agent_rpas r
+            LEFT JOIN agent_rpa_types t ON r.rpa_type_id = t.id
+            LEFT JOIN users_new u ON r.created_by = u.id
+            WHERE r.id = %s
+        """, (rpa_id,))
+        rpa = cursor.fetchone()
+        
+        if not rpa:
+            flash("RPA não encontrada", "error")
+            return redirect(url_for('agent_page'))
+        
+        if rpa['created_by'] != session['user_id'] and session.get('role') != 'admin':
+            flash("Permissão negada", "error")
+            return redirect(url_for('agent_page'))
+        
+        # Buscar logs
+        cursor.execute("""
+            SELECT action_type, details, created_at
+            FROM agent_logs
+            WHERE entity_type = 'rpa' AND entity_id = %s
+            ORDER BY created_at DESC
+            LIMIT 20
+        """, (rpa_id,))
+        logs = cursor.fetchall()
+        
+        return render_template(
+            "rpa_detail.html",
+            rpa=rpa,
+            logs=logs
+        )
+        
+    except Exception as e:
+        flash(f"Erro: {e}", "error")
+        return redirect(url_for('agent_page'))
+    finally:
+        conn.close()
+
+
+@app.route("/agent/dashboard-gen/<int:request_id>")
+@login_required
+def view_dashboard_gen_page(request_id):
+    """Página para visualizar detalhes de uma solicitação de dashboard."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT d.*, u.nome_completo as created_by_name
+            FROM agent_dashboard_requests d
+            LEFT JOIN users_new u ON d.created_by = u.id
+            WHERE d.id = %s
+        """, (request_id,))
+        dash = cursor.fetchone()
+        
+        if not dash:
+            flash("Solicitação não encontrada", "error")
+            return redirect(url_for('agent_page'))
+        
+        if dash['created_by'] != session['user_id'] and session.get('role') != 'admin':
+            flash("Permissão negada", "error")
+            return redirect(url_for('agent_page'))
+        
+        return render_template(
+            "dashboard_gen_detail.html",
+            dash=dash
+        )
+        
+    except Exception as e:
+        flash(f"Erro: {e}", "error")
+        return redirect(url_for('agent_page'))
+    finally:
+        conn.close()
+
+
 # --------------------------------------------------------------------------- #
 # Executor de RPAs - Conexão MySQL Brudam
 # --------------------------------------------------------------------------- #

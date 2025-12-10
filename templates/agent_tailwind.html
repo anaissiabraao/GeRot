@@ -289,15 +289,23 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{{ rpa.created_at }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                                     {% if rpa.status != 'running' %}
-                                    <button onclick="executeRPA({{ rpa.id }})" class="text-green-600 hover:underline mr-3" title="Executar">
+                                    <button onclick="executeRPA({{ rpa.id }})" class="text-green-600 hover:underline mr-2" title="Executar">
                                         <i class="fas fa-play"></i>
                                     </button>
                                     {% else %}
-                                    <span class="text-blue-500 mr-3" title="Em execução">
+                                    <span class="text-blue-500 mr-2" title="Em execução">
                                         <i class="fas fa-spinner fa-spin"></i>
                                     </span>
                                     {% endif %}
-                                    <button onclick="viewRPALogs({{ rpa.id }})" class="text-primary hover:underline mr-3" title="Ver Logs">
+                                    {% if rpa.status == 'completed' and rpa.result %}
+                                    <a href="{{ url_for('export_rpa_to_excel', rpa_id=rpa.id) }}" class="text-green-700 hover:underline mr-2" title="Exportar Excel">
+                                        <i class="fas fa-file-excel"></i>
+                                    </a>
+                                    {% endif %}
+                                    <a href="{{ url_for('view_rpa_page', rpa_id=rpa.id) }}" class="text-primary hover:underline mr-2" title="Ver Detalhes">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <button onclick="viewRPALogs({{ rpa.id }})" class="text-blue-500 hover:underline mr-2" title="Ver Logs">
                                         <i class="fas fa-file-alt"></i>
                                     </button>
                                     <button onclick="deleteRPA({{ rpa.id }})" class="text-destructive hover:underline" title="Excluir">
@@ -523,15 +531,15 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{{ dash.created_at }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    {% if dash.status == 'completed' %}
-                                    <a href="{{ dash.result_url }}" target="_blank" class="text-primary hover:underline mr-3">
+                                    {% if dash.status == 'completed' and dash.result_url %}
+                                    <a href="{{ dash.result_url }}" target="_blank" class="text-primary hover:underline mr-2" title="Abrir Dashboard">
                                         <i class="fas fa-external-link-alt"></i>
                                     </a>
                                     {% endif %}
-                                    <button onclick="viewDashboardGen({{ dash.id }})" class="text-primary hover:underline mr-3">
+                                    <a href="{{ url_for('view_dashboard_gen_page', request_id=dash.id) }}" class="text-primary hover:underline mr-2" title="Ver Detalhes">
                                         <i class="fas fa-eye"></i>
-                                    </button>
-                                    <button onclick="deleteDashboardGen({{ dash.id }})" class="text-destructive hover:underline">
+                                    </a>
+                                    <button onclick="deleteDashboardGen({{ dash.id }})" class="text-destructive hover:underline" title="Excluir">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </td>

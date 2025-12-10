@@ -29,6 +29,26 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+# Mudar para o diretório do script
+os.chdir(Path(__file__).parent)
+
+# Carregar .env usando dotenv (mais robusto)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # Fallback: carregar manualmente
+    env_path = Path(".env")
+    if env_path.exists():
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    os.environ[key.strip()] = value.strip().strip("'").strip('"')
+
 # Configurar logging
 logging.basicConfig(
     level=logging.INFO,
@@ -39,19 +59,6 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-
-# Tentar carregar .env local
-env_path = Path(__file__).parent / ".env"
-if env_path.exists():
-    with open(env_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" in line:
-                key, value = line.split("=", 1)
-                os.environ[key.strip()] = value.strip().strip("'").strip('"')
-    logger.info(f"Variáveis carregadas de {env_path}")
 
 # Configurações
 GEROT_API_URL = os.getenv("GEROT_API_URL", "https://gerot.onrender.com")
@@ -96,10 +103,10 @@ def test_mysql_connection():
         result = cursor.fetchone()
         cursor.close()
         conn.close()
-        logger.info("✅ Conexão MySQL OK")
+        logger.info("[OK] Conexao MySQL OK")
         return True
     except Exception as e:
-        logger.error(f"❌ Erro ao conectar MySQL: {e}")
+        logger.error(f"[ERRO] Erro ao conectar MySQL: {e}")
         return False
 
 
@@ -160,13 +167,20 @@ def execute_rpa(rpa: dict) -> dict:
         cursor.execute(query)
         data = cursor.fetchall()
         
-        # Converter datetime para string (JSON serializable)
+        # Converter tipos não serializáveis para JSON
+        from decimal import Decimal
         for row in data:
             for key, value in row.items():
                 if isinstance(value, datetime):
                     row[key] = value.isoformat()
                 elif hasattr(value, 'isoformat'):
                     row[key] = value.isoformat()
+                elif isinstance(value, Decimal):
+                    row[key] = float(value)
+                elif isinstance(value, bytes):
+                    row[key] = value.decode('utf-8', errors='replace')
+                elif value is not None and not isinstance(value, (str, int, float, bool, list, dict)):
+                    row[key] = str(value)
         
         logs.append(f"[{datetime.now().isoformat()}] Query executada! {len(data)} registros.")
         
@@ -202,20 +216,20 @@ def send_result(rpa_id: int, result: dict):
         )
         
         if response.status_code == 200:
-            logger.info(f"✅ Resultado enviado para RPA #{rpa_id}")
+            logger.info(f"[OK] Resultado enviado para RPA #{rpa_id}")
             return True
         else:
-            logger.warning(f"⚠️ Erro ao enviar resultado: {response.status_code}")
+            logger.warning(f"[AVISO] Erro ao enviar resultado: {response.status_code}")
             return False
     except Exception as e:
-        logger.error(f"❌ Erro ao enviar resultado: {e}")
+        logger.error(f"[ERRO] Erro ao enviar resultado: {e}")
         return False
 
 
 def run_agent():
     """Loop principal do agente."""
     logger.info("=" * 60)
-    logger.info("🤖 Agente Brudam iniciado")
+    logger.info("[AGENTE] Brudam iniciado")
     logger.info(f"   GeRot URL: {GEROT_API_URL}")
     logger.info(f"   MySQL: {MYSQL_CONFIG['host']}:{MYSQL_CONFIG['port']}")
     logger.info(f"   Polling: {POLLING_INTERVAL}s")
@@ -232,13 +246,13 @@ def run_agent():
             rpas = fetch_pending_rpas()
             
             if rpas:
-                logger.info(f"📋 {len(rpas)} RPA(s) pendente(s)")
+                logger.info(f"[INFO] {len(rpas)} RPA(s) pendente(s)")
                 
                 for rpa in rpas:
                     rpa_id = rpa.get("id")
                     name = rpa.get("name", "Sem nome")
                     
-                    logger.info(f"▶️ Executando RPA #{rpa_id}: {name}")
+                    logger.info(f"[EXEC] Executando RPA #{rpa_id}: {name}")
                     
                     # Executar
                     result = execute_rpa(rpa)
@@ -247,15 +261,15 @@ def run_agent():
                     send_result(rpa_id, result)
                     
                     if result["success"]:
-                        logger.info(f"✅ RPA #{rpa_id} concluída: {result['row_count']} registros")
+                        logger.info(f"[OK] RPA #{rpa_id} concluida: {result['row_count']} registros")
                     else:
-                        logger.error(f"❌ RPA #{rpa_id} falhou: {result['error']}")
+                        logger.error(f"[ERRO] RPA #{rpa_id} falhou: {result['error']}")
             
             # Aguardar próximo polling
             time.sleep(POLLING_INTERVAL)
             
         except KeyboardInterrupt:
-            logger.info("🛑 Agente interrompido pelo usuário")
+            logger.info("[STOP] Agente interrompido pelo usuario")
             break
         except Exception as e:
             logger.error(f"Erro no loop principal: {e}")
