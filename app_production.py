@@ -510,6 +510,148 @@ def create_admin_user() -> None:
         app.logger.error(f"[ADMIN] Erro ao criar usuário admin: {exc}")
 
 
+def ensure_agent_tables():
+    """Garante que as tabelas do agente existam via SQL direto."""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verificar se tabelas já existem para evitar processamento desnecessário
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'agent_rpa_types'
+            )
+        """)
+        if cursor.fetchone()['exists']:
+            conn.close()
+            return
+
+        app.logger.info("[AGENT] Criando tabelas do Agente IA...")
+        
+        # Criação das tabelas
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS agent_rpa_types (
+                id BIGSERIAL PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                icon TEXT DEFAULT 'fa-cogs',
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_rpas (
+                id BIGSERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                rpa_type_id BIGINT REFERENCES agent_rpa_types(id) ON DELETE SET NULL,
+                priority TEXT NOT NULL DEFAULT 'medium',
+                frequency TEXT DEFAULT 'once',
+                parameters JSONB,
+                status TEXT NOT NULL DEFAULT 'pending',
+                result JSONB,
+                error_message TEXT,
+                created_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+                executed_at TIMESTAMPTZ,
+                completed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_agent_rpas_status ON agent_rpas(status);
+            CREATE INDEX IF NOT EXISTS idx_agent_rpas_created_by ON agent_rpas(created_by);
+
+            CREATE TABLE IF NOT EXISTS agent_data_sources (
+                id BIGSERIAL PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                source_type TEXT NOT NULL DEFAULT 'database',
+                connection_config JSONB,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_dashboard_requests (
+                id BIGSERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                description TEXT,
+                category TEXT NOT NULL DEFAULT 'Outros',
+                data_source_id BIGINT REFERENCES agent_data_sources(id) ON DELETE SET NULL,
+                chart_types TEXT[],
+                filters JSONB,
+                status TEXT NOT NULL DEFAULT 'pending',
+                result_url TEXT,
+                result_data JSONB,
+                error_message TEXT,
+                created_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+                processed_at TIMESTAMPTZ,
+                completed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_agent_dashboard_requests_status ON agent_dashboard_requests(status);
+            CREATE INDEX IF NOT EXISTS idx_agent_dashboard_requests_created_by ON agent_dashboard_requests(created_by);
+
+            CREATE TABLE IF NOT EXISTS agent_settings (
+                id BIGSERIAL PRIMARY KEY,
+                setting_key TEXT NOT NULL UNIQUE,
+                setting_value JSONB,
+                description TEXT,
+                updated_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_logs (
+                id BIGSERIAL PRIMARY KEY,
+                action_type TEXT NOT NULL,
+                entity_type TEXT,
+                entity_id BIGINT,
+                user_id BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+                details JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_agent_logs_action_type ON agent_logs(action_type);
+        """)
+
+        # Inserção de dados iniciais
+        cursor.execute("""
+            INSERT INTO agent_rpa_types (name, description, icon) VALUES
+            ('Extração de Dados', 'Extrai dados de sistemas externos (ERP, planilhas, APIs)', 'fa-download'),
+            ('Processamento de Arquivos', 'Processa e transforma arquivos (PDF, Excel, CSV)', 'fa-file-alt'),
+            ('Integração de Sistemas', 'Sincroniza dados entre sistemas diferentes', 'fa-sync'),
+            ('Envio de Relatórios', 'Gera e envia relatórios automaticamente', 'fa-paper-plane'),
+            ('Monitoramento', 'Monitora sistemas e envia alertas', 'fa-bell'),
+            ('Backup de Dados', 'Realiza backup automático de dados', 'fa-database'),
+            ('Web Scraping', 'Coleta dados de websites', 'fa-globe'),
+            ('Automação de E-mail', 'Processa e responde e-mails automaticamente', 'fa-envelope')
+            ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
+
+            INSERT INTO agent_data_sources (name, description, source_type) VALUES
+            ('Banco de Dados GeRot', 'Dados internos do sistema GeRot', 'database'),
+            ('Power BI', 'Dados dos dashboards Power BI', 'api'),
+            ('Planilhas Excel', 'Dados de planilhas compartilhadas', 'file'),
+            ('ERP PortoEx', 'Sistema ERP da empresa', 'api'),
+            ('API Externa', 'Dados de APIs de terceiros', 'api')
+            ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
+            
+            INSERT INTO agent_settings (setting_key, setting_value, description) VALUES
+            ('rpa_enabled', '{"enabled": true}', 'Habilita/desabilita funcionalidades de RPA'),
+            ('dashboard_gen_enabled', '{"enabled": true}', 'Habilita/desabilita geração de dashboards'),
+            ('max_concurrent_rpas', '{"value": 5}', 'Número máximo de RPAs executando simultaneamente')
+            ON CONFLICT (setting_key) DO NOTHING;
+        """)
+        
+        conn.commit()
+        conn.close()
+        app.logger.info("[AGENT] Tabelas e dados iniciais criados com sucesso.")
+        
+    except Exception as e:
+        app.logger.error(f"[AGENT] Erro ao criar tabelas: {e}")
+
+
 def seed_dashboards() -> None:
     conn = get_db()
     cursor = conn.cursor()
@@ -2648,148 +2790,6 @@ def delete_resource_api(resource_id):
 # --------------------------------------------------------------------------- #
 # Rotas do Agente IA
 # --------------------------------------------------------------------------- #
-def ensure_agent_tables():
-    """Garante que as tabelas do agente existam via SQL direto."""
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        # Verificar se tabelas já existem para evitar processamento desnecessário
-        cursor.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_name = 'agent_rpa_types'
-            )
-        """)
-        if cursor.fetchone()['exists']:
-            conn.close()
-            return
-
-        app.logger.info("[AGENT] Criando tabelas do Agente IA...")
-        
-        # Criação das tabelas
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS agent_rpa_types (
-                id BIGSERIAL PRIMARY KEY,
-                name TEXT NOT NULL UNIQUE,
-                description TEXT,
-                icon TEXT DEFAULT 'fa-cogs',
-                is_active BOOLEAN NOT NULL DEFAULT TRUE,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            );
-
-            CREATE TABLE IF NOT EXISTS agent_rpas (
-                id BIGSERIAL PRIMARY KEY,
-                name TEXT NOT NULL,
-                description TEXT,
-                rpa_type_id BIGINT REFERENCES agent_rpa_types(id) ON DELETE SET NULL,
-                priority TEXT NOT NULL DEFAULT 'medium',
-                frequency TEXT DEFAULT 'once',
-                parameters JSONB,
-                status TEXT NOT NULL DEFAULT 'pending',
-                result JSONB,
-                error_message TEXT,
-                created_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
-                executed_at TIMESTAMPTZ,
-                completed_at TIMESTAMPTZ,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            );
-            
-            CREATE INDEX IF NOT EXISTS idx_agent_rpas_status ON agent_rpas(status);
-            CREATE INDEX IF NOT EXISTS idx_agent_rpas_created_by ON agent_rpas(created_by);
-
-            CREATE TABLE IF NOT EXISTS agent_data_sources (
-                id BIGSERIAL PRIMARY KEY,
-                name TEXT NOT NULL UNIQUE,
-                description TEXT,
-                source_type TEXT NOT NULL DEFAULT 'database',
-                connection_config JSONB,
-                is_active BOOLEAN NOT NULL DEFAULT TRUE,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            );
-
-            CREATE TABLE IF NOT EXISTS agent_dashboard_requests (
-                id BIGSERIAL PRIMARY KEY,
-                title TEXT NOT NULL,
-                description TEXT,
-                category TEXT NOT NULL DEFAULT 'Outros',
-                data_source_id BIGINT REFERENCES agent_data_sources(id) ON DELETE SET NULL,
-                chart_types TEXT[],
-                filters JSONB,
-                status TEXT NOT NULL DEFAULT 'pending',
-                result_url TEXT,
-                result_data JSONB,
-                error_message TEXT,
-                created_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
-                processed_at TIMESTAMPTZ,
-                completed_at TIMESTAMPTZ,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            );
-            
-            CREATE INDEX IF NOT EXISTS idx_agent_dashboard_requests_status ON agent_dashboard_requests(status);
-            CREATE INDEX IF NOT EXISTS idx_agent_dashboard_requests_created_by ON agent_dashboard_requests(created_by);
-
-            CREATE TABLE IF NOT EXISTS agent_settings (
-                id BIGSERIAL PRIMARY KEY,
-                setting_key TEXT NOT NULL UNIQUE,
-                setting_value JSONB,
-                description TEXT,
-                updated_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            );
-
-            CREATE TABLE IF NOT EXISTS agent_logs (
-                id BIGSERIAL PRIMARY KEY,
-                action_type TEXT NOT NULL,
-                entity_type TEXT,
-                entity_id BIGINT,
-                user_id BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
-                details JSONB,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            );
-            
-            CREATE INDEX IF NOT EXISTS idx_agent_logs_action_type ON agent_logs(action_type);
-        """)
-
-        # Inserção de dados iniciais
-        cursor.execute("""
-            INSERT INTO agent_rpa_types (name, description, icon) VALUES
-            ('Extração de Dados', 'Extrai dados de sistemas externos (ERP, planilhas, APIs)', 'fa-download'),
-            ('Processamento de Arquivos', 'Processa e transforma arquivos (PDF, Excel, CSV)', 'fa-file-alt'),
-            ('Integração de Sistemas', 'Sincroniza dados entre sistemas diferentes', 'fa-sync'),
-            ('Envio de Relatórios', 'Gera e envia relatórios automaticamente', 'fa-paper-plane'),
-            ('Monitoramento', 'Monitora sistemas e envia alertas', 'fa-bell'),
-            ('Backup de Dados', 'Realiza backup automático de dados', 'fa-database'),
-            ('Web Scraping', 'Coleta dados de websites', 'fa-globe'),
-            ('Automação de E-mail', 'Processa e responde e-mails automaticamente', 'fa-envelope')
-            ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
-
-            INSERT INTO agent_data_sources (name, description, source_type) VALUES
-            ('Banco de Dados GeRot', 'Dados internos do sistema GeRot', 'database'),
-            ('Power BI', 'Dados dos dashboards Power BI', 'api'),
-            ('Planilhas Excel', 'Dados de planilhas compartilhadas', 'file'),
-            ('ERP PortoEx', 'Sistema ERP da empresa', 'api'),
-            ('API Externa', 'Dados de APIs de terceiros', 'api')
-            ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
-            
-            INSERT INTO agent_settings (setting_key, setting_value, description) VALUES
-            ('rpa_enabled', '{"enabled": true}', 'Habilita/desabilita funcionalidades de RPA'),
-            ('dashboard_gen_enabled', '{"enabled": true}', 'Habilita/desabilita geração de dashboards'),
-            ('max_concurrent_rpas', '{"value": 5}', 'Número máximo de RPAs executando simultaneamente')
-            ON CONFLICT (setting_key) DO NOTHING;
-        """)
-        
-        conn.commit()
-        conn.close()
-        app.logger.info("[AGENT] Tabelas e dados iniciais criados com sucesso.")
-        
-    except Exception as e:
-        app.logger.error(f"[AGENT] Erro ao criar tabelas: {e}")
-
-
 @app.route("/agent")
 @login_required
 def agent_page():
