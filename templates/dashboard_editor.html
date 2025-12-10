@@ -1,0 +1,637 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}{{ 'Editar' if template else 'Novo' }} Dashboard - GeRot{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-background">
+    <!-- Header -->
+    <header class="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+        <div class="container mx-auto flex h-14 items-center justify-between px-4">
+            <div class="flex items-center gap-4">
+                <a href="{{ url_for('agent_page') }}" class="flex items-center gap-2 text-muted-foreground hover:text-foreground">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <input type="text" id="dashboardTitle" value="{{ template.title if template else 'Novo Dashboard' }}" 
+                       class="text-lg font-semibold bg-transparent border-none focus:outline-none focus:ring-0 w-64"
+                       placeholder="Nome do Dashboard">
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="refreshData()" class="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted/50 transition-colors">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    Atualizar Dados
+                </button>
+                <button onclick="saveDashboard(false)" class="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted/50 transition-colors">
+                    <i class="fas fa-save mr-2"></i>
+                    Salvar Rascunho
+                </button>
+                <button onclick="saveDashboard(true)" class="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+                    <i class="fas fa-check mr-2"></i>
+                    Publicar
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex h-[calc(100vh-3.5rem)]">
+        <!-- Sidebar Esquerda - Configurações -->
+        <aside class="w-80 border-r bg-card overflow-y-auto">
+            <div class="p-4 space-y-6">
+                <!-- Fonte de Dados -->
+                <div>
+                    <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <i class="fas fa-database text-primary"></i>
+                        Fonte de Dados
+                    </h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-xs text-muted-foreground">Categoria</label>
+                            <select id="category" class="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm">
+                                <option value="Comercial">Comercial</option>
+                                <option value="Financeiro">Financeiro</option>
+                                <option value="Operações">Operações</option>
+                                <option value="Cotação">Cotação</option>
+                                <option value="Controladoria">Controladoria</option>
+                                <option value="Outros">Outros</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-muted-foreground">Query SQL</label>
+                            <textarea id="sqlQuery" rows="6" 
+                                      class="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm font-mono"
+                                      placeholder="SELECT * FROM tabela LIMIT 100">{{ template.query_config.query if template and template.query_config else '' }}</textarea>
+                        </div>
+                        <button onclick="executeQuery()" class="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-play mr-2"></i>
+                            Executar Query
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Campos Disponíveis -->
+                <div>
+                    <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <i class="fas fa-columns text-primary"></i>
+                        Campos Disponíveis
+                    </h3>
+                    <div id="availableFields" class="space-y-1 max-h-48 overflow-y-auto">
+                        <p class="text-xs text-muted-foreground">Execute a query para ver os campos</p>
+                    </div>
+                </div>
+
+                <!-- Adicionar Gráfico -->
+                <div>
+                    <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <i class="fas fa-chart-bar text-primary"></i>
+                        Adicionar Componente
+                    </h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="addChart('bar')" class="flex flex-col items-center gap-1 rounded-md border p-3 hover:bg-muted/50 transition-colors">
+                            <i class="fas fa-chart-bar text-lg"></i>
+                            <span class="text-xs">Barras</span>
+                        </button>
+                        <button onclick="addChart('line')" class="flex flex-col items-center gap-1 rounded-md border p-3 hover:bg-muted/50 transition-colors">
+                            <i class="fas fa-chart-line text-lg"></i>
+                            <span class="text-xs">Linha</span>
+                        </button>
+                        <button onclick="addChart('pie')" class="flex flex-col items-center gap-1 rounded-md border p-3 hover:bg-muted/50 transition-colors">
+                            <i class="fas fa-chart-pie text-lg"></i>
+                            <span class="text-xs">Pizza</span>
+                        </button>
+                        <button onclick="addChart('doughnut')" class="flex flex-col items-center gap-1 rounded-md border p-3 hover:bg-muted/50 transition-colors">
+                            <i class="fas fa-circle-notch text-lg"></i>
+                            <span class="text-xs">Rosca</span>
+                        </button>
+                        <button onclick="addChart('table')" class="flex flex-col items-center gap-1 rounded-md border p-3 hover:bg-muted/50 transition-colors">
+                            <i class="fas fa-table text-lg"></i>
+                            <span class="text-xs">Tabela</span>
+                        </button>
+                        <button onclick="addChart('kpi')" class="flex flex-col items-center gap-1 rounded-md border p-3 hover:bg-muted/50 transition-colors">
+                            <i class="fas fa-tachometer-alt text-lg"></i>
+                            <span class="text-xs">KPI</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Área Principal - Canvas do Dashboard -->
+        <main class="flex-1 overflow-auto bg-muted/30 p-6">
+            <div id="dashboardCanvas" class="min-h-full grid grid-cols-12 gap-4 auto-rows-min">
+                <!-- Componentes serão adicionados aqui dinamicamente -->
+                <div id="emptyState" class="col-span-12 flex flex-col items-center justify-center py-20 text-center">
+                    <div class="rounded-full bg-muted w-20 h-20 flex items-center justify-center mb-4">
+                        <i class="fas fa-plus text-3xl text-muted-foreground"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2">Comece a criar seu dashboard</h3>
+                    <p class="text-sm text-muted-foreground max-w-md">
+                        1. Configure a query SQL na barra lateral<br>
+                        2. Execute para carregar os dados<br>
+                        3. Adicione gráficos e tabelas
+                    </p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Sidebar Direita - Propriedades do Componente Selecionado -->
+        <aside id="propertiesPanel" class="w-72 border-l bg-card overflow-y-auto hidden">
+            <div class="p-4 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-semibold">Propriedades</h3>
+                    <button onclick="closePropertiesPanel()" class="text-muted-foreground hover:text-foreground">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="propertiesContent">
+                    <!-- Conteúdo dinâmico -->
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Estado do dashboard
+const dashboardState = {
+    id: {{ template.id if template else 'null' }},
+    title: '{{ template.title if template else "Novo Dashboard" }}',
+    category: '{{ template.category if template else "Outros" }}',
+    queryConfig: {{ template.query_config | tojson if template and template.query_config else '{}' }},
+    chartsConfig: {{ template.charts_config | tojson if template and template.charts_config else '[]' }},
+    layoutConfig: {{ template.layout_config | tojson if template and template.layout_config else '{}' }},
+    data: [],
+    fields: [],
+    chartInstances: {},
+    selectedComponent: null,
+    componentCounter: 0
+};
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('category').value = dashboardState.category;
+    if (dashboardState.queryConfig.query) {
+        document.getElementById('sqlQuery').value = dashboardState.queryConfig.query;
+    }
+    
+    // Renderizar componentes existentes
+    if (dashboardState.chartsConfig.length > 0) {
+        document.getElementById('emptyState').style.display = 'none';
+        dashboardState.chartsConfig.forEach(config => {
+            renderComponent(config);
+        });
+    }
+});
+
+// Executar query
+async function executeQuery() {
+    const query = document.getElementById('sqlQuery').value.trim();
+    if (!query) {
+        alert('Digite uma query SQL');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/agent/dashboard-editor/execute-query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query })
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            alert('Erro: ' + result.error);
+            return;
+        }
+        
+        dashboardState.data = result.data || [];
+        dashboardState.fields = result.fields || [];
+        
+        // Atualizar campos disponíveis
+        updateAvailableFields();
+        
+        // Atualizar gráficos existentes
+        updateAllCharts();
+        
+        alert(`Query executada! ${dashboardState.data.length} registros carregados.`);
+        
+    } catch (error) {
+        alert('Erro ao executar query: ' + error.message);
+    }
+}
+
+function updateAvailableFields() {
+    const container = document.getElementById('availableFields');
+    if (dashboardState.fields.length === 0) {
+        container.innerHTML = '<p class="text-xs text-muted-foreground">Nenhum campo disponível</p>';
+        return;
+    }
+    
+    container.innerHTML = dashboardState.fields.map(field => `
+        <div class="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted/50 cursor-pointer text-sm" 
+             draggable="true" 
+             ondragstart="dragField(event, '${field}')">
+            <i class="fas fa-grip-vertical text-muted-foreground text-xs"></i>
+            <span>${field}</span>
+        </div>
+    `).join('');
+}
+
+function dragField(event, fieldName) {
+    event.dataTransfer.setData('field', fieldName);
+}
+
+// Adicionar componente
+function addChart(type) {
+    document.getElementById('emptyState').style.display = 'none';
+    
+    const componentId = `chart_${++dashboardState.componentCounter}`;
+    const config = {
+        id: componentId,
+        type: type,
+        title: getDefaultTitle(type),
+        colSpan: type === 'table' ? 12 : (type === 'kpi' ? 3 : 6),
+        rowSpan: type === 'kpi' ? 1 : 2,
+        xField: '',
+        yField: '',
+        aggregation: 'count',
+        colors: ['#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899']
+    };
+    
+    dashboardState.chartsConfig.push(config);
+    renderComponent(config);
+    selectComponent(componentId);
+}
+
+function getDefaultTitle(type) {
+    const titles = {
+        'bar': 'Gráfico de Barras',
+        'line': 'Gráfico de Linha',
+        'pie': 'Gráfico de Pizza',
+        'doughnut': 'Gráfico de Rosca',
+        'table': 'Tabela de Dados',
+        'kpi': 'Indicador'
+    };
+    return titles[type] || 'Componente';
+}
+
+function renderComponent(config) {
+    const canvas = document.getElementById('dashboardCanvas');
+    
+    const wrapper = document.createElement('div');
+    wrapper.id = `wrapper_${config.id}`;
+    wrapper.className = `col-span-${config.colSpan} bg-card rounded-lg border shadow-sm overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all`;
+    wrapper.style.minHeight = config.type === 'kpi' ? '120px' : '300px';
+    wrapper.onclick = () => selectComponent(config.id);
+    
+    wrapper.innerHTML = `
+        <div class="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+            <span class="text-sm font-medium">${config.title}</span>
+            <div class="flex items-center gap-1">
+                <button onclick="event.stopPropagation(); editComponent('${config.id}')" class="p-1 hover:bg-muted rounded">
+                    <i class="fas fa-cog text-xs text-muted-foreground"></i>
+                </button>
+                <button onclick="event.stopPropagation(); removeComponent('${config.id}')" class="p-1 hover:bg-red-100 rounded">
+                    <i class="fas fa-times text-xs text-red-500"></i>
+                </button>
+            </div>
+        </div>
+        <div class="p-4" id="content_${config.id}">
+            ${config.type === 'table' ? '<div id="table_' + config.id + '"></div>' : 
+              config.type === 'kpi' ? '<div id="kpi_' + config.id + '" class="text-center"><span class="text-3xl font-bold text-primary">--</span></div>' :
+              '<canvas id="canvas_' + config.id + '"></canvas>'}
+        </div>
+    `;
+    
+    canvas.appendChild(wrapper);
+    
+    // Inicializar gráfico se não for tabela ou KPI
+    if (config.type !== 'table' && config.type !== 'kpi') {
+        initChart(config);
+    }
+}
+
+function initChart(config) {
+    const ctx = document.getElementById(`canvas_${config.id}`);
+    if (!ctx) return;
+    
+    const chartConfig = {
+        type: config.type === 'doughnut' ? 'doughnut' : config.type,
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: config.colors,
+                borderColor: config.colors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: ['pie', 'doughnut'].includes(config.type)
+                }
+            }
+        }
+    };
+    
+    dashboardState.chartInstances[config.id] = new Chart(ctx, chartConfig);
+}
+
+function updateAllCharts() {
+    dashboardState.chartsConfig.forEach(config => {
+        updateChartData(config);
+    });
+}
+
+function updateChartData(config) {
+    if (!dashboardState.data.length) return;
+    
+    if (config.type === 'table') {
+        renderTable(config);
+    } else if (config.type === 'kpi') {
+        renderKPI(config);
+    } else {
+        const chart = dashboardState.chartInstances[config.id];
+        if (!chart) return;
+        
+        // Agregar dados
+        const aggregated = aggregateData(config);
+        chart.data.labels = aggregated.labels;
+        chart.data.datasets[0].data = aggregated.values;
+        chart.update();
+    }
+}
+
+function aggregateData(config) {
+    const xField = config.xField || dashboardState.fields[0];
+    const yField = config.yField;
+    
+    const groups = {};
+    dashboardState.data.forEach(row => {
+        const key = row[xField] || 'N/A';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(yField ? parseFloat(row[yField]) || 0 : 1);
+    });
+    
+    const labels = Object.keys(groups).slice(0, 10);
+    const values = labels.map(key => {
+        const arr = groups[key];
+        switch (config.aggregation) {
+            case 'sum': return arr.reduce((a, b) => a + b, 0);
+            case 'avg': return arr.reduce((a, b) => a + b, 0) / arr.length;
+            case 'min': return Math.min(...arr);
+            case 'max': return Math.max(...arr);
+            default: return arr.length;
+        }
+    });
+    
+    return { labels, values };
+}
+
+function renderTable(config) {
+    const container = document.getElementById(`table_${config.id}`);
+    if (!container || !dashboardState.data.length) return;
+    
+    const fields = dashboardState.fields.slice(0, 6);
+    const rows = dashboardState.data.slice(0, 20);
+    
+    container.innerHTML = `
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-muted/50">
+                    <tr>
+                        ${fields.map(f => `<th class="px-3 py-2 text-left text-xs font-medium uppercase">${f}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    ${rows.map(row => `
+                        <tr class="hover:bg-muted/30">
+                            ${fields.map(f => `<td class="px-3 py-2 whitespace-nowrap">${row[f] || ''}</td>`).join('')}
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderKPI(config) {
+    const container = document.getElementById(`kpi_${config.id}`);
+    if (!container) return;
+    
+    let value = dashboardState.data.length;
+    if (config.yField) {
+        const values = dashboardState.data.map(r => parseFloat(r[config.yField]) || 0);
+        switch (config.aggregation) {
+            case 'sum': value = values.reduce((a, b) => a + b, 0); break;
+            case 'avg': value = values.reduce((a, b) => a + b, 0) / values.length; break;
+            case 'min': value = Math.min(...values); break;
+            case 'max': value = Math.max(...values); break;
+            default: value = values.length;
+        }
+    }
+    
+    container.innerHTML = `
+        <div class="text-4xl font-bold text-primary">${typeof value === 'number' ? value.toLocaleString('pt-BR') : value}</div>
+        <div class="text-sm text-muted-foreground mt-1">${config.title}</div>
+    `;
+}
+
+function selectComponent(componentId) {
+    // Remover seleção anterior
+    document.querySelectorAll('[id^="wrapper_"]').forEach(el => {
+        el.classList.remove('ring-2', 'ring-primary');
+    });
+    
+    // Selecionar novo
+    const wrapper = document.getElementById(`wrapper_${componentId}`);
+    if (wrapper) {
+        wrapper.classList.add('ring-2', 'ring-primary');
+    }
+    
+    dashboardState.selectedComponent = componentId;
+    showPropertiesPanel(componentId);
+}
+
+function showPropertiesPanel(componentId) {
+    const config = dashboardState.chartsConfig.find(c => c.id === componentId);
+    if (!config) return;
+    
+    const panel = document.getElementById('propertiesPanel');
+    const content = document.getElementById('propertiesContent');
+    
+    content.innerHTML = `
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs text-muted-foreground">Título</label>
+                <input type="text" value="${config.title}" onchange="updateComponentProp('${componentId}', 'title', this.value)"
+                       class="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="text-xs text-muted-foreground">Campo X (Categoria)</label>
+                <select onchange="updateComponentProp('${componentId}', 'xField', this.value)"
+                        class="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm">
+                    <option value="">Selecione...</option>
+                    ${dashboardState.fields.map(f => `<option value="${f}" ${config.xField === f ? 'selected' : ''}>${f}</option>`).join('')}
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-muted-foreground">Campo Y (Valor)</label>
+                <select onchange="updateComponentProp('${componentId}', 'yField', this.value)"
+                        class="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm">
+                    <option value="">Contagem</option>
+                    ${dashboardState.fields.map(f => `<option value="${f}" ${config.yField === f ? 'selected' : ''}>${f}</option>`).join('')}
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-muted-foreground">Agregação</label>
+                <select onchange="updateComponentProp('${componentId}', 'aggregation', this.value)"
+                        class="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm">
+                    <option value="count" ${config.aggregation === 'count' ? 'selected' : ''}>Contagem</option>
+                    <option value="sum" ${config.aggregation === 'sum' ? 'selected' : ''}>Soma</option>
+                    <option value="avg" ${config.aggregation === 'avg' ? 'selected' : ''}>Média</option>
+                    <option value="min" ${config.aggregation === 'min' ? 'selected' : ''}>Mínimo</option>
+                    <option value="max" ${config.aggregation === 'max' ? 'selected' : ''}>Máximo</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-muted-foreground">Largura (colunas)</label>
+                <select onchange="updateComponentSize('${componentId}', parseInt(this.value))"
+                        class="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm">
+                    <option value="3" ${config.colSpan === 3 ? 'selected' : ''}>1/4</option>
+                    <option value="4" ${config.colSpan === 4 ? 'selected' : ''}>1/3</option>
+                    <option value="6" ${config.colSpan === 6 ? 'selected' : ''}>1/2</option>
+                    <option value="8" ${config.colSpan === 8 ? 'selected' : ''}>2/3</option>
+                    <option value="12" ${config.colSpan === 12 ? 'selected' : ''}>Largura total</option>
+                </select>
+            </div>
+        </div>
+    `;
+    
+    panel.classList.remove('hidden');
+}
+
+function closePropertiesPanel() {
+    document.getElementById('propertiesPanel').classList.add('hidden');
+    dashboardState.selectedComponent = null;
+    document.querySelectorAll('[id^="wrapper_"]').forEach(el => {
+        el.classList.remove('ring-2', 'ring-primary');
+    });
+}
+
+function updateComponentProp(componentId, prop, value) {
+    const config = dashboardState.chartsConfig.find(c => c.id === componentId);
+    if (!config) return;
+    
+    config[prop] = value;
+    
+    // Atualizar título visual
+    if (prop === 'title') {
+        const wrapper = document.getElementById(`wrapper_${componentId}`);
+        if (wrapper) {
+            wrapper.querySelector('.text-sm.font-medium').textContent = value;
+        }
+    }
+    
+    // Atualizar dados do gráfico
+    updateChartData(config);
+}
+
+function updateComponentSize(componentId, colSpan) {
+    const config = dashboardState.chartsConfig.find(c => c.id === componentId);
+    if (!config) return;
+    
+    config.colSpan = colSpan;
+    
+    const wrapper = document.getElementById(`wrapper_${componentId}`);
+    if (wrapper) {
+        wrapper.className = wrapper.className.replace(/col-span-\d+/, `col-span-${colSpan}`);
+    }
+}
+
+function editComponent(componentId) {
+    selectComponent(componentId);
+}
+
+function removeComponent(componentId) {
+    if (!confirm('Remover este componente?')) return;
+    
+    // Remover do DOM
+    const wrapper = document.getElementById(`wrapper_${componentId}`);
+    if (wrapper) wrapper.remove();
+    
+    // Remover do estado
+    const index = dashboardState.chartsConfig.findIndex(c => c.id === componentId);
+    if (index > -1) dashboardState.chartsConfig.splice(index, 1);
+    
+    // Destruir instância do gráfico
+    if (dashboardState.chartInstances[componentId]) {
+        dashboardState.chartInstances[componentId].destroy();
+        delete dashboardState.chartInstances[componentId];
+    }
+    
+    closePropertiesPanel();
+    
+    // Mostrar estado vazio se não houver componentes
+    if (dashboardState.chartsConfig.length === 0) {
+        document.getElementById('emptyState').style.display = 'flex';
+    }
+}
+
+async function refreshData() {
+    await executeQuery();
+}
+
+async function saveDashboard(publish = false) {
+    const title = document.getElementById('dashboardTitle').value.trim();
+    const category = document.getElementById('category').value;
+    const query = document.getElementById('sqlQuery').value.trim();
+    
+    if (!title) {
+        alert('Digite um nome para o dashboard');
+        return;
+    }
+    
+    const payload = {
+        id: dashboardState.id,
+        title: title,
+        category: category,
+        query_config: { query: query },
+        charts_config: dashboardState.chartsConfig,
+        layout_config: dashboardState.layoutConfig,
+        is_published: publish
+    };
+    
+    try {
+        const response = await fetch('/api/agent/dashboard-template', {
+            method: dashboardState.id ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            alert('Erro: ' + result.error);
+            return;
+        }
+        
+        if (!dashboardState.id && result.id) {
+            dashboardState.id = result.id;
+            // Atualizar URL sem recarregar
+            history.replaceState(null, '', `/agent/dashboard-editor/${result.id}`);
+        }
+        
+        alert(publish ? 'Dashboard publicado com sucesso!' : 'Rascunho salvo!');
+        
+    } catch (error) {
+        alert('Erro ao salvar: ' + error.message);
+    }
+}
+</script>
+{% endblock %}

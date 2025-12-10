@@ -190,6 +190,54 @@ def create_tables():
     """)
     print("  - agent_settings: OK")
     
+    # Tabela de Templates de Dashboard (configuração visual separada dos dados)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS agent_dashboard_templates (
+            id BIGSERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            category TEXT NOT NULL DEFAULT 'Outros',
+            
+            -- Configuração da query/fonte de dados
+            data_source_id BIGINT REFERENCES agent_data_sources(id) ON DELETE SET NULL,
+            query_config JSONB,
+            
+            -- Configuração visual (estilo Power BI)
+            layout_config JSONB,
+            charts_config JSONB,
+            filters_config JSONB,
+            theme_config JSONB,
+            
+            -- Metadados
+            is_published BOOLEAN DEFAULT false,
+            is_public BOOLEAN DEFAULT false,
+            thumbnail_url TEXT,
+            
+            -- Relacionamento com dashboards do sistema principal
+            linked_dashboard_id BIGINT,
+            
+            created_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_agent_dashboard_templates_created_by ON agent_dashboard_templates(created_by);
+        CREATE INDEX IF NOT EXISTS idx_agent_dashboard_templates_published ON agent_dashboard_templates(is_published);
+    """)
+    print("  - agent_dashboard_templates: OK")
+    
+    # Adicionar coluna template_id na tabela de requests se não existir
+    cursor.execute("""
+        DO $$ 
+        BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                          WHERE table_name='agent_dashboard_requests' AND column_name='template_id') THEN
+                ALTER TABLE agent_dashboard_requests ADD COLUMN template_id BIGINT REFERENCES agent_dashboard_templates(id) ON DELETE SET NULL;
+            END IF;
+        END $$;
+    """)
+    print("  - agent_dashboard_requests.template_id: OK")
+    
     # Tabela de Logs do Agente
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS agent_logs (

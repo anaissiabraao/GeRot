@@ -2864,6 +2864,20 @@ def agent_page():
         """, (session['user_id'],))
         dashboard_stats = dict(cursor.fetchone())
         
+        # Buscar templates de dashboard do usuário
+        dashboard_templates = []
+        try:
+            cursor.execute("""
+                SELECT id, title, description, category, is_published, thumbnail_url, created_at
+                FROM agent_dashboard_templates
+                WHERE created_by = %s
+                ORDER BY updated_at DESC
+                LIMIT 20
+            """, (session['user_id'],))
+            dashboard_templates = [dict(row) for row in cursor.fetchall()]
+        except Exception:
+            pass  # Tabela pode não existir ainda
+        
         return render_template(
             get_template("agent.html"),
             rpa_types=rpa_types,
@@ -2871,7 +2885,8 @@ def agent_page():
             rpas=rpas,
             generated_dashboards=generated_dashboards,
             stats=stats,
-            dashboard_stats=dashboard_stats
+            dashboard_stats=dashboard_stats,
+            dashboard_templates=dashboard_templates
         )
         
     except Exception as e:
@@ -2884,7 +2899,8 @@ def agent_page():
             rpas=[],
             generated_dashboards=[],
             stats={'pending': 0, 'running': 0, 'completed': 0, 'failed': 0},
-            dashboard_stats={'pending': 0, 'processing': 0, 'completed': 0}
+            dashboard_stats={'pending': 0, 'processing': 0, 'completed': 0},
+            dashboard_templates=[]
         )
     finally:
         conn.close()
@@ -3389,6 +3405,264 @@ def refresh_dashboard(dash_id):
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
+
+
+# --------------------------------------------------------------------------- #
+# Editor de Dashboard (estilo Power BI)
+# --------------------------------------------------------------------------- #
+@app.route("/agent/dashboard-editor")
+@app.route("/agent/dashboard-editor/new")
+@login_required
+def dashboard_editor_new():
+    """Página do editor de dashboard - novo."""
+    return render_template("dashboard_editor.html", template=None)
+
+
+@app.route("/agent/dashboard-editor/<int:template_id>")
+@login_required
+def dashboard_editor(template_id):
+    """Página do editor de dashboard - editar existente."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT * FROM agent_dashboard_templates WHERE id = %s AND created_by = %s
+        """, (template_id, session['user_id']))
+        template = cursor.fetchone()
+        
+        if not template:
+            flash("Dashboard não encontrado", "error")
+            return redirect(url_for('agent_page'))
+        
+        return render_template("dashboard_editor.html", template=dict(template))
+        
+    except Exception as e:
+        flash(f"Erro: {e}", "error")
+        return redirect(url_for('agent_page'))
+    finally:
+        conn.close()
+
+
+@app.route("/agent/dashboard/<int:template_id>")
+@login_required
+def view_dashboard_template(template_id):
+    """Visualizar dashboard publicado."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT t.*, u.nome_completo as created_by_name
+            FROM agent_dashboard_templates t
+            LEFT JOIN users_new u ON t.created_by = u.id
+            WHERE t.id = %s
+        """, (template_id,))
+        template = cursor.fetchone()
+        
+        if not template:
+            flash("Dashboard não encontrado", "error")
+            return redirect(url_for('agent_page'))
+        
+        # Verificar permissão
+        if not template['is_public'] and template['created_by'] != session['user_id'] and session.get('role') != 'admin':
+            flash("Você não tem permissão para ver este dashboard", "error")
+            return redirect(url_for('agent_page'))
+        
+        return render_template("dashboard_view.html", template=dict(template))
+        
+    except Exception as e:
+        flash(f"Erro: {e}", "error")
+        return redirect(url_for('agent_page'))
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/dashboard-template", methods=["POST"])
+@login_required
+def create_dashboard_template():
+    """Criar novo template de dashboard."""
+    data = request.get_json()
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            INSERT INTO agent_dashboard_templates 
+            (title, description, category, query_config, charts_config, layout_config, is_published, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data.get('title', 'Novo Dashboard'),
+            data.get('description', ''),
+            data.get('category', 'Outros'),
+            psycopg2.extras.Json(data.get('query_config', {})),
+            psycopg2.extras.Json(data.get('charts_config', [])),
+            psycopg2.extras.Json(data.get('layout_config', {})),
+            data.get('is_published', False),
+            session['user_id']
+        ))
+        
+        new_id = cursor.fetchone()['id']
+        conn.commit()
+        
+        return jsonify({"success": True, "id": new_id}), 201
+        
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/dashboard-template", methods=["PUT"])
+@login_required
+def update_dashboard_template():
+    """Atualizar template de dashboard existente."""
+    data = request.get_json()
+    template_id = data.get('id')
+    
+    if not template_id:
+        return jsonify({"error": "ID do template não fornecido"}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar propriedade
+        cursor.execute("SELECT created_by FROM agent_dashboard_templates WHERE id = %s", (template_id,))
+        template = cursor.fetchone()
+        
+        if not template or (template['created_by'] != session['user_id'] and session.get('role') != 'admin'):
+            return jsonify({"error": "Permissão negada"}), 403
+        
+        cursor.execute("""
+            UPDATE agent_dashboard_templates 
+            SET title = %s, 
+                description = %s, 
+                category = %s, 
+                query_config = %s, 
+                charts_config = %s, 
+                layout_config = %s, 
+                is_published = %s,
+                updated_at = NOW()
+            WHERE id = %s
+        """, (
+            data.get('title'),
+            data.get('description', ''),
+            data.get('category', 'Outros'),
+            psycopg2.extras.Json(data.get('query_config', {})),
+            psycopg2.extras.Json(data.get('charts_config', [])),
+            psycopg2.extras.Json(data.get('layout_config', {})),
+            data.get('is_published', False),
+            template_id
+        ))
+        
+        conn.commit()
+        return jsonify({"success": True, "id": template_id}), 200
+        
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/dashboard-template/<int:template_id>", methods=["DELETE"])
+@login_required
+def delete_dashboard_template(template_id):
+    """Excluir template de dashboard."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("SELECT created_by FROM agent_dashboard_templates WHERE id = %s", (template_id,))
+        template = cursor.fetchone()
+        
+        if not template or (template['created_by'] != session['user_id'] and session.get('role') != 'admin'):
+            return jsonify({"error": "Permissão negada"}), 403
+        
+        cursor.execute("DELETE FROM agent_dashboard_templates WHERE id = %s", (template_id,))
+        conn.commit()
+        
+        return jsonify({"success": True}), 200
+        
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/dashboard-editor/execute-query", methods=["POST"])
+@login_required
+def execute_dashboard_query():
+    """Executar query SQL para preview no editor de dashboard."""
+    data = request.get_json()
+    query = data.get('query', '').strip()
+    
+    if not query:
+        return jsonify({"error": "Query não fornecida"}), 400
+    
+    # Validar query (apenas SELECT)
+    if not query.upper().startswith('SELECT'):
+        return jsonify({"error": "Apenas queries SELECT são permitidas"}), 400
+    
+    # Limitar resultados
+    if 'LIMIT' not in query.upper():
+        query = query.rstrip(';') + ' LIMIT 500'
+    
+    try:
+        import pymysql
+        
+        host = os.getenv("MYSQL_AZ_HOST", "")
+        port = int(os.getenv("MYSQL_AZ_PORT", "3307"))
+        user = os.getenv("MYSQL_AZ_USER", "")
+        password = os.getenv("MYSQL_AZ_PASSWORD", "")
+        database = os.getenv("MYSQL_AZ_DB", "")
+        
+        if not all([host, user, password, database]):
+            return jsonify({"error": "Credenciais MySQL não configuradas"}), 500
+        
+        mysql_conn = pymysql.connect(
+            host=host, port=port, user=user, password=password, database=database,
+            charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor,
+            connect_timeout=30, read_timeout=60
+        )
+        
+        with mysql_conn.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            
+            # Converter tipos não serializáveis
+            from decimal import Decimal
+            from datetime import datetime, date
+            
+            def convert_value(v):
+                if isinstance(v, Decimal):
+                    return float(v)
+                if isinstance(v, (datetime, date)):
+                    return v.isoformat()
+                if isinstance(v, bytes):
+                    return v.decode('utf-8', errors='ignore')
+                return v
+            
+            data = [{k: convert_value(v) for k, v in row.items()} for row in rows]
+            fields = list(rows[0].keys()) if rows else []
+        
+        mysql_conn.close()
+        
+        return jsonify({
+            "success": True,
+            "data": data,
+            "fields": fields,
+            "row_count": len(data)
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"[DASHBOARD-EDITOR] Erro ao executar query: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # --------------------------------------------------------------------------- #
