@@ -614,6 +614,29 @@ def ensure_agent_tables():
             );
             
             CREATE INDEX IF NOT EXISTS idx_agent_logs_action_type ON agent_logs(action_type);
+            
+            CREATE TABLE IF NOT EXISTS agent_dashboard_templates (
+                id BIGSERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                description TEXT,
+                category TEXT NOT NULL DEFAULT 'Outros',
+                data_source_id BIGINT REFERENCES agent_data_sources(id) ON DELETE SET NULL,
+                query_config JSONB,
+                layout_config JSONB,
+                charts_config JSONB,
+                filters_config JSONB,
+                theme_config JSONB,
+                is_published BOOLEAN DEFAULT false,
+                is_public BOOLEAN DEFAULT false,
+                thumbnail_url TEXT,
+                linked_dashboard_id BIGINT,
+                created_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_agent_dashboard_templates_created_by ON agent_dashboard_templates(created_by);
+            CREATE INDEX IF NOT EXISTS idx_agent_dashboard_templates_published ON agent_dashboard_templates(is_published);
         """)
 
         # Inserção de dados iniciais
