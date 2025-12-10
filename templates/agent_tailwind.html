@@ -531,14 +531,17 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{{ dash.created_at }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    {% if dash.status == 'completed' and dash.result_url %}
-                                    <a href="{{ dash.result_url }}" target="_blank" class="text-primary hover:underline mr-2" title="Abrir Dashboard">
-                                        <i class="fas fa-external-link-alt"></i>
+                                    {% if dash.status == 'completed' and dash.result_data %}
+                                    <a href="{{ url_for('export_dashboard_to_excel', dash_id=dash.id) }}" class="text-green-600 hover:underline mr-2" title="Exportar Excel">
+                                        <i class="fas fa-file-excel"></i>
                                     </a>
                                     {% endif %}
                                     <a href="{{ url_for('view_dashboard_gen_page', request_id=dash.id) }}" class="text-primary hover:underline mr-2" title="Ver Detalhes">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    <button onclick="refreshDashboard({{ dash.id }})" class="text-blue-500 hover:underline mr-2" title="Atualizar Dados">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
                                     <button onclick="deleteDashboardGen({{ dash.id }})" class="text-destructive hover:underline" title="Excluir">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -564,34 +567,50 @@
                 <div class="border-b px-6 py-4">
                     <h3 class="flex items-center gap-2 text-lg font-semibold">
                         <i class="fas fa-play-circle text-primary"></i>
-                        Executáveis Disponíveis
+                        Tipos de Automação
                     </h3>
                     <p class="text-sm text-muted-foreground mt-1">
-                        Selecione um executável para iniciar uma automação predefinida
+                        Selecione um tipo para criar uma nova automação
                     </p>
                 </div>
                 <div class="p-6">
+                    {% if rpa_types %}
                     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {% for tipo in rpa_types %}
+                        {% if tipo.is_active %}
                         <div class="rounded-lg border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
                             <div class="flex items-start justify-between mb-4">
                                 <div class="rounded-lg bg-primary/10 p-3 text-primary">
-                                    <i class="fas {{ tipo.icon }} text-xl"></i>
+                                    <i class="fas {{ tipo.icon or 'fa-cog' }} text-xl"></i>
                                 </div>
+                                {% if tipo.rpa_count and tipo.rpa_count > 0 %}
                                 <span class="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
-                                    Ativo
+                                    {{ tipo.rpa_count }} RPA(s)
                                 </span>
+                                {% else %}
+                                <span class="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+                                    Disponível
+                                </span>
+                                {% endif %}
                             </div>
                             <h4 class="mb-2 font-semibold">{{ tipo.name }}</h4>
-                            <p class="mb-4 text-sm text-muted-foreground">{{ tipo.description }}</p>
+                            <p class="mb-4 text-sm text-muted-foreground">{{ tipo.description or 'Sem descrição' }}</p>
                             <button onclick="initiateRPA({{ tipo.id }}, '{{ tipo.name }}')" 
                                     class="w-full inline-flex items-center justify-center rounded-md bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors">
-                                <i class="fas fa-play mr-2"></i>
-                                Configurar Execução
+                                <i class="fas fa-plus mr-2"></i>
+                                Criar Automação
                             </button>
                         </div>
+                        {% endif %}
                         {% endfor %}
                     </div>
+                    {% else %}
+                    <div class="text-center py-12">
+                        <i class="fas fa-inbox text-4xl text-muted-foreground mb-4"></i>
+                        <p class="text-muted-foreground">Nenhum tipo de automação cadastrado</p>
+                        <p class="text-sm text-muted-foreground mt-2">Configure os tipos de RPA no painel administrativo</p>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -858,6 +877,25 @@ function deleteDashboardGen(id) {
                     alert('Erro ao excluir: ' + data.error);
                 }
             });
+    }
+}
+
+async function refreshDashboard(id) {
+    try {
+        const response = await fetch('/api/agent/dashboard-gen/' + id + '/refresh', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Dashboard recolocado na fila! O agente irá processá-lo em breve.');
+            window.location.reload();
+        } else {
+            alert('Erro: ' + (data.error || 'Erro desconhecido'));
+        }
+    } catch (error) {
+        alert('Erro ao atualizar: ' + error.message);
     }
 }
 </script>

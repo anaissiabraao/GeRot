@@ -2798,12 +2798,15 @@ def agent_page():
     cursor = conn.cursor()
     
     try:
-        # Buscar tipos de RPA
+        # Buscar tipos de RPA com contagem de RPAs
         cursor.execute("""
-            SELECT id, name, description, icon 
-            FROM agent_rpa_types 
-            WHERE is_active = true 
-            ORDER BY name
+            SELECT t.id, t.name, t.description, t.icon, t.is_active,
+                   COUNT(r.id) as rpa_count
+            FROM agent_rpa_types t
+            LEFT JOIN agent_rpas r ON r.rpa_type_id = t.id
+            WHERE t.is_active = true 
+            GROUP BY t.id, t.name, t.description, t.icon, t.is_active
+            ORDER BY t.name
         """)
         rpa_types = [dict(row) for row in cursor.fetchall()]
         
@@ -2830,7 +2833,7 @@ def agent_page():
         
         # Buscar dashboards gerados pelo usuário
         cursor.execute("""
-            SELECT id, title, category, status, result_url, created_at
+            SELECT id, title, category, status, result_url, result_data, created_at
             FROM agent_dashboard_requests
             WHERE created_by = %s
             ORDER BY created_at DESC
@@ -3274,6 +3277,116 @@ def view_dashboard_gen_page(request_id):
     except Exception as e:
         flash(f"Erro: {e}", "error")
         return redirect(url_for('agent_page'))
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/dashboard-gen/<int:dash_id>/export", methods=["GET"])
+@login_required
+def export_dashboard_to_excel(dash_id):
+    """Exporta os resultados de um dashboard para Excel."""
+    from io import BytesIO
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT title, result_data, created_by
+            FROM agent_dashboard_requests
+            WHERE id = %s
+        """, (dash_id,))
+        dash = cursor.fetchone()
+        
+        if not dash:
+            return jsonify({"error": "Dashboard não encontrado"}), 404
+        
+        if dash['created_by'] != session['user_id'] and session.get('role') != 'admin':
+            return jsonify({"error": "Permissão negada"}), 403
+        
+        result = dash.get('result_data') or {}
+        data = result.get('data', [])
+        
+        if not data:
+            return jsonify({"error": "Nenhum dado para exportar"}), 400
+        
+        # Criar Excel
+        from openpyxl import Workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Dados"
+        
+        # Cabeçalhos
+        if data and isinstance(data, list) and len(data) > 0:
+            headers = list(data[0].keys())
+            for col, header in enumerate(headers, 1):
+                ws.cell(row=1, column=col, value=header)
+            
+            # Dados
+            for row_idx, row_data in enumerate(data, 2):
+                for col_idx, header in enumerate(headers, 1):
+                    value = row_data.get(header, '')
+                    ws.cell(row=row_idx, column=col_idx, value=str(value) if value else '')
+        
+        # Salvar em memória
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        # Nome do arquivo
+        safe_name = re.sub(r'[^\w\s-]', '', dash['title'])[:30]
+        filename = f"dashboard_{dash_id}_{safe_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        
+        from flask import send_file
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        app.logger.error(f"[EXPORT] Erro ao exportar Dashboard {dash_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/dashboard-gen/<int:dash_id>/refresh", methods=["POST"])
+@login_required
+def refresh_dashboard(dash_id):
+    """Recoloca um dashboard na fila para ser processado novamente."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT id, created_by FROM agent_dashboard_requests WHERE id = %s
+        """, (dash_id,))
+        dash = cursor.fetchone()
+        
+        if not dash:
+            return jsonify({"error": "Dashboard não encontrado"}), 404
+        
+        if dash['created_by'] != session['user_id'] and session.get('role') != 'admin':
+            return jsonify({"error": "Permissão negada"}), 403
+        
+        # Recolocar na fila
+        cursor.execute("""
+            UPDATE agent_dashboard_requests 
+            SET status = 'pending', 
+                result_data = NULL,
+                error_message = NULL,
+                updated_at = NOW()
+            WHERE id = %s
+        """, (dash_id,))
+        conn.commit()
+        
+        return jsonify({"success": True, "message": "Dashboard recolocado na fila"}), 200
+        
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
