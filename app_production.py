@@ -17,6 +17,7 @@ from flask import (
 from flask_cors import CORS
 from flask_restful import Api, Resource
 import os
+import time
 import secrets
 import re
 from pathlib import Path
@@ -288,10 +289,29 @@ def get_db():
             else:
                 database_url = base_url
     
-    return psycopg2.connect(
-        database_url,
-        cursor_factory=psycopg2.extras.RealDictCursor,
-    )
+    # Tentativa de conexão com retry para lidar com falhas transitórias de SSL/Network
+    max_retries = 3
+    last_error = None
+    
+    for attempt in range(max_retries):
+        try:
+            return psycopg2.connect(
+                database_url,
+                cursor_factory=psycopg2.extras.RealDictCursor,
+                keepalives=1,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=5
+            )
+        except psycopg2.OperationalError as e:
+            last_error = e
+            app.logger.warning(f"[DB] Tentativa de conexão {attempt + 1}/{max_retries} falhou: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(1 * (attempt + 1))  # Backoff simples
+                continue
+            
+    # Se falhar todas as tentativas, relança o último erro
+    raise last_error
 
 
 def ensure_schema() -> None:
