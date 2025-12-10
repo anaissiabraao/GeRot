@@ -226,6 +226,120 @@ def send_result(rpa_id: int, result: dict):
         return False
 
 
+def fetch_pending_dashboards():
+    """Busca solicitações de dashboard pendentes no GeRot."""
+    try:
+        headers = {"X-API-Key": GEROT_API_KEY} if GEROT_API_KEY else {}
+        response = requests.get(
+            f"{GEROT_API_URL}/api/agent/dashboards/pending",
+            headers=headers,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            return response.json().get("dashboards", [])
+        elif response.status_code == 404:
+            return []
+        else:
+            logger.warning(f"Erro ao buscar dashboards: {response.status_code}")
+            return []
+    except Exception as e:
+        logger.error(f"Erro ao conectar ao GeRot: {e}")
+        return []
+
+
+def execute_dashboard(dash: dict) -> dict:
+    """Executa uma solicitação de dashboard e retorna o resultado."""
+    dash_id = dash.get("id")
+    title = dash.get("title", "Sem titulo")
+    filters = dash.get("filters", {}) or {}
+    
+    logs = []
+    result = {"success": False, "data": None, "error": None, "row_count": 0}
+    
+    logs.append(f"[{datetime.now().isoformat()}] Iniciando dashboard: {title}")
+    
+    try:
+        # Conectar ao MySQL
+        logs.append(f"[{datetime.now().isoformat()}] Conectando ao MySQL Brudam...")
+        conn = get_mysql_connection()
+        cursor = conn.cursor()
+        
+        # Obter query dos filtros
+        query = filters.get("query", "SELECT 1 as test")
+        limit = filters.get("limit", 100)
+        
+        # Adicionar LIMIT se não existir
+        if "LIMIT" not in query.upper():
+            query = f"{query} LIMIT {limit}"
+        
+        # Segurança: apenas SELECT
+        if not query.strip().upper().startswith("SELECT"):
+            raise ValueError("Apenas queries SELECT são permitidas")
+        
+        logs.append(f"[{datetime.now().isoformat()}] Executando query...")
+        cursor.execute(query)
+        data = cursor.fetchall()
+        
+        # Converter tipos não serializáveis para JSON
+        from decimal import Decimal
+        for row in data:
+            for key, value in row.items():
+                if isinstance(value, datetime):
+                    row[key] = value.isoformat()
+                elif hasattr(value, 'isoformat'):
+                    row[key] = value.isoformat()
+                elif isinstance(value, Decimal):
+                    row[key] = float(value)
+                elif isinstance(value, bytes):
+                    row[key] = value.decode('utf-8', errors='replace')
+                elif value is not None and not isinstance(value, (str, int, float, bool, list, dict)):
+                    row[key] = str(value)
+        
+        logs.append(f"[{datetime.now().isoformat()}] Query executada! {len(data)} registros.")
+        
+        result["success"] = True
+        result["data"] = data
+        result["row_count"] = len(data)
+        
+        cursor.close()
+        conn.close()
+        logs.append(f"[{datetime.now().isoformat()}] Conexao fechada.")
+        
+    except Exception as e:
+        logs.append(f"[{datetime.now().isoformat()}] ERRO: {str(e)}")
+        result["error"] = str(e)
+    
+    result["logs"] = logs
+    return result
+
+
+def send_dashboard_result(dash_id: int, result: dict):
+    """Envia resultado do dashboard para o GeRot."""
+    try:
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-Key": GEROT_API_KEY
+        } if GEROT_API_KEY else {"Content-Type": "application/json"}
+        
+        response = requests.post(
+            f"{GEROT_API_URL}/api/agent/dashboard/{dash_id}/result",
+            headers=headers,
+            json=result,
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            logger.info(f"[OK] Resultado enviado para Dashboard #{dash_id}")
+            return True
+        else:
+            logger.warning(f"[AVISO] Erro ao enviar resultado dashboard: {response.status_code}")
+            return False
+    except Exception as e:
+        logger.error(f"[ERRO] Erro ao enviar resultado dashboard: {e}")
+        return False
+
+
 def run_agent():
     """Loop principal do agente."""
     logger.info("=" * 60)
@@ -264,6 +378,29 @@ def run_agent():
                         logger.info(f"[OK] RPA #{rpa_id} concluida: {result['row_count']} registros")
                     else:
                         logger.error(f"[ERRO] RPA #{rpa_id} falhou: {result['error']}")
+            
+            # Buscar Dashboards pendentes
+            dashboards = fetch_pending_dashboards()
+            
+            if dashboards:
+                logger.info(f"[INFO] {len(dashboards)} Dashboard(s) pendente(s)")
+                
+                for dash in dashboards:
+                    dash_id = dash.get("id")
+                    title = dash.get("title", "Sem titulo")
+                    
+                    logger.info(f"[EXEC] Processando Dashboard #{dash_id}: {title}")
+                    
+                    # Executar
+                    result = execute_dashboard(dash)
+                    
+                    # Enviar resultado
+                    send_dashboard_result(dash_id, result)
+                    
+                    if result["success"]:
+                        logger.info(f"[OK] Dashboard #{dash_id} concluido: {result['row_count']} registros")
+                    else:
+                        logger.error(f"[ERRO] Dashboard #{dash_id} falhou: {result['error']}")
             
             # Aguardar próximo polling
             time.sleep(POLLING_INTERVAL)

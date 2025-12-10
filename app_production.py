@@ -3750,6 +3750,117 @@ def receive_rpa_result(rpa_id):
         conn.close()
 
 
+@app.route("/api/agent/dashboards/pending", methods=["GET"])
+def get_pending_dashboards():
+    """API para o agente local buscar solicitações de dashboard pendentes."""
+    if not verify_agent_api_key():
+        return jsonify({"error": "API Key inválida"}), 401
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Buscar dashboards pendentes que têm query nos filtros
+        cursor.execute("""
+            SELECT id, title, description, category, chart_types, filters, created_by
+            FROM agent_dashboard_requests
+            WHERE status = 'pending'
+              AND filters IS NOT NULL
+              AND filters::text LIKE '%query%'
+            ORDER BY created_at ASC
+            LIMIT 10
+        """)
+        dashboards = [dict(row) for row in cursor.fetchall()]
+        
+        # Marcar como "processing" para evitar execução duplicada
+        for dash in dashboards:
+            cursor.execute("""
+                UPDATE agent_dashboard_requests 
+                SET status = 'processing', updated_at = NOW() 
+                WHERE id = %s AND status = 'pending'
+            """, (dash['id'],))
+        conn.commit()
+        
+        return jsonify({"dashboards": dashboards}), 200
+        
+    except Exception as e:
+        app.logger.error(f"[AGENT-API] Erro ao buscar dashboards pendentes: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/dashboard/<int:dash_id>/result", methods=["POST"])
+def receive_dashboard_result(dash_id):
+    """API para o agente local enviar resultado do dashboard."""
+    if not verify_agent_api_key():
+        return jsonify({"error": "API Key inválida"}), 401
+    
+    data = request.get_json()
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar se dashboard existe
+        cursor.execute("SELECT id, created_by FROM agent_dashboard_requests WHERE id = %s", (dash_id,))
+        dash = cursor.fetchone()
+        
+        if not dash:
+            return jsonify({"error": "Dashboard não encontrado"}), 404
+        
+        # Atualizar dashboard com resultado
+        success = data.get("success", False)
+        final_status = "completed" if success else "failed"
+        
+        # Limitar tamanho dos dados
+        result_data = data.get("data", [])
+        if isinstance(result_data, list) and len(result_data) > 1000:
+            result_data = result_data[:1000]
+        
+        cursor.execute("""
+            UPDATE agent_dashboard_requests 
+            SET status = %s, 
+                result_data = %s,
+                error_message = %s,
+                completed_at = NOW(),
+                updated_at = NOW()
+            WHERE id = %s
+        """, (
+            final_status,
+            psycopg2.extras.Json({
+                "data": result_data,
+                "row_count": data.get("row_count", 0),
+                "source": "agent_local"
+            }),
+            data.get("error"),
+            dash_id
+        ))
+        
+        # Salvar logs
+        logs = data.get("logs", [])
+        cursor.execute("""
+            INSERT INTO agent_logs (action_type, entity_type, entity_id, user_id, details)
+            VALUES ('execute_remote', 'dashboard', %s, %s, %s)
+        """, (dash_id, dash['created_by'], psycopg2.extras.Json({
+            "logs": logs,
+            "success": success,
+            "source": "agent_local"
+        })))
+        
+        conn.commit()
+        
+        app.logger.info(f"[AGENT-API] Resultado recebido para Dashboard #{dash_id}: {final_status}")
+        return jsonify({"success": True}), 200
+        
+    except Exception as e:
+        conn.rollback()
+        app.logger.error(f"[AGENT-API] Erro ao salvar resultado dashboard: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
 @app.route("/api/agent/health", methods=["GET"])
 def agent_health_check():
     """Health check para o agente local."""
