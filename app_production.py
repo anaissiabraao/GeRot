@@ -824,6 +824,7 @@ def import_users_from_excel() -> None:
 
 
 ensure_schema()
+ensure_agent_tables()  # Garantir tabelas do agente
 seed_dashboards()
 normalize_roles()
 import_users_from_excel()
@@ -2633,6 +2634,422 @@ def delete_resource_api(resource_id):
             
         # Deletar do banco
         cursor.execute("DELETE FROM environment_resources WHERE id = %s", (resource_id,))
+        conn.commit()
+        
+        return jsonify({"success": True}), 200
+        
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+# --------------------------------------------------------------------------- #
+# Rotas do Agente IA
+# --------------------------------------------------------------------------- #
+def ensure_agent_tables():
+    """Garante que as tabelas do agente existam via SQL direto."""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verificar se tabelas já existem para evitar processamento desnecessário
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'agent_rpa_types'
+            )
+        """)
+        if cursor.fetchone()['exists']:
+            conn.close()
+            return
+
+        app.logger.info("[AGENT] Criando tabelas do Agente IA...")
+        
+        # Criação das tabelas
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS agent_rpa_types (
+                id BIGSERIAL PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                icon TEXT DEFAULT 'fa-cogs',
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_rpas (
+                id BIGSERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                rpa_type_id BIGINT REFERENCES agent_rpa_types(id) ON DELETE SET NULL,
+                priority TEXT NOT NULL DEFAULT 'medium',
+                frequency TEXT DEFAULT 'once',
+                parameters JSONB,
+                status TEXT NOT NULL DEFAULT 'pending',
+                result JSONB,
+                error_message TEXT,
+                created_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+                executed_at TIMESTAMPTZ,
+                completed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_agent_rpas_status ON agent_rpas(status);
+            CREATE INDEX IF NOT EXISTS idx_agent_rpas_created_by ON agent_rpas(created_by);
+
+            CREATE TABLE IF NOT EXISTS agent_data_sources (
+                id BIGSERIAL PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                source_type TEXT NOT NULL DEFAULT 'database',
+                connection_config JSONB,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_dashboard_requests (
+                id BIGSERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                description TEXT,
+                category TEXT NOT NULL DEFAULT 'Outros',
+                data_source_id BIGINT REFERENCES agent_data_sources(id) ON DELETE SET NULL,
+                chart_types TEXT[],
+                filters JSONB,
+                status TEXT NOT NULL DEFAULT 'pending',
+                result_url TEXT,
+                result_data JSONB,
+                error_message TEXT,
+                created_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+                processed_at TIMESTAMPTZ,
+                completed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_agent_dashboard_requests_status ON agent_dashboard_requests(status);
+            CREATE INDEX IF NOT EXISTS idx_agent_dashboard_requests_created_by ON agent_dashboard_requests(created_by);
+
+            CREATE TABLE IF NOT EXISTS agent_settings (
+                id BIGSERIAL PRIMARY KEY,
+                setting_key TEXT NOT NULL UNIQUE,
+                setting_value JSONB,
+                description TEXT,
+                updated_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_logs (
+                id BIGSERIAL PRIMARY KEY,
+                action_type TEXT NOT NULL,
+                entity_type TEXT,
+                entity_id BIGINT,
+                user_id BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+                details JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_agent_logs_action_type ON agent_logs(action_type);
+        """)
+
+        # Inserção de dados iniciais
+        cursor.execute("""
+            INSERT INTO agent_rpa_types (name, description, icon) VALUES
+            ('Extração de Dados', 'Extrai dados de sistemas externos (ERP, planilhas, APIs)', 'fa-download'),
+            ('Processamento de Arquivos', 'Processa e transforma arquivos (PDF, Excel, CSV)', 'fa-file-alt'),
+            ('Integração de Sistemas', 'Sincroniza dados entre sistemas diferentes', 'fa-sync'),
+            ('Envio de Relatórios', 'Gera e envia relatórios automaticamente', 'fa-paper-plane'),
+            ('Monitoramento', 'Monitora sistemas e envia alertas', 'fa-bell'),
+            ('Backup de Dados', 'Realiza backup automático de dados', 'fa-database'),
+            ('Web Scraping', 'Coleta dados de websites', 'fa-globe'),
+            ('Automação de E-mail', 'Processa e responde e-mails automaticamente', 'fa-envelope')
+            ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
+
+            INSERT INTO agent_data_sources (name, description, source_type) VALUES
+            ('Banco de Dados GeRot', 'Dados internos do sistema GeRot', 'database'),
+            ('Power BI', 'Dados dos dashboards Power BI', 'api'),
+            ('Planilhas Excel', 'Dados de planilhas compartilhadas', 'file'),
+            ('ERP PortoEx', 'Sistema ERP da empresa', 'api'),
+            ('API Externa', 'Dados de APIs de terceiros', 'api')
+            ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
+            
+            INSERT INTO agent_settings (setting_key, setting_value, description) VALUES
+            ('rpa_enabled', '{"enabled": true}', 'Habilita/desabilita funcionalidades de RPA'),
+            ('dashboard_gen_enabled', '{"enabled": true}', 'Habilita/desabilita geração de dashboards'),
+            ('max_concurrent_rpas', '{"value": 5}', 'Número máximo de RPAs executando simultaneamente')
+            ON CONFLICT (setting_key) DO NOTHING;
+        """)
+        
+        conn.commit()
+        conn.close()
+        app.logger.info("[AGENT] Tabelas e dados iniciais criados com sucesso.")
+        
+    except Exception as e:
+        app.logger.error(f"[AGENT] Erro ao criar tabelas: {e}")
+
+
+@app.route("/agent")
+@login_required
+def agent_page():
+    """Página principal do Agente IA."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Buscar tipos de RPA
+        cursor.execute("""
+            SELECT id, name, description, icon 
+            FROM agent_rpa_types 
+            WHERE is_active = true 
+            ORDER BY name
+        """)
+        rpa_types = [dict(row) for row in cursor.fetchall()]
+        
+        # Buscar fontes de dados
+        cursor.execute("""
+            SELECT id, name, description, source_type 
+            FROM agent_data_sources 
+            WHERE is_active = true 
+            ORDER BY name
+        """)
+        data_sources = [dict(row) for row in cursor.fetchall()]
+        
+        # Buscar RPAs do usuário
+        cursor.execute("""
+            SELECT r.id, r.name, r.status, r.priority, r.created_at,
+                   t.name as type_name
+            FROM agent_rpas r
+            LEFT JOIN agent_rpa_types t ON r.rpa_type_id = t.id
+            WHERE r.created_by = %s
+            ORDER BY r.created_at DESC
+            LIMIT 20
+        """, (session['user_id'],))
+        rpas = [dict(row) for row in cursor.fetchall()]
+        
+        # Buscar dashboards gerados pelo usuário
+        cursor.execute("""
+            SELECT id, title, category, status, result_url, created_at
+            FROM agent_dashboard_requests
+            WHERE created_by = %s
+            ORDER BY created_at DESC
+            LIMIT 20
+        """, (session['user_id'],))
+        generated_dashboards = [dict(row) for row in cursor.fetchall()]
+        
+        # Estatísticas de RPA
+        cursor.execute("""
+            SELECT 
+                COUNT(*) FILTER (WHERE status = 'pending') as pending,
+                COUNT(*) FILTER (WHERE status = 'running') as running,
+                COUNT(*) FILTER (WHERE status = 'completed') as completed,
+                COUNT(*) FILTER (WHERE status = 'failed') as failed
+            FROM agent_rpas
+            WHERE created_by = %s
+        """, (session['user_id'],))
+        stats = dict(cursor.fetchone())
+        
+        # Estatísticas de Dashboard
+        cursor.execute("""
+            SELECT 
+                COUNT(*) FILTER (WHERE status = 'pending') as pending,
+                COUNT(*) FILTER (WHERE status = 'processing') as processing,
+                COUNT(*) FILTER (WHERE status = 'completed') as completed
+            FROM agent_dashboard_requests
+            WHERE created_by = %s
+        """, (session['user_id'],))
+        dashboard_stats = dict(cursor.fetchone())
+        
+        return render_template(
+            get_template("agent.html"),
+            rpa_types=rpa_types,
+            data_sources=data_sources,
+            rpas=rpas,
+            generated_dashboards=generated_dashboards,
+            stats=stats,
+            dashboard_stats=dashboard_stats
+        )
+        
+    except Exception as e:
+        app.logger.error(f"[AGENT] Erro ao carregar página: {e}")
+        # Se as tabelas não existem, mostrar página com dados vazios
+        return render_template(
+            get_template("agent.html"),
+            rpa_types=[],
+            data_sources=[],
+            rpas=[],
+            generated_dashboards=[],
+            stats={'pending': 0, 'running': 0, 'completed': 0, 'failed': 0},
+            dashboard_stats={'pending': 0, 'processing': 0, 'completed': 0}
+        )
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/rpa", methods=["POST"])
+@login_required
+def create_rpa():
+    """API para criar uma nova automação RPA."""
+    data = request.get_json()
+    
+    if not data.get('name') or not data.get('description'):
+        return jsonify({"error": "Nome e descrição são obrigatórios"}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Validar parâmetros JSON se fornecido
+        parameters = None
+        if data.get('parameters'):
+            try:
+                import json
+                parameters = json.loads(data['parameters']) if isinstance(data['parameters'], str) else data['parameters']
+            except:
+                return jsonify({"error": "Parâmetros JSON inválidos"}), 400
+        
+        cursor.execute("""
+            INSERT INTO agent_rpas (name, description, rpa_type_id, priority, frequency, parameters, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data['name'],
+            data['description'],
+            data.get('rpa_type') or None,
+            data.get('priority', 'medium'),
+            data.get('frequency', 'once'),
+            psycopg2.extras.Json(parameters) if parameters else None,
+            session['user_id']
+        ))
+        
+        rpa_id = cursor.fetchone()['id']
+        conn.commit()
+        
+        # Log da ação
+        cursor.execute("""
+            INSERT INTO agent_logs (action_type, entity_type, entity_id, user_id, details)
+            VALUES ('create', 'rpa', %s, %s, %s)
+        """, (rpa_id, session['user_id'], psycopg2.extras.Json({'name': data['name']})))
+        conn.commit()
+        
+        return jsonify({"success": True, "id": rpa_id}), 201
+        
+    except Exception as e:
+        conn.rollback()
+        app.logger.error(f"[AGENT] Erro ao criar RPA: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/rpa/<int:rpa_id>", methods=["DELETE"])
+@login_required
+def delete_rpa(rpa_id):
+    """API para excluir uma automação RPA."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar se pertence ao usuário ou se é admin
+        cursor.execute("SELECT created_by FROM agent_rpas WHERE id = %s", (rpa_id,))
+        rpa = cursor.fetchone()
+        
+        if not rpa:
+            return jsonify({"error": "RPA não encontrada"}), 404
+        
+        if rpa['created_by'] != session['user_id'] and session.get('role') != 'admin':
+            return jsonify({"error": "Permissão negada"}), 403
+        
+        cursor.execute("DELETE FROM agent_rpas WHERE id = %s", (rpa_id,))
+        conn.commit()
+        
+        return jsonify({"success": True}), 200
+        
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/dashboard-gen", methods=["POST"])
+@login_required
+def create_dashboard_gen():
+    """API para solicitar geração de dashboard."""
+    data = request.get_json()
+    
+    if not data.get('title') or not data.get('description'):
+        return jsonify({"error": "Título e descrição são obrigatórios"}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Validar filtros JSON se fornecido
+        filters = None
+        if data.get('filters'):
+            try:
+                import json
+                filters = json.loads(data['filters']) if isinstance(data['filters'], str) else data['filters']
+            except:
+                return jsonify({"error": "Filtros JSON inválidos"}), 400
+        
+        chart_types = data.get('chart_types', [])
+        
+        cursor.execute("""
+            INSERT INTO agent_dashboard_requests 
+            (title, description, category, data_source_id, chart_types, filters, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data['title'],
+            data['description'],
+            data.get('category', 'Outros'),
+            data.get('data_source') or None,
+            chart_types,
+            psycopg2.extras.Json(filters) if filters else None,
+            session['user_id']
+        ))
+        
+        request_id = cursor.fetchone()['id']
+        conn.commit()
+        
+        # Log da ação
+        cursor.execute("""
+            INSERT INTO agent_logs (action_type, entity_type, entity_id, user_id, details)
+            VALUES ('create', 'dashboard_request', %s, %s, %s)
+        """, (request_id, session['user_id'], psycopg2.extras.Json({'title': data['title']})))
+        conn.commit()
+        
+        return jsonify({"success": True, "id": request_id}), 201
+        
+    except Exception as e:
+        conn.rollback()
+        app.logger.error(f"[AGENT] Erro ao criar solicitação de dashboard: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/dashboard-gen/<int:request_id>", methods=["DELETE"])
+@login_required
+def delete_dashboard_gen(request_id):
+    """API para excluir uma solicitação de dashboard."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("SELECT created_by FROM agent_dashboard_requests WHERE id = %s", (request_id,))
+        req = cursor.fetchone()
+        
+        if not req:
+            return jsonify({"error": "Solicitação não encontrada"}), 404
+        
+        if req['created_by'] != session['user_id'] and session.get('role') != 'admin':
+            return jsonify({"error": "Permissão negada"}), 403
+        
+        cursor.execute("DELETE FROM agent_dashboard_requests WHERE id = %s", (request_id,))
         conn.commit()
         
         return jsonify({"success": True}), 200

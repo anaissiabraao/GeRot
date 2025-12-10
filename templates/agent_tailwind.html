@@ -1,0 +1,661 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Agente IA - GeRot{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-background">
+    <!-- Header com Navegação -->
+    <header class="border-b bg-card shadow-sm">
+        <div class="container mx-auto px-4">
+            <div class="flex h-16 items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center gap-2">
+                        <img src="{{ url_for('static', filename='portoex-logo.png') }}" alt="PortoEx" class="h-8 w-auto">
+                        <span class="text-xl font-bold text-primary border-l border-muted-foreground/30 pl-2 ml-2">GeRot</span>
+                    </div>
+                    <nav class="flex flex-wrap space-x-1">
+                        <a href="{{ url_for('index') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-home mr-2"></i>Início
+                        </a>
+                        <a href="{{ url_for('team_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-chart-bar mr-2"></i>Dashboards
+                        </a>
+                        <a href="{{ url_for('cd_booking') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-calendar mr-2"></i>Agenda CD
+                        </a>
+                        {% if session.role == 'admin' %}
+                        <a href="{{ url_for('admin_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-cog mr-2"></i>Admin
+                        </a>
+                        {% endif %}
+                    </nav>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-muted-foreground">
+                        Olá, {{ session.nome_completo }}
+                    </span>
+                    <a href="{{ url_for('profile') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                        <i class="fas fa-user-circle"></i>
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mx-auto px-4 py-4">
+                {% for category, message in messages %}
+                    <div class="mb-4 rounded-lg border px-4 py-3 {% if category == 'success' %}bg-green-50 border-green-200 text-green-800{% elif category == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-orange-50 border-orange-200 text-orange-800{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Conteúdo Principal -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Título e Descrição -->
+        <div class="mb-8">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 p-3">
+                    <i class="fas fa-robot text-white text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-3xl font-bold text-foreground">Agente IA</h2>
+                    <p class="text-muted-foreground">
+                        Automação inteligente e geração de relatórios
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs de Navegação -->
+        <div class="mb-6">
+            <div class="border-b border-border">
+                <nav class="flex space-x-8" aria-label="Tabs">
+                    <button onclick="switchTab('rpa')" id="tab-rpa" 
+                            class="tab-button border-b-2 border-primary py-4 px-1 text-sm font-medium text-primary">
+                        <i class="fas fa-cogs mr-2"></i>RPA - Automação
+                    </button>
+                    <button onclick="switchTab('dashboard')" id="tab-dashboard" 
+                            class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground">
+                        <i class="fas fa-chart-pie mr-2"></i>Gerar Dashboard
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Conteúdo da Tab RPA -->
+        <div id="content-rpa" class="tab-content">
+            <div class="grid gap-6 lg:grid-cols-3">
+                <!-- Formulário de Criação de RPA -->
+                <div class="lg:col-span-2">
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="border-b px-6 py-4">
+                            <h3 class="flex items-center gap-2 text-lg font-semibold">
+                                <i class="fas fa-plus-circle text-primary"></i>
+                                Criar Nova Automação RPA
+                            </h3>
+                        </div>
+                        <div class="p-6">
+                            <form id="rpaForm" onsubmit="submitRPA(event)">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-foreground mb-1">
+                                            Nome da Automação *
+                                        </label>
+                                        <input type="text" name="name" required
+                                               class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                               placeholder="Ex: Extração de dados do ERP">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-foreground mb-1">
+                                            Descrição *
+                                        </label>
+                                        <textarea name="description" rows="3" required
+                                                  class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                                  placeholder="Descreva o que esta automação deve fazer..."></textarea>
+                                    </div>
+                                    
+                                    <div class="grid gap-4 md:grid-cols-2">
+                                        <div>
+                                            <label class="block text-sm font-medium text-foreground mb-1">
+                                                Tipo de Automação *
+                                            </label>
+                                            <select name="rpa_type" required
+                                                    class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                                                <option value="">Selecione...</option>
+                                                {% for tipo in rpa_types %}
+                                                <option value="{{ tipo.id }}">{{ tipo.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        
+                                        <div>
+                                            <label class="block text-sm font-medium text-foreground mb-1">
+                                                Prioridade *
+                                            </label>
+                                            <select name="priority" required
+                                                    class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                                                <option value="low">Baixa</option>
+                                                <option value="medium" selected>Média</option>
+                                                <option value="high">Alta</option>
+                                                <option value="critical">Crítica</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-foreground mb-1">
+                                            Frequência de Execução
+                                        </label>
+                                        <select name="frequency"
+                                                class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                                            <option value="once">Uma vez</option>
+                                            <option value="daily">Diário</option>
+                                            <option value="weekly">Semanal</option>
+                                            <option value="monthly">Mensal</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-foreground mb-1">
+                                            Parâmetros Adicionais (JSON)
+                                        </label>
+                                        <textarea name="parameters" rows="3"
+                                                  class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                                                  placeholder='{"url": "https://...", "campos": ["nome", "valor"]}'></textarea>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-6 flex justify-end gap-3">
+                                    <button type="reset" class="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors">
+                                        Limpar
+                                    </button>
+                                    <button type="submit" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+                                        <i class="fas fa-paper-plane mr-2"></i>
+                                        Criar Automação
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sidebar com Informações -->
+                <div class="space-y-6">
+                    <!-- Status das Automações -->
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="border-b px-6 py-4">
+                            <h3 class="flex items-center gap-2 text-lg font-semibold">
+                                <i class="fas fa-tasks text-primary"></i>
+                                Status
+                            </h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-muted-foreground">Pendentes</span>
+                                <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                                    {{ stats.pending }}
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-muted-foreground">Em Execução</span>
+                                <span class="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                                    {{ stats.running }}
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-muted-foreground">Concluídas</span>
+                                <span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                                    {{ stats.completed }}
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-muted-foreground">Com Erro</span>
+                                <span class="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+                                    {{ stats.failed }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tipos de RPA Disponíveis -->
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="border-b px-6 py-4">
+                            <h3 class="flex items-center gap-2 text-lg font-semibold">
+                                <i class="fas fa-list text-primary"></i>
+                                Tipos Disponíveis
+                            </h3>
+                        </div>
+                        <div class="p-4">
+                            <ul class="space-y-2">
+                                {% for tipo in rpa_types %}
+                                <li class="flex items-center gap-2 text-sm">
+                                    <i class="fas fa-check-circle text-green-500"></i>
+                                    {{ tipo.name }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lista de RPAs Recentes -->
+            <div class="mt-8 rounded-lg border bg-card shadow-sm">
+                <div class="border-b px-6 py-4">
+                    <h3 class="flex items-center gap-2 text-lg font-semibold">
+                        <i class="fas fa-history text-primary"></i>
+                        Automações Recentes
+                    </h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-muted/50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Nome</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Tipo</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Criado em</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border">
+                            {% for rpa in rpas %}
+                            <tr class="hover:bg-muted/30">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">{{ rpa.name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{{ rpa.type_name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="rounded-full px-2.5 py-0.5 text-xs font-medium
+                                        {% if rpa.status == 'pending' %}bg-amber-100 text-amber-800
+                                        {% elif rpa.status == 'running' %}bg-blue-100 text-blue-800
+                                        {% elif rpa.status == 'completed' %}bg-green-100 text-green-800
+                                        {% else %}bg-red-100 text-red-800{% endif %}">
+                                        {{ rpa.status }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{{ rpa.created_at }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <button onclick="viewRPA({{ rpa.id }})" class="text-primary hover:underline mr-3">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button onclick="deleteRPA({{ rpa.id }})" class="text-destructive hover:underline">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="px-6 py-8 text-center text-muted-foreground">
+                                    <i class="fas fa-inbox text-4xl mb-2"></i>
+                                    <p>Nenhuma automação criada ainda</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Conteúdo da Tab Dashboard -->
+        <div id="content-dashboard" class="tab-content hidden">
+            <div class="grid gap-6 lg:grid-cols-3">
+                <!-- Formulário de Geração de Dashboard -->
+                <div class="lg:col-span-2">
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="border-b px-6 py-4">
+                            <h3 class="flex items-center gap-2 text-lg font-semibold">
+                                <i class="fas fa-chart-bar text-primary"></i>
+                                Gerar Novo Dashboard
+                            </h3>
+                        </div>
+                        <div class="p-6">
+                            <form id="dashboardGenForm" onsubmit="submitDashboardGen(event)">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-foreground mb-1">
+                                            Título do Dashboard *
+                                        </label>
+                                        <input type="text" name="title" required
+                                               class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                               placeholder="Ex: Análise de Vendas Q4">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-foreground mb-1">
+                                            Descrição *
+                                        </label>
+                                        <textarea name="description" rows="3" required
+                                                  class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                                  placeholder="Descreva o objetivo e os dados que devem ser apresentados..."></textarea>
+                                    </div>
+                                    
+                                    <div class="grid gap-4 md:grid-cols-2">
+                                        <div>
+                                            <label class="block text-sm font-medium text-foreground mb-1">
+                                                Fonte de Dados *
+                                            </label>
+                                            <select name="data_source" required
+                                                    class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                                                <option value="">Selecione...</option>
+                                                {% for source in data_sources %}
+                                                <option value="{{ source.id }}">{{ source.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        
+                                        <div>
+                                            <label class="block text-sm font-medium text-foreground mb-1">
+                                                Categoria *
+                                            </label>
+                                            <select name="category" required
+                                                    class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                                                <option value="Comercial">Comercial</option>
+                                                <option value="Financeiro">Financeiro</option>
+                                                <option value="Operações">Operações</option>
+                                                <option value="RH">RH</option>
+                                                <option value="Logística">Logística</option>
+                                                <option value="Outros">Outros</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-foreground mb-1">
+                                            Tipo de Visualização
+                                        </label>
+                                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+                                            <label class="flex items-center gap-2 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                                                <input type="checkbox" name="chart_types" value="bar" class="rounded border-input">
+                                                <i class="fas fa-chart-bar text-primary"></i>
+                                                <span class="text-sm">Barras</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                                                <input type="checkbox" name="chart_types" value="line" class="rounded border-input">
+                                                <i class="fas fa-chart-line text-primary"></i>
+                                                <span class="text-sm">Linhas</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                                                <input type="checkbox" name="chart_types" value="pie" class="rounded border-input">
+                                                <i class="fas fa-chart-pie text-primary"></i>
+                                                <span class="text-sm">Pizza</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                                                <input type="checkbox" name="chart_types" value="table" class="rounded border-input">
+                                                <i class="fas fa-table text-primary"></i>
+                                                <span class="text-sm">Tabela</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-foreground mb-1">
+                                            Filtros e Parâmetros (JSON)
+                                        </label>
+                                        <textarea name="filters" rows="3"
+                                                  class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                                                  placeholder='{"periodo": "2024-Q4", "unidade": "SC"}'></textarea>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-6 flex justify-end gap-3">
+                                    <button type="reset" class="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors">
+                                        Limpar
+                                    </button>
+                                    <button type="submit" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+                                        <i class="fas fa-magic mr-2"></i>
+                                        Gerar Dashboard
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sidebar com Informações -->
+                <div class="space-y-6">
+                    <!-- Status das Gerações -->
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="border-b px-6 py-4">
+                            <h3 class="flex items-center gap-2 text-lg font-semibold">
+                                <i class="fas fa-tasks text-primary"></i>
+                                Status
+                            </h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-muted-foreground">Pendentes</span>
+                                <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                                    {{ dashboard_stats.pending }}
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-muted-foreground">Processando</span>
+                                <span class="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                                    {{ dashboard_stats.processing }}
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-muted-foreground">Concluídos</span>
+                                <span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                                    {{ dashboard_stats.completed }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Fontes de Dados -->
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="border-b px-6 py-4">
+                            <h3 class="flex items-center gap-2 text-lg font-semibold">
+                                <i class="fas fa-database text-primary"></i>
+                                Fontes de Dados
+                            </h3>
+                        </div>
+                        <div class="p-4">
+                            <ul class="space-y-2">
+                                {% for source in data_sources %}
+                                <li class="flex items-center gap-2 text-sm">
+                                    <i class="fas fa-plug text-green-500"></i>
+                                    {{ source.name }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lista de Dashboards Gerados -->
+            <div class="mt-8 rounded-lg border bg-card shadow-sm">
+                <div class="border-b px-6 py-4">
+                    <h3 class="flex items-center gap-2 text-lg font-semibold">
+                        <i class="fas fa-history text-primary"></i>
+                        Dashboards Gerados
+                    </h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-muted/50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Título</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Categoria</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Criado em</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border">
+                            {% for dash in generated_dashboards %}
+                            <tr class="hover:bg-muted/30">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">{{ dash.title }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{{ dash.category }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="rounded-full px-2.5 py-0.5 text-xs font-medium
+                                        {% if dash.status == 'pending' %}bg-amber-100 text-amber-800
+                                        {% elif dash.status == 'processing' %}bg-blue-100 text-blue-800
+                                        {% elif dash.status == 'completed' %}bg-green-100 text-green-800
+                                        {% else %}bg-red-100 text-red-800{% endif %}">
+                                        {{ dash.status }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{{ dash.created_at }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    {% if dash.status == 'completed' %}
+                                    <a href="{{ dash.result_url }}" target="_blank" class="text-primary hover:underline mr-3">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </a>
+                                    {% endif %}
+                                    <button onclick="viewDashboardGen({{ dash.id }})" class="text-primary hover:underline mr-3">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button onclick="deleteDashboardGen({{ dash.id }})" class="text-destructive hover:underline">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="px-6 py-8 text-center text-muted-foreground">
+                                    <i class="fas fa-inbox text-4xl mb-2"></i>
+                                    <p>Nenhum dashboard gerado ainda</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+function switchTab(tabName) {
+    // Esconde todos os conteúdos
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    
+    // Remove estilo ativo de todas as tabs
+    document.querySelectorAll('.tab-button').forEach(el => {
+        el.classList.remove('border-primary', 'text-primary');
+        el.classList.add('border-transparent', 'text-muted-foreground');
+    });
+    
+    // Mostra o conteúdo selecionado
+    document.getElementById('content-' + tabName).classList.remove('hidden');
+    
+    // Ativa a tab selecionada
+    const activeTab = document.getElementById('tab-' + tabName);
+    activeTab.classList.remove('border-transparent', 'text-muted-foreground');
+    activeTab.classList.add('border-primary', 'text-primary');
+}
+
+async function submitRPA(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch('/api/agent/rpa', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(Object.fromEntries(formData))
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('Automação criada com sucesso!');
+            window.location.reload();
+        } else {
+            alert('Erro: ' + (data.error || 'Erro desconhecido'));
+        }
+    } catch (error) {
+        alert('Erro ao criar automação: ' + error.message);
+    }
+}
+
+async function submitDashboardGen(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    // Pega os tipos de gráfico selecionados
+    const chartTypes = [];
+    form.querySelectorAll('input[name="chart_types"]:checked').forEach(cb => {
+        chartTypes.push(cb.value);
+    });
+    
+    const data = Object.fromEntries(formData);
+    data.chart_types = chartTypes;
+    
+    try {
+        const response = await fetch('/api/agent/dashboard-gen', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert('Solicitação de dashboard enviada com sucesso!');
+            window.location.reload();
+        } else {
+            alert('Erro: ' + (result.error || 'Erro desconhecido'));
+        }
+    } catch (error) {
+        alert('Erro ao gerar dashboard: ' + error.message);
+    }
+}
+
+function viewRPA(id) {
+    window.location.href = '/agent/rpa/' + id;
+}
+
+function deleteRPA(id) {
+    if (confirm('Tem certeza que deseja excluir esta automação?')) {
+        fetch('/api/agent/rpa/' + id, { method: 'DELETE' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Erro ao excluir: ' + data.error);
+                }
+            });
+    }
+}
+
+function viewDashboardGen(id) {
+    window.location.href = '/agent/dashboard-gen/' + id;
+}
+
+function deleteDashboardGen(id) {
+    if (confirm('Tem certeza que deseja excluir esta solicitação?')) {
+        fetch('/api/agent/dashboard-gen/' + id, { method: 'DELETE' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Erro ao excluir: ' + data.error);
+                }
+            });
+    }
+}
+</script>
+{% endblock %}

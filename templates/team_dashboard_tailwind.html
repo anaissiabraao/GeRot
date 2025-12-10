@@ -145,10 +145,37 @@
             </div>
         {% endif %}
 
+        <!-- Card do Agente IA -->
+        <div class="mt-8 rounded-lg border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 p-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 p-4">
+                        <i class="fas fa-robot text-white text-2xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-foreground">Agente IA</h3>
+                        <p class="text-sm text-muted-foreground">
+                            Automação inteligente e geração de relatórios personalizados
+                        </p>
+                    </div>
+                </div>
+                <a href="{{ url_for('agent_page') }}" 
+                   class="inline-flex items-center justify-center rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3 text-sm font-medium text-white hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl">
+                    <i class="fas fa-magic mr-2"></i>
+                    Acessar Agente
+                </a>
+            </div>
+        </div>
+
         <!-- Ações Rápidas -->
-        <div class="mt-12 rounded-lg border bg-card p-6">
+        <div class="mt-8 rounded-lg border bg-card p-6">
             <h3 class="mb-4 text-lg font-semibold text-foreground">Ações Rápidas</h3>
-            <div class="grid gap-4 md:grid-cols-3">
+            <div class="grid gap-4 md:grid-cols-4">
+                <a href="{{ url_for('agent_page') }}" 
+                   class="flex items-center justify-center rounded-md border-2 border-purple-200 bg-purple-50 px-4 py-3 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-100">
+                    <i class="fas fa-robot mr-2"></i>
+                    Agente IA
+                </a>
                 <a href="{{ url_for('cd_booking') }}" 
                    class="flex items-center justify-center rounded-md border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground">
                     <i class="fas fa-calendar-alt mr-2"></i>
