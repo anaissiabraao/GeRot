@@ -55,14 +55,14 @@
                             </select>
                         </div>
                         <div>
-                            <label class="text-xs text-muted-foreground">Query SQL</label>
-                            <textarea id="sqlQuery" rows="6" 
-                                      class="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm font-mono"
-                                      placeholder="SELECT * FROM tabela LIMIT 100">{{ template.query_config.query if template and template.query_config else '' }}</textarea>
+                            <label class="text-xs text-muted-foreground">Dados disponíveis</label>
+                            <select id="existingDataSelect" class="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm">
+                                <option value="">Selecione um conjunto de dados...</option>
+                            </select>
                         </div>
-                        <button onclick="executeQuery()" class="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
-                            <i class="fas fa-play mr-2"></i>
-                            Executar Query
+                        <button onclick="loadExistingData()" class="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-database mr-2"></i>
+                            Carregar Dados
                         </button>
                     </div>
                 </div>
@@ -74,7 +74,7 @@
                         Campos Disponíveis
                     </h3>
                     <div id="availableFields" class="space-y-1 max-h-48 overflow-y-auto">
-                        <p class="text-xs text-muted-foreground">Execute a query para ver os campos</p>
+                        <p class="text-xs text-muted-foreground">Selecione uma fonte de dados para ver os campos</p>
                     </div>
                 </div>
 
@@ -124,8 +124,8 @@
                     </div>
                     <h3 class="text-lg font-semibold mb-2">Comece a criar seu dashboard</h3>
                     <p class="text-sm text-muted-foreground max-w-md">
-                        1. Configure a query SQL na barra lateral<br>
-                        2. Execute para carregar os dados<br>
+                        1. Selecione uma fonte de dados na barra lateral<br>
+                        2. Carregue os dados<br>
                         3. Adicione gráficos e tabelas
                     </p>
                 </div>
@@ -169,10 +169,14 @@ const dashboardState = {
 };
 
 // Inicialização
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('category').value = dashboardState.category;
-    if (dashboardState.queryConfig.query) {
-        document.getElementById('sqlQuery').value = dashboardState.queryConfig.query;
+    await fetchAvailableDataOptions();
+    const preselected = dashboardState.queryConfig && dashboardState.queryConfig.request_id;
+    if (preselected) {
+        const sel = document.getElementById('existingDataSelect');
+        sel.value = preselected;
+        await loadExistingData();
     }
     
     // Renderizar componentes existentes
@@ -184,41 +188,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Executar query
-async function executeQuery() {
-    const query = document.getElementById('sqlQuery').value.trim();
-    if (!query) {
-        alert('Digite uma query SQL');
+// Carregar lista de dados disponíveis
+async function fetchAvailableDataOptions() {
+    try {
+        const res = await fetch('/api/agent/dashboard-gen?status=completed&has_data=true');
+        const json = await res.json();
+        if (json.error) return;
+        const sel = document.getElementById('existingDataSelect');
+        sel.innerHTML = '<option value="">Selecione um conjunto de dados...</option>' +
+            (json.items || []).map(item => `
+                <option value="${item.id}">
+                    ${item.title} (${item.row_count || 0} registros)
+                </option>
+            `).join('');
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// Carregar dados selecionados
+async function loadExistingData() {
+    const id = document.getElementById('existingDataSelect').value;
+    if (!id) {
+        alert('Selecione um conjunto de dados');
         return;
     }
-    
     try {
-        const response = await fetch('/api/agent/dashboard-editor/execute-query', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query })
-        });
-        
-        const result = await response.json();
-        
-        if (result.error) {
-            alert('Erro: ' + result.error);
+        const res = await fetch(`/api/agent/dashboard-gen/${id}`);
+        const dash = await res.json();
+        if (dash.error) {
+            alert('Erro: ' + dash.error);
             return;
         }
-        
-        dashboardState.data = result.data || [];
-        dashboardState.fields = result.fields || [];
-        
-        // Atualizar campos disponíveis
+        const result = dash.result_data || {};
+        const data = Array.isArray(result.data) ? result.data : [];
+        const fields = data.length ? Object.keys(data[0]) : [];
+        dashboardState.data = data;
+        dashboardState.fields = fields;
         updateAvailableFields();
-        
-        // Atualizar gráficos existentes
         updateAllCharts();
-        
-        alert(`Query executada! ${dashboardState.data.length} registros carregados.`);
-        
+        alert(`${dashboardState.data.length} registros carregados.`);
     } catch (error) {
-        alert('Erro ao executar query: ' + error.message);
+        alert('Erro ao carregar dados: ' + error.message);
     }
 }
 
@@ -584,13 +595,13 @@ function removeComponent(componentId) {
 }
 
 async function refreshData() {
-    await executeQuery();
+    await loadExistingData();
 }
 
 async function saveDashboard(publish = false) {
     const title = document.getElementById('dashboardTitle').value.trim();
     const category = document.getElementById('category').value;
-    const query = document.getElementById('sqlQuery').value.trim();
+    const selectedDataId = document.getElementById('existingDataSelect').value;
     
     if (!title) {
         alert('Digite um nome para o dashboard');
@@ -601,7 +612,7 @@ async function saveDashboard(publish = false) {
         id: dashboardState.id,
         title: title,
         category: category,
-        query_config: { query: query },
+        query_config: selectedDataId ? { source_type: 'dashboard_request', request_id: parseInt(selectedDataId) } : {},
         charts_config: dashboardState.chartsConfig,
         layout_config: dashboardState.layoutConfig,
         is_published: publish

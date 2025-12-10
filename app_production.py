@@ -3015,6 +3015,67 @@ def delete_rpa(rpa_id):
         conn.close()
 
 
+@app.route("/api/agent/dashboard-gen", methods=["GET"])
+@login_required
+def list_dashboard_gen():
+    """Lista solicitações de geração de dashboard com filtros opcionais.
+    Suporta filtros via query string: status=completed|pending|failed e has_data=true.
+    Retorna itens com id, title, status, row_count e updated_at.
+    """
+    status = (request.args.get('status') or '').strip().lower()
+    has_data = (request.args.get('has_data') or '').strip().lower() == 'true'
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    try:
+        where_clauses = []
+        params = []
+
+        # Restringir por usuário (a menos que admin)
+        if session.get('role') != 'admin':
+            where_clauses.append("created_by = %s")
+            params.append(session['user_id'])
+
+        # Filtro de status opcional
+        if status in ('completed', 'pending', 'failed'):
+            where_clauses.append("status = %s")
+            params.append(status)
+
+        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ''
+
+        cursor.execute(f"""
+            SELECT id, title, status, result_data, updated_at
+            FROM agent_dashboard_requests
+            {where_sql}
+            ORDER BY updated_at DESC
+            LIMIT 100
+        """, tuple(params))
+
+        rows = cursor.fetchall() or []
+        items = []
+        for r in rows:
+            rd = r.get('result_data') or {}
+            data = rd.get('data') or []
+            row_count = len(data) if isinstance(data, list) else 0
+            if has_data and row_count == 0:
+                continue
+            items.append({
+                'id': r['id'],
+                'title': r['title'],
+                'status': r['status'],
+                'row_count': row_count,
+                'updated_at': r.get('updated_at').isoformat() if r.get('updated_at') else None
+            })
+
+        return jsonify({'items': items}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
 @app.route("/api/agent/dashboard-gen", methods=["POST"])
 @login_required
 def create_dashboard_gen():
