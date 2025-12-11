@@ -4195,7 +4195,7 @@ def request_auditoria_fiscal():
             m.tipo,
             mt.tipo as tipo_descricao,
             m.id_agente,
-            f.nome_fantasia as agente_nome,
+            f.fantasia as agente_nome,
             m.motorista,
             func.nome as motorista_nome,
             m.veiculo,
