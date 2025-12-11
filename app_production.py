@@ -34,6 +34,7 @@ import requests
 import mimetypes
 from werkzeug.utils import secure_filename
 from psycopg2 import pool
+import openai
 
 from openpyxl import load_workbook
 
@@ -4643,6 +4644,234 @@ def agent_health_check():
         "timestamp": datetime.now().isoformat(),
         "version": "1.0.0"
     }), 200
+
+
+# --------------------------------------------------------------------------- #
+# Chat IA & RAG
+# --------------------------------------------------------------------------- #
+
+@app.route("/api/agent/chat/history", methods=["GET"])
+@login_required
+def get_chat_history():
+    """Retorna o histórico de conversas do usuário."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Buscar conversas ordenadas pela última atualização
+        cursor.execute("""
+            SELECT c.id, c.title, c.updated_at,
+                   (SELECT content FROM agent_messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) as last_message
+            FROM agent_conversations c
+            WHERE c.user_id = %s AND c.is_archived = false
+            ORDER BY c.updated_at DESC
+            LIMIT 50
+        """, (session['user_id'],))
+        
+        conversations = [dict(row) for row in cursor.fetchall()]
+        return jsonify({"conversations": conversations})
+        
+    except Exception as e:
+        app.logger.error(f"Erro ao buscar histórico de chat: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/chat/<int:conversation_id>/messages", methods=["GET"])
+@login_required
+def get_chat_messages(conversation_id):
+    """Retorna as mensagens de uma conversa."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar permissão
+        cursor.execute("SELECT title, user_id FROM agent_conversations WHERE id = %s", (conversation_id,))
+        conv = cursor.fetchone()
+        
+        if not conv:
+            return jsonify({"error": "Conversa não encontrada"}), 404
+            
+        if conv['user_id'] != session['user_id'] and session.get('role') != 'admin':
+            return jsonify({"error": "Acesso negado"}), 403
+            
+        # Buscar mensagens
+        cursor.execute("""
+            SELECT role, content, created_at, metadata
+            FROM agent_messages
+            WHERE conversation_id = %s
+            ORDER BY created_at ASC
+        """, (conversation_id,))
+        
+        messages = [dict(row) for row in cursor.fetchall()]
+        return jsonify({
+            "title": conv['title'],
+            "messages": messages
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Erro ao buscar mensagens: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/chat/message", methods=["POST"])
+@login_required
+def send_chat_message():
+    """Envia uma mensagem e obtém resposta da IA."""
+    data = request.get_json()
+    user_message = data.get('message')
+    conversation_id = data.get('conversation_id')
+    
+    if not user_message:
+        return jsonify({"error": "Mensagem vazia"}), 400
+        
+    if not OPENAI_API_KEY:
+        return jsonify({"error": "Serviço de IA não configurado no servidor"}), 503
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # 1. Gerenciar Conversa (Criar ou Atualizar)
+        if not conversation_id:
+            # Título baseado nas primeiras palavras
+            title = ' '.join(user_message.split()[:5]) + '...'
+            cursor.execute("""
+                INSERT INTO agent_conversations (title, user_id)
+                VALUES (%s, %s)
+                RETURNING id
+            """, (title, session['user_id']))
+            conversation_id = cursor.fetchone()['id']
+        else:
+            # Atualizar timestamp
+            cursor.execute("""
+                UPDATE agent_conversations SET updated_at = NOW() WHERE id = %s AND user_id = %s
+            """, (conversation_id, session['user_id']))
+            
+        # 2. Salvar mensagem do usuário
+        cursor.execute("""
+            INSERT INTO agent_messages (conversation_id, role, content)
+            VALUES (%s, 'user', %s)
+        """, (conversation_id, user_message))
+        
+        # 3. RAG: Buscar contexto relevante na base de conhecimento
+        # Por enquanto busca simples por texto (futuramente vector search)
+        cursor.execute("""
+            SELECT question, answer 
+            FROM agent_knowledge_base 
+            WHERE to_tsvector('portuguese', question) @@ plainto_tsquery('portuguese', %s)
+            LIMIT 3
+        """, (user_message,))
+        
+        knowledge_items = cursor.fetchall()
+        context_text = ""
+        if knowledge_items:
+            context_text = "\n\nContexto relevante encontrado na base de conhecimento:\n"
+            for item in knowledge_items:
+                context_text += f"- Q: {item['question']}\n  A: {item['answer']}\n"
+        
+        # 4. Preparar prompt para OpenAI
+        # Buscar histórico recente para contexto (últimas 10 mensagens)
+        cursor.execute("""
+            SELECT role, content 
+            FROM agent_messages 
+            WHERE conversation_id = %s 
+            ORDER BY created_at DESC 
+            LIMIT 10
+        """, (conversation_id,))
+        history = [dict(row) for row in cursor.fetchall()][::-1] # Inverter para ordem cronológica
+        
+        messages = [
+            {"role": "system", "content": f"""Você é o assistente virtual inteligente do sistema GeRot (Gestão de Rotas e Dashboards).
+            Seu objetivo é ajudar os usuários a navegar no sistema, entender os dados dos dashboards e realizar automações.
+            
+            O usuário atual é: {session.get('nome_completo')} (Cargo: {session.get('role')}).
+            
+            DIRETRIZES:
+            1. Seja direto, profissional e útil.
+            2. Se a pergunta for sobre dados específicos que você não tem acesso, explique como o usuário pode encontrar no dashboard.
+            3. Se encontrar informações no contexto abaixo, use-as para responder.
+            4. Se o usuário perguntar algo que possa ser útil para outros, sugira adicionar à base de conhecimento.
+            
+            {context_text}
+            """}
+        ]
+        
+        for msg in history:
+            messages.append({"role": msg['role'], "content": msg['content']})
+            
+        # Adicionar mensagem atual (já está no history se salvamos antes? Sim, mas history limitou a 10. Garantir que a atual esteja lá)
+        # Como salvamos antes e buscamos do banco, ela já deve estar no history se o limit permitir.
+        # Mas para garantir o fluxo correto na API da OpenAI, vamos montar assim:
+        # System -> History (sem a última user msg se ela já foi pega) -> User Msg (se não foi pega)
+        # Simplificando: A query buscou a mensagem recém inserida. Então 'history' já contém a user_message atual no final.
+        
+        # 5. Chamar OpenAI
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini", # Ou gpt-3.5-turbo se preferir custo menor
+            messages=messages,
+            temperature=0.7,
+            max_tokens=1000
+        )
+        
+        ai_response = response.choices[0].message.content
+        
+        # 6. Salvar resposta da IA
+        cursor.execute("""
+            INSERT INTO agent_messages (conversation_id, role, content)
+            VALUES (%s, 'assistant', %s)
+        """, (conversation_id, ai_response))
+        
+        # 7. Auto-aprendizado (Opcional/Futuro): 
+        # Se a resposta foi gerada com base em contexto, ou se o usuário marcou como útil, poderíamos reforçar.
+        # Por enquanto, vamos apenas salvar se o usuário pedir explicitamente para "lembrar" algo.
+        if "lembre-se que" in user_message.lower() or "adicione ao conhecimento" in user_message.lower():
+            # Tentar extrair o conhecimento (bem rudimentar)
+            cursor.execute("""
+                INSERT INTO agent_knowledge_base (question, answer, created_by)
+                VALUES (%s, %s, %s)
+            """, ("Conhecimento extraído do chat", f"Usuário disse: {user_message}\nIA respondeu: {ai_response}", session['user_id']))
+        
+        conn.commit()
+        
+        return jsonify({
+            "conversation_id": conversation_id,
+            "response": ai_response
+        })
+        
+    except Exception as e:
+        conn.rollback()
+        app.logger.error(f"Erro no chat IA: {e}")
+        return jsonify({"error": f"Erro ao processar mensagem: {str(e)}"}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/chat/<int:conversation_id>", methods=["DELETE"])
+@login_required
+def delete_conversation(conversation_id):
+    """Apaga uma conversa."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            DELETE FROM agent_conversations 
+            WHERE id = %s AND user_id = %s
+        """, (conversation_id, session['user_id']))
+        
+        conn.commit()
+        return jsonify({"success": True})
+        
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 # --------------------------------------------------------------------------- #

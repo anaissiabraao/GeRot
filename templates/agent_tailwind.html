@@ -88,6 +88,10 @@
                             class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground">
                         <i class="fas fa-cogs mr-2"></i>RPA - Automação
                     </button>
+                    <button onclick="switchTab('chat')" id="tab-chat" 
+                            class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground">
+                        <i class="fas fa-comments mr-2"></i>Chat IA
+                    </button>
                     <button onclick="switchTab('dashboard')" id="tab-dashboard" 
                             class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground">
                         <i class="fas fa-chart-pie mr-2"></i>Gerar Dashboard
@@ -336,6 +340,72 @@
                             {% endfor %}
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Conteúdo da Tab Chat IA -->
+        <div id="content-chat" class="tab-content hidden h-[calc(100vh-250px)] min-h-[500px]">
+            <div class="grid h-full grid-cols-1 gap-6 lg:grid-cols-4">
+                <!-- Sidebar Histórico -->
+                <div class="hidden lg:flex lg:flex-col rounded-lg border bg-card shadow-sm overflow-hidden">
+                    <div class="border-b px-4 py-3 bg-muted/30">
+                        <button onclick="startNewChat()" class="w-full flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+                            <i class="fas fa-plus"></i> Novo Chat
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-2 space-y-1" id="chat-history-list">
+                        <!-- Chats serão carregados aqui via JS -->
+                        <div class="text-center py-4 text-muted-foreground text-sm">
+                            Carregando histórico...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Área Principal do Chat -->
+                <div class="lg:col-span-3 flex flex-col rounded-lg border bg-card shadow-sm overflow-hidden relative">
+                    <!-- Header do Chat -->
+                    <div class="border-b px-6 py-3 flex items-center justify-between bg-muted/10">
+                        <h3 class="font-semibold flex items-center gap-2">
+                            <i class="fas fa-robot text-primary"></i>
+                            <span id="current-chat-title">Novo Chat</span>
+                        </h3>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-muted-foreground hidden sm:inline-block">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                As respostas são geradas por IA e podem conter imprecisões.
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Mensagens -->
+                    <div class="flex-1 overflow-y-auto p-4 space-y-4" id="chat-messages">
+                        <!-- Mensagem de boas vindas -->
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-robot text-primary text-sm"></i>
+                            </div>
+                            <div class="rounded-lg bg-muted p-3 text-sm text-foreground max-w-[85%]">
+                                <p>Olá! Sou o assistente virtual do GeRot. Como posso ajudar você hoje com seus dados e relatórios?</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="border-t p-4 bg-background">
+                        <form id="chatForm" onsubmit="sendMessage(event)" class="relative">
+                            <div class="relative flex items-end gap-2">
+                                <textarea name="message" id="chat-input" rows="1" 
+                                          class="flex-1 min-h-[44px] max-h-[150px] w-full rounded-md border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                                          placeholder="Digite sua mensagem..."
+                                          onkeydown="handleChatKeydown(event)"></textarea>
+                                <button type="submit" id="send-btn"
+                                        class="h-[44px] w-[44px] rounded-md bg-primary text-white hover:bg-primary/90 transition-colors flex items-center justify-center flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1217,6 +1287,266 @@ function deleteDashboardTemplate(id) {
             });
     }
 }
+
+// ============================================================
+// FUNÇÕES DE CHAT IA
+// ============================================================
+
+let currentConversationId = null;
+
+// Inicialização do Chat
+document.addEventListener('DOMContentLoaded', function() {
+    if(document.getElementById('content-chat')) {
+        loadChatHistory();
+    }
+});
+
+async function loadChatHistory() {
+    try {
+        const response = await fetch('/api/agent/chat/history');
+        const data = await response.json();
+        
+        const container = document.getElementById('chat-history-list');
+        container.innerHTML = '';
+        
+        if (data.conversations && data.conversations.length > 0) {
+            data.conversations.forEach(chat => {
+                const isActive = chat.id === currentConversationId ? 'bg-muted' : 'hover:bg-muted/50';
+                const date = new Date(chat.updated_at).toLocaleDateString('pt-BR');
+                
+                const html = `
+                    <button onclick="loadConversation(${chat.id})" 
+                            class="w-full text-left p-3 rounded-md text-sm transition-colors ${isActive} group relative">
+                        <div class="flex justify-between items-start">
+                            <span class="font-medium truncate pr-6">${chat.title || 'Nova Conversa'}</span>
+                            <span class="text-xs text-muted-foreground whitespace-nowrap">${date}</span>
+                        </div>
+                        <p class="text-xs text-muted-foreground truncate mt-1">
+                            ${chat.last_message || 'Sem mensagens'}
+                        </p>
+                        <div class="absolute right-2 top-3 hidden group-hover:block">
+                            <span onclick="deleteConversation(event, ${chat.id})" class="text-muted-foreground hover:text-destructive p-1">
+                                <i class="fas fa-trash-alt"></i>
+                            </span>
+                        </div>
+                    </button>
+                `;
+                container.innerHTML += html;
+            });
+        } else {
+            container.innerHTML = '<div class="text-center py-4 text-muted-foreground text-sm">Nenhum histórico encontrado</div>';
+        }
+    } catch (error) {
+        console.error('Erro ao carregar histórico:', error);
+    }
+}
+
+async function loadConversation(id) {
+    currentConversationId = id;
+    loadChatHistory(); // Atualiza UI da sidebar para marcar ativo
+    
+    // Limpar mensagens atuais e mostrar loading
+    const container = document.getElementById('chat-messages');
+    container.innerHTML = `
+        <div class="flex justify-center py-8">
+            <i class="fas fa-spinner fa-spin text-2xl text-primary"></i>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`/api/agent/chat/${id}/messages`);
+        const data = await response.json();
+        
+        container.innerHTML = '';
+        document.getElementById('current-chat-title').textContent = data.title || 'Conversa';
+        
+        if (data.messages && data.messages.length > 0) {
+            data.messages.forEach(msg => appendMessage(msg.role, msg.content, false));
+        } else {
+            // Mensagem inicial padrão
+            appendMessage('assistant', 'Olá! Como posso ajudar você hoje?', false);
+        }
+        
+        scrollToBottom();
+    } catch (error) {
+        container.innerHTML = '<div class="text-center text-red-500 py-4">Erro ao carregar conversa</div>';
+    }
+}
+
+async function startNewChat() {
+    currentConversationId = null;
+    document.getElementById('current-chat-title').textContent = 'Novo Chat';
+    document.getElementById('chat-messages').innerHTML = '';
+    appendMessage('assistant', 'Olá! Iniciei uma nova conversa. Como posso ajudar?', false);
+    loadChatHistory(); // Atualiza seleção
+}
+
+async function deleteConversation(event, id) {
+    event.stopPropagation(); // Evita abrir o chat ao clicar no delete
+    if (!confirm('Tem certeza que deseja apagar esta conversa?')) return;
+    
+    try {
+        await fetch(`/api/agent/chat/${id}`, { method: 'DELETE' });
+        if (currentConversationId === id) startNewChat();
+        loadChatHistory();
+    } catch (error) {
+        alert('Erro ao apagar conversa');
+    }
+}
+
+function handleChatKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('chatForm').dispatchEvent(new Event('submit'));
+    }
+}
+
+async function sendMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    const btn = document.getElementById('send-btn');
+    
+    if (!message) return;
+    
+    // UI Updates
+    input.value = '';
+    input.style.height = 'auto'; // Reset height
+    appendMessage('user', message);
+    scrollToBottom();
+    
+    // Disable input while loading
+    input.disabled = true;
+    btn.disabled = true;
+    
+    // Mostrar typing indicator
+    const typingId = 'typing-' + Date.now();
+    appendTypingIndicator(typingId);
+    scrollToBottom();
+    
+    try {
+        const response = await fetch('/api/agent/chat/message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                conversation_id: currentConversationId,
+                message: message
+            })
+        });
+        
+        const data = await response.json();
+        
+        // Remove typing indicator
+        document.getElementById(typingId).remove();
+        
+        if (data.error) {
+            appendMessage('system', 'Erro: ' + data.error);
+        } else {
+            if (data.conversation_id) {
+                currentConversationId = data.conversation_id;
+                loadChatHistory(); // Atualiza título se for novo chat
+            }
+            appendMessage('assistant', data.response);
+        }
+        
+    } catch (error) {
+        document.getElementById(typingId)?.remove();
+        appendMessage('system', 'Erro de conexão. Tente novamente.');
+    } finally {
+        input.disabled = false;
+        btn.disabled = false;
+        input.focus();
+        scrollToBottom();
+    }
+}
+
+function appendMessage(role, content, animate = true) {
+    const container = document.getElementById('chat-messages');
+    const isUser = role === 'user';
+    const isSystem = role === 'system';
+    
+    let html = '';
+    
+    if (isSystem) {
+        html = `
+            <div class="flex justify-center my-4">
+                <span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">${content}</span>
+            </div>
+        `;
+    } else {
+        html = `
+            <div class="flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''} ${animate ? 'animate-in fade-in slide-in-from-bottom-2 duration-300' : ''}">
+                <div class="w-8 h-8 rounded-full ${isUser ? 'bg-primary text-white' : 'bg-primary/10 text-primary'} flex items-center justify-center flex-shrink-0">
+                    <i class="fas ${isUser ? 'fa-user' : 'fa-robot'} text-sm"></i>
+                </div>
+                <div class="rounded-lg p-3 text-sm max-w-[85%] ${isUser ? 'bg-primary text-white' : 'bg-muted text-foreground'}">
+                    <div class="prose prose-sm ${isUser ? 'text-white' : 'dark:prose-invert'} max-w-none">
+                        ${formatMessageContent(content)}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function appendTypingIndicator(id) {
+    const container = document.getElementById('chat-messages');
+    const html = `
+        <div id="${id}" class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-robot text-sm"></i>
+            </div>
+            <div class="rounded-lg bg-muted p-4 text-sm text-foreground">
+                <div class="flex gap-1">
+                    <div class="w-2 h-2 bg-primary/40 rounded-full animate-bounce"></div>
+                    <div class="w-2 h-2 bg-primary/40 rounded-full animate-bounce delay-100"></div>
+                    <div class="w-2 h-2 bg-primary/40 rounded-full animate-bounce delay-200"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function formatMessageContent(text) {
+    // Simples formatador de markdown para HTML
+    // Em produção, use uma lib como 'marked' ou 'markdown-it'
+    
+    // Escapar HTML
+    let safe = text.replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+        
+    // Code blocks
+    safe = safe.replace(/```([\s\S]*?)```/g, '<pre class="bg-black/80 text-white p-2 rounded my-2 overflow-x-auto"><code>$1</code></pre>');
+    
+    // Inline code
+    safe = safe.replace(/`([^`]+)`/g, '<code class="bg-black/10 px-1 rounded font-mono text-xs">$1</code>');
+    
+    // Bold
+    safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    
+    // Italic
+    safe = safe.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    
+    // Newlines to <br>
+    safe = safe.replace(/\n/g, '<br>');
+    
+    return safe;
+}
+
+function scrollToBottom() {
+    const container = document.getElementById('chat-messages');
+    container.scrollTop = container.scrollHeight;
+}
+
+// Auto-resize textarea
+document.getElementById('chat-input')?.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = (this.scrollHeight) + 'px';
+});
 
 // ============================================================
 // FUNÇÕES DE AUDITORIA FISCAL

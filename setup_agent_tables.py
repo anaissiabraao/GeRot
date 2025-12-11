@@ -254,6 +254,57 @@ def create_tables():
         CREATE INDEX IF NOT EXISTS idx_agent_logs_created_at ON agent_logs(created_at);
     """)
     print("  - agent_logs: OK")
+
+    # Tabela de Conversas do Chat
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS agent_conversations (
+            id BIGSERIAL PRIMARY KEY,
+            title TEXT,
+            user_id BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+            is_archived BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_conversations_user ON agent_conversations(user_id);
+    """)
+    print("  - agent_conversations: OK")
+
+    # Tabela de Mensagens do Chat
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS agent_messages (
+            id BIGSERIAL PRIMARY KEY,
+            conversation_id BIGINT REFERENCES agent_conversations(id) ON DELETE CASCADE,
+            role TEXT NOT NULL, -- 'user', 'assistant', 'system'
+            content TEXT NOT NULL,
+            metadata JSONB, -- Para armazenar referências, contexto usado, etc.
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_messages_conversation ON agent_messages(conversation_id);
+    """)
+    print("  - agent_messages: OK")
+
+    # Tabela de Base de Conhecimento (Simples para começar)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS agent_knowledge_base (
+            id BIGSERIAL PRIMARY KEY,
+            question TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            category TEXT DEFAULT 'Geral',
+            tags TEXT[],
+            embedding vector(1536), -- Preparado para pgvector se disponível, senão falhará ou será ignorado se não instalado
+            created_by BIGINT REFERENCES users_new(id) ON DELETE SET NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_kb_question ON agent_knowledge_base USING GIN(to_tsvector('portuguese', question));
+    """)
+    # Fallback se vector type falhar (pgvector não instalado)
+    try:
+        pass # A criação acima pode falhar se 'vector' não existir. Vamos tratar isso num bloco separado ou simplificar.
+    except:
+        pass
+
+    print("  - agent_knowledge_base: OK")
     
     conn.commit()
     print("\nTabelas criadas com sucesso!")
