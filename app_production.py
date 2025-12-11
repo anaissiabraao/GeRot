@@ -35,6 +35,8 @@ import mimetypes
 from werkzeug.utils import secure_filename
 from psycopg2 import pool
 import openai
+import google.generativeai as genai
+import google.generativeai as genai
 
 from openpyxl import load_workbook
 
@@ -79,6 +81,20 @@ if not DATABASE_URL:
     )
 
 app.config["DATABASE_URL"] = DATABASE_URL
+
+# Configuração OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if OPENAI_API_KEY:
+    openai.api_key = OPENAI_API_KEY
+else:
+    print("⚠️ AVISO: OPENAI_API_KEY não configurada. O Chat IA não funcionará corretamente.")
+
+# Configuração Google Gemini
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
+else:
+    print("⚠️ AVISO: GOOGLE_API_KEY não configurada. Fallback para Gemini inativo.")
 
 # Limpar URL para o Pool (remover pgbouncer e outros params incompatíveis)
 pool_dsn = DATABASE_URL
@@ -4720,7 +4736,7 @@ def get_chat_messages(conversation_id):
 @app.route("/api/agent/chat/message", methods=["POST"])
 @login_required
 def send_chat_message():
-    """Envia uma mensagem e obtém resposta da IA."""
+    """Envia uma mensagem e obtém resposta da IA (OpenAI + Gemini Fallback + DALL-E)."""
     data = request.get_json()
     user_message = data.get('message')
     conversation_id = data.get('conversation_id')
@@ -4728,16 +4744,12 @@ def send_chat_message():
     if not user_message:
         return jsonify({"error": "Mensagem vazia"}), 400
         
-    if not OPENAI_API_KEY:
-        return jsonify({"error": "Serviço de IA não configurado no servidor"}), 503
-        
     conn = get_db()
     cursor = conn.cursor()
     
     try:
         # 1. Gerenciar Conversa (Criar ou Atualizar)
         if not conversation_id:
-            # Título baseado nas primeiras palavras
             title = ' '.join(user_message.split()[:5]) + '...'
             cursor.execute("""
                 INSERT INTO agent_conversations (title, user_id)
@@ -4746,7 +4758,6 @@ def send_chat_message():
             """, (title, session['user_id']))
             conversation_id = cursor.fetchone()['id']
         else:
-            # Atualizar timestamp
             cursor.execute("""
                 UPDATE agent_conversations SET updated_at = NOW() WHERE id = %s AND user_id = %s
             """, (conversation_id, session['user_id']))
@@ -4757,61 +4768,121 @@ def send_chat_message():
             VALUES (%s, 'user', %s)
         """, (conversation_id, user_message))
         
-        # 3. RAG: Buscar contexto relevante na base de conhecimento
-        # Busca por texto completo em pergunta e resposta
-        cursor.execute("""
-            SELECT question, answer, category 
-            FROM agent_knowledge_base 
-            WHERE to_tsvector('portuguese', question || ' ' || answer) @@ plainto_tsquery('portuguese', %s)
-            ORDER BY created_at DESC
-            LIMIT 5
-        """, (user_message,))
+        ai_response = ""
         
-        knowledge_items = cursor.fetchall()
-        context_text = ""
-        if knowledge_items:
-            context_text = "\n\n📚 CONTEXTO DA BASE DE CONHECIMENTO (Use estas informações se relevantes):\n"
-            for item in knowledge_items:
-                context_text += f"--- [{item['category'] or 'Geral'}] ---\nQ: {item['question']}\nA: {item['answer']}\n"
+        # --- COMANDO DE IMAGEM ---
+        if user_message.lower().startswith('/imagem ') or user_message.lower().startswith('/img '):
+            if not OPENAI_API_KEY:
+                return jsonify({"error": "OpenAI API Key necessária para gerar imagens."}), 503
+                
+            prompt = user_message.replace('/imagem ', '').replace('/img ', '')
+            
+            try:
+                client = openai.OpenAI(api_key=OPENAI_API_KEY)
+                response = client.images.generate(
+                    model="dall-e-3",
+                    prompt=prompt,
+                    size="1024x1024",
+                    quality="standard",
+                    n=1,
+                )
+                image_url = response.data[0].url
+                ai_response = f"Aqui está a imagem gerada para: **{prompt}**\n\n![Imagem Gerada]({image_url})"
+                
+            except Exception as img_err:
+                app.logger.error(f"Erro DALL-E: {img_err}")
+                ai_response = f"Desculpe, não consegui gerar a imagem. Erro: {str(img_err)}"
         
-        # 4. Preparar prompt para OpenAI
-        # Buscar histórico recente para contexto (últimas 10 mensagens)
-        cursor.execute("""
-            SELECT role, content 
-            FROM agent_messages 
-            WHERE conversation_id = %s 
-            ORDER BY created_at DESC 
-            LIMIT 10
-        """, (conversation_id,))
-        history = [dict(row) for row in cursor.fetchall()][::-1] # Inverter para ordem cronológica
-        
-        messages = [
-            {"role": "system", "content": f"""Você é o assistente virtual inteligente do sistema GeRot.
+        else:
+            # --- CHAT TEXTO (RAG + OpenAI/Gemini) ---
+            
+            # 3. RAG: Buscar contexto
+            cursor.execute("""
+                SELECT question, answer, category 
+                FROM agent_knowledge_base 
+                WHERE to_tsvector('portuguese', question || ' ' || answer) @@ plainto_tsquery('portuguese', %s)
+                ORDER BY created_at DESC
+                LIMIT 5
+            """, (user_message,))
+            
+            knowledge_items = cursor.fetchall()
+            context_text = ""
+            if knowledge_items:
+                context_text = "\n\n📚 CONTEXTO DA BASE DE CONHECIMENTO:\n"
+                for item in knowledge_items:
+                    context_text += f"--- [{item['category'] or 'Geral'}] ---\nQ: {item['question']}\nA: {item['answer']}\n"
+            
+            # 4. Preparar histórico
+            cursor.execute("""
+                SELECT role, content 
+                FROM agent_messages 
+                WHERE conversation_id = %s 
+                ORDER BY created_at DESC 
+                LIMIT 10
+            """, (conversation_id,))
+            history = [dict(row) for row in cursor.fetchall()][::-1]
+            
+            system_prompt = f"""Você é o assistente virtual inteligente do sistema GeRot.
             O usuário é: {session.get('nome_completo')} ({session.get('role')}).
             
             DIRETRIZES:
             1. Use o CONTEXTO DA BASE DE CONHECIMENTO abaixo para responder, se aplicável. 
             2. Se o contexto contiver dados do Brudam ou regras de negócio, priorize-os.
-            3. Se não souber a resposta, sugira que o usuário adicione essa informação à Base de Conhecimento.
+            3. Se não souber, sugira adicionar à Base de Conhecimento.
+            4. Para gerar imagens, peça para o usuário usar o comando '/imagem descrição'.
             
             {context_text}
-            """}
-        ]
-        
-        for msg in history:
-            messages.append({"role": msg['role'], "content": msg['content']})
+            """
             
-        # 5. Chamar OpenAI
-        client = openai.OpenAI(api_key=OPENAI_API_KEY)
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=1000
-        )
-        
-        ai_response = response.choices[0].message.content
-        
+            # Tentar OpenAI primeiro
+            try:
+                if not OPENAI_API_KEY:
+                    raise Exception("OpenAI Key missing")
+                    
+                messages = [{"role": "system", "content": system_prompt}]
+                for msg in history:
+                    messages.append({"role": msg['role'], "content": msg['content']})
+                
+                client = openai.OpenAI(api_key=OPENAI_API_KEY)
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=1000
+                )
+                ai_response = response.choices[0].message.content
+                
+            except Exception as openai_error:
+                app.logger.warning(f"Falha na OpenAI ({openai_error}). Tentando Gemini...")
+                
+                # Fallback para Gemini
+                if GOOGLE_API_KEY:
+                    try:
+                        model = genai.GenerativeModel('gemini-pro')
+                        
+                        # Construir chat session para Gemini
+                        # Gemini tem estrutura diferente (history list)
+                        chat_history = []
+                        # Adicionar system prompt como primeira mensagem do usuário ou contexto
+                        # Gemini Pro via API não tem "system" role explícito no chat history da mesma forma,
+                        # mas podemos passar no start ou na primeira mensagem.
+                        
+                        # Simplificação para Gemini: Prompt único com contexto
+                        full_prompt = f"{system_prompt}\n\nHistórico da conversa:\n"
+                        for msg in history:
+                            role_label = "Usuário" if msg['role'] == 'user' else "Modelo"
+                            full_prompt += f"{role_label}: {msg['content']}\n"
+                        full_prompt += f"Usuário (Atual): {user_message}"
+                        
+                        response = model.generate_content(full_prompt)
+                        ai_response = response.text + "\n\n*(Gerado via Gemini - Fallback)*"
+                        
+                    except Exception as gemini_error:
+                        app.logger.error(f"Erro Gemini: {gemini_error}")
+                        ai_response = "Desculpe, ambos os serviços de IA (OpenAI e Gemini) estão indisponíveis no momento."
+                else:
+                    ai_response = f"Serviço OpenAI indisponível e Gemini não configurado. Erro: {str(openai_error)}"
+
         # 6. Salvar resposta da IA
         cursor.execute("""
             INSERT INTO agent_messages (conversation_id, role, content)

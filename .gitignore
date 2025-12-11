@@ -15,14 +15,14 @@ env/
 *.log
 logs/
 
-# OS
-.DS_Store
-Thumbs.db
-
 # Local configs / secrets
 .env
 agent_local/.env
 agent_local/*.log
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Data / exports
 *.sqlite3

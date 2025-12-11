@@ -6,23 +6,32 @@ import psycopg2
 import psycopg2.extras
 from pathlib import Path
 
-# Tentar carregar variáveis do .env localmente
-env_path = Path(__file__).parent / ".env"
-if env_path.exists():
-    try:
-        with open(env_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" in line:
-                    key, value = line.split("=", 1)
-                    key = key.strip()
-                    value = value.strip().strip("'").strip('"')
-                    os.environ[key] = value
-        print(f"Variáveis carregadas de {env_path}")
-    except Exception as e:
-        print(f"Aviso: Não foi possível ler .env: {e}")
+# Tentar carregar variáveis do .env localmente (pasta atual ou raiz)
+env_paths = [
+    Path(__file__).parent / ".env",
+    Path(__file__).parent.parent / ".env"
+]
+
+env_loaded = False
+for env_path in env_paths:
+    if env_path.exists():
+        try:
+            print(f"Lendo .env de: {env_path}")
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" in line:
+                        key, value = line.split("=", 1)
+                        key = key.strip()
+                        value = value.strip().strip("'").strip('"')
+                        os.environ[key] = value
+            print(f"Variáveis carregadas de {env_path}")
+            env_loaded = True
+            break # Prioriza o primeiro encontrado ou o da raiz? Aqui para no primeiro.
+        except Exception as e:
+            print(f"Aviso: Não foi possível ler {env_path}: {e}")
 
 DATABASE_URL = (
     os.getenv("DATABASE_URL")
@@ -31,7 +40,11 @@ DATABASE_URL = (
 )
 
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL não configurada.")
+    print(" ERRO: DATABASE_URL não encontrada nas variáveis de ambiente.")
+    print("Certifique-se de que o arquivo .env existe na raiz ou defina a variável manualmente.")
+    exit(1) # Encerrar se não tiver URL
+
+print(f"Usando DATABASE_URL: {DATABASE_URL[:25]}... (mascarado)")
 
 
 def get_db():
@@ -53,26 +66,41 @@ def get_db():
     max_retries = 3
     last_error = None
     
-    # URL de fallback conhecida (do render.yaml) usando porta 5432 (Session Mode) que é melhor para migrations
-    FALLBACK_URL = "postgresql://postgres.cwkfsazxmtdluoexwafp:uTwmiAmgkXlTa0Yu@aws-1-us-east-2.pooler.supabase.com:5432/postgres"
+    # Configurar URLs para tentativa
+    urls_to_try = []
     
-    urls_to_try = [database_url]
-    if FALLBACK_URL != database_url:
-        urls_to_try.append(FALLBACK_URL)
+    # 1. Tentar DIRECT_URL (Porta 5432 - Session Mode - Ideal para Migrations)
+    direct_url = os.getenv("DIRECT_URL")
+    if direct_url:
+        urls_to_try.append(direct_url)
+        print(f"Adicionada DIRECT_URL para tentativa: ...{direct_url[-20:]}")
+
+    # 2. Tentar DATABASE_URL (Porta 6543 - Transaction Mode - Pode falhar em migrations)
+    if DATABASE_URL and DATABASE_URL != direct_url:
+        urls_to_try.append(DATABASE_URL)
+        print(f"Adicionada DATABASE_URL para tentativa: ...{DATABASE_URL[-20:]}")
         
+    # 3. Fallback Hardcoded (Se nada mais funcionar)
+    FALLBACK_URL = "postgresql://postgres.cwkfsazxmtdluoexwafp:uTwmiAmgkXlTa0Yu@aws-1-us-east-2.pooler.supabase.com:5432/postgres"
+    if FALLBACK_URL not in urls_to_try:
+        urls_to_try.append(FALLBACK_URL)
+
+    last_error = None
+    
     for url in urls_to_try:
         if not url: continue
         
-        # Limpar parâmetros de pgbouncer se existirem
+        # Limpar parâmetros de pgbouncer se existirem para conectar direto (se não for a porta 6543)
+        clean_url = url
         if "?" in url and "pgbouncer=" in url:
-            url = url.split("?")[0] + "?sslmode=require"
+             clean_url = url.split("?")[0] + "?sslmode=require"
             
-        print(f"[DB] Tentando conectar em: {url.split('@')[1] if '@' in url else '...'}")
+        print(f"[DB] Tentando conectar em: {clean_url.split('@')[1] if '@' in clean_url else '...'}")
         
         for attempt in range(max_retries):
             try:
                 return psycopg2.connect(
-                    url,
+                    clean_url,
                     cursor_factory=psycopg2.extras.RealDictCursor,
                     keepalives=1,
                     keepalives_idle=30,
@@ -85,7 +113,7 @@ def get_db():
                 if attempt < max_retries - 1:
                     time.sleep(1 * (attempt + 1))
         
-        print("[DB] Falha com URL principal/atual. Tentando próxima se houver...")
+        print("[DB] Falha com URL atual. Tentando próxima...")
 
     print("[DB] Todas as tentativas de conexão falharam.")
     raise last_error
