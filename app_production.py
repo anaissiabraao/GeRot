@@ -4867,8 +4867,8 @@ def send_chat_message():
                 if google_key:
                     try:
                         genai.configure(api_key=google_key)
-                        # Usando modelo mais recente e rápido
-                        model = genai.GenerativeModel('gemini-2.0-flash')
+                        # Usando modelo compatível (gemini-flash-latest validado)
+                        model = genai.GenerativeModel('gemini-flash-latest')
                         
                         # Construir chat session para Gemini
                         # Gemini tem estrutura diferente (history list)
