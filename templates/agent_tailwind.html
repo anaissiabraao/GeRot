@@ -920,6 +920,8 @@
 // Variáveis globais para auditoria
 let auditManifestos = [];
 let auditStatsOperadores = [];
+let currentSort = { field: 'data_emissao', direction: 'desc' };
+let currentManifestos = [];
 
 function switchTab(tabName) {
     // Esconde todos os conteúdos
@@ -1621,39 +1623,72 @@ function mostrarCustosManifesto(manifestoId) {
     showModal(`Detalhes do Manifesto #${manifestoId}`, content);
 }
 function exportarExcel() {
-    const table = document.querySelector("#audit-manifestos-detail table");
-    if (!table) return;
-    
-    let csv = [];
-    
-    // Headers
-    const headers = [];
-    table.querySelectorAll("th").forEach(th => headers.push('"' + th.innerText + '"'));
-    csv.push(headers.join(","));
-    
-    // Rows
-    table.querySelectorAll("tbody tr").forEach(tr => {
-        const row = [];
-        tr.querySelectorAll("td").forEach(td => {
-            // Limpa o texto: remove quebras de linha e espaços extras
-            let text = td.innerText.replace(/\n/g, " ").replace(/\s+/g, " ").trim();
-            row.push('"' + text + '"');
-        });
-        csv.push(row.join(","));
-    });
-    
-    const csvContent = "data:text/csv;charset=utf-8," + "\uFEFF" + encodeURI(csv.join("\n"));
-    const link = document.createElement("a");
-    link.setAttribute("href", csvContent);
-    
-    // Tenta pegar o nome do operador do título
+    if (!currentManifestos || currentManifestos.length === 0) {
+        alert("Não há dados para exportar.");
+        return;
+    }
+
+    // Preparar dados para o Excel
+    const dadosExcel = currentManifestos.map(m => ({
+        "ID Manifesto": m.id_manifesto,
+        "Data Emissão": formatDateBR(m.data_emissao),
+        "Tipo": m.tipo_descricao || m.tipo || '-',
+        "Agente": m.agente_nome || '-',
+        "Motorista": m.motorista_nome || '-',
+        "Veículo Placa": m.veiculo_placa || '-',
+        "Veículo Modelo": m.veiculo_modelo || '-',
+        "Operador": m.operador_nome || '-',
+        "KM Inicial": m.km_inicial || 0,
+        "KM Final": m.km_final || 0,
+        "KM Rodado": m.km_rodado || 0,
+        "Valor NF (R$)": m.total_nf_valor || 0,
+        "Custo Motorista": m.custo_motorista || 0,
+        "Custo Extra": m.custo_motorista_extra || 0,
+        "Adiantamento": m.adiantamento || 0,
+        "Pedágio": m.pedagio || 0,
+        "Picking": m.picking || 0,
+        "Fatura": m.fatura || '-'
+    }));
+
+    // Criar Worksheet
+    const ws = XLSX.utils.json_to_sheet(dadosExcel);
+
+    // Ajustar largura das colunas
+    const colWidths = [
+        { wch: 12 }, // ID
+        { wch: 12 }, // Data
+        { wch: 25 }, // Tipo
+        { wch: 30 }, // Agente
+        { wch: 30 }, // Motorista
+        { wch: 10 }, // Placa
+        { wch: 20 }, // Modelo
+        { wch: 20 }, // Operador
+        { wch: 10 }, // KM Ini
+        { wch: 10 }, // KM Fim
+        { wch: 10 }, // KM Rod
+        { wch: 15 }, // Valor
+        { wch: 12 }, // Custos...
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 15 }  // Fatura
+    ];
+    ws['!cols'] = colWidths;
+
+    // Criar Workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Manifestos");
+
+    // Nome do arquivo
     const titleEl = document.getElementById('audit-detail-title');
-    const operatorName = titleEl ? titleEl.innerText.split('(')[0].replace('Manifestos de', '').trim() : 'Manifestos';
-    
-    link.setAttribute("download", `Manifestos_${operatorName}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const operatorName = titleEl ? titleEl.innerText.split('(')[0].replace('Manifestos de', '').trim() : 'Relatorio';
+    // Remove caracteres inválidos para nome de arquivo
+    const safeName = operatorName.replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_');
+    const fileName = `Manifestos_${safeName}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Download
+    XLSX.writeFile(wb, fileName);
 }
 </script>
 {% endblock %}
