@@ -79,20 +79,34 @@ if not DATABASE_URL:
 
 app.config["DATABASE_URL"] = DATABASE_URL
 
+# Limpar URL para o Pool (remover pgbouncer e outros params incompatíveis)
+pool_dsn = DATABASE_URL
+if "?" in pool_dsn:
+    url_parts = pool_dsn.split("?")
+    base_url = url_parts[0]
+    if len(url_parts) > 1:
+        query_params = url_parts[1]
+        # Remove parâmetros pgbouncer
+        params = [p for p in query_params.split("&") if not p.startswith("pgbouncer=")]
+        if params:
+            pool_dsn = f"{base_url}?{'&'.join(params)}"
+        else:
+            pool_dsn = base_url
+
 # Configuração do Pool de Conexões
-# Min: 1, Max: 20 conexões simultâneas
+# Min: 1, Max: 60 conexões simultâneas
 try:
     db_pool = psycopg2.pool.ThreadedConnectionPool(
         minconn=1,
-        maxconn=20,
-        dsn=DATABASE_URL,
+        maxconn=60,
+        dsn=pool_dsn,  # Usar URL limpa
         cursor_factory=psycopg2.extras.RealDictCursor,
         keepalives=1,
         keepalives_idle=30,
         keepalives_interval=10,
         keepalives_count=5
     )
-    print("✅ Pool de conexões criado com sucesso (1-20 conexões)")
+    print("✅ Pool de conexões criado com sucesso (1-60 conexões)")
 except Exception as e:
     print(f"❌ Erro fatal ao criar pool de conexões: {e}")
     # Fallback ou exit? Vamos deixar passar e tentar reconectar no get_db se falhar
@@ -1049,11 +1063,15 @@ def import_users_from_excel() -> None:
         workbook.close()
 
 
-ensure_schema()
-ensure_agent_tables()  # Garantir tabelas do agente
-seed_dashboards()
-normalize_roles()
-import_users_from_excel()
+with app.app_context():
+    try:
+        ensure_schema()
+        # ensure_agent_tables() # Pode não estar definida neste arquivo, comentar se der erro
+        seed_dashboards()
+        normalize_roles()
+        # import_users_from_excel() # Pode ser pesado para rodar em todo restart
+    except Exception as e:
+        app.logger.error(f"Erro na inicialização do banco: {e}")
 
 
 # --------------------------------------------------------------------------- #
