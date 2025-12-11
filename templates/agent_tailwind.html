@@ -864,6 +864,31 @@
                         Selecione um período e clique em "Buscar" para visualizar os manifestos emitidos.
                     </p>
                 </div>
+
+                <!-- Estado de Erro de Conexão -->
+                <div id="audit-connection-error" class="hidden text-center py-12">
+                    <div class="rounded-full bg-red-100 w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-plug text-2xl text-red-500"></i>
+                    </div>
+                    <h4 class="font-semibold mb-2 text-red-700">Erro de Conexão</h4>
+                    <p id="audit-error-message" class="text-sm text-muted-foreground mb-4">
+                        Não foi possível conectar ao banco de dados.
+                    </p>
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-md mx-auto text-left">
+                        <h5 class="font-medium text-amber-800 mb-2">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>Verifique:
+                        </h5>
+                        <ul class="text-sm text-amber-700 space-y-1">
+                            <li>• ZeroTier está conectado?</li>
+                            <li>• IP 10.147.17.88 está acessível?</li>
+                            <li>• Credenciais MySQL estão corretas?</li>
+                            <li>• O servidor MySQL está online?</li>
+                        </ul>
+                    </div>
+                    <button onclick="buscarAuditoria()" class="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90">
+                        <i class="fas fa-redo mr-2"></i>Tentar Novamente
+                    </button>
+                </div>
             </div>
         </div>
     </main>
@@ -1244,9 +1269,12 @@ async function carregarOperadores() {
                 option.textContent = op.primeiro_nome;
                 select.appendChild(option);
             });
+        } else if (!data.success) {
+            // Erro de conexão - não exibe nada, usuário verá o erro ao buscar
+            console.warn('Não foi possível carregar operadores:', data.error);
         }
     } catch (error) {
-        console.error('Erro ao carregar operadores:', error);
+        console.warn('Erro ao carregar operadores (servidor pode estar inacessível):', error);
     }
 }
 
@@ -1260,10 +1288,11 @@ async function buscarAuditoria() {
         return;
     }
     
-    // Mostrar loading
+    // Mostrar loading e esconder outros estados
     document.getElementById('audit-loading').classList.remove('hidden');
     document.getElementById('audit-results').classList.add('hidden');
     document.getElementById('audit-empty').classList.add('hidden');
+    document.getElementById('audit-connection-error').classList.add('hidden');
     document.getElementById('audit-manifestos-detail').classList.add('hidden');
     
     try {
@@ -1278,8 +1307,15 @@ async function buscarAuditoria() {
         document.getElementById('audit-loading').classList.add('hidden');
         
         if (!data.success) {
-            alert('Erro ao buscar dados: ' + (data.error || 'Erro desconhecido'));
-            document.getElementById('audit-empty').classList.remove('hidden');
+            // Verifica se é erro de conexão
+            const errorMsg = data.error || 'Erro desconhecido';
+            if (errorMsg.includes('conectar') || errorMsg.includes('MySQL') || errorMsg.includes('ZeroTier') || response.status === 503) {
+                document.getElementById('audit-error-message').textContent = errorMsg;
+                document.getElementById('audit-connection-error').classList.remove('hidden');
+            } else {
+                alert('Erro ao buscar dados: ' + errorMsg);
+                document.getElementById('audit-empty').classList.remove('hidden');
+            }
             return;
         }
         
@@ -1309,8 +1345,8 @@ async function buscarAuditoria() {
         
     } catch (error) {
         document.getElementById('audit-loading').classList.add('hidden');
-        document.getElementById('audit-empty').classList.remove('hidden');
-        alert('Erro ao buscar dados: ' + error.message);
+        document.getElementById('audit-error-message').textContent = 'Erro de comunicação: ' + error.message;
+        document.getElementById('audit-connection-error').classList.remove('hidden');
     }
 }
 

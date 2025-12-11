@@ -3,7 +3,7 @@
 Agente Local para execução de RPAs no MySQL Brudam.
 
 Este script deve rodar em um PC que tenha acesso à rede ZeroTier (10.147.17.x)
-e consegue acessar o MySQL Brudam em 10.147.17.88:3307.
+e consegue acessar o MySQL Brudam em 10.147.17.88:3306.
 
 O agente faz polling no GeRot para buscar RPAs pendentes, executa as queries
 no MySQL Brudam e envia os resultados de volta.
@@ -15,7 +15,7 @@ Variáveis de ambiente necessárias:
     GEROT_API_URL - URL base do GeRot (ex: https://gerot.onrender.com)
     GEROT_API_KEY - Chave de API para autenticação
     MYSQL_AZ_HOST - Host do MySQL Brudam (default: 10.147.17.88)
-    MYSQL_AZ_PORT - Porta do MySQL (default: 3307)
+    MYSQL_AZ_PORT - Porta do MySQL (default: 3306)
     MYSQL_AZ_USER - Usuário do MySQL
     MYSQL_AZ_PASSWORD - Senha do MySQL
     MYSQL_AZ_DB - Nome do banco (default: azportoex)
@@ -68,7 +68,7 @@ POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "30"))  # segundos
 # MySQL Brudam - credenciais devem estar no .env
 MYSQL_CONFIG = {
     "host": os.getenv("MYSQL_AZ_HOST", ""),
-    "port": int(os.getenv("MYSQL_AZ_PORT", "3307")),
+    "port": int(os.getenv("MYSQL_AZ_PORT", "3306")),
     "user": os.getenv("MYSQL_AZ_USER", ""),
     "password": os.getenv("MYSQL_AZ_PASSWORD", ""),
     "database": os.getenv("MYSQL_AZ_DB", ""),

@@ -3757,7 +3757,13 @@ def get_brudam_db():
     import pymysql
     
     host = os.getenv("MYSQL_AZ_HOST", "")
-    port = int(os.getenv("MYSQL_AZ_PORT", "3307"))
+    # Tenta pegar porta do env, se falhar usa 3306 como padrão (mais comum)
+    env_port = os.getenv("MYSQL_AZ_PORT", "3306")
+    try:
+        port = int(env_port)
+    except ValueError:
+        port = 3306
+        
     user = os.getenv("MYSQL_AZ_USER", "")
     password = os.getenv("MYSQL_AZ_PASSWORD", "")
     database = os.getenv("MYSQL_AZ_DB", "")
@@ -3765,17 +3771,36 @@ def get_brudam_db():
     if not all([host, user, password, database]):
         raise ValueError("Credenciais MySQL Brudam não configuradas no .env")
     
-    return pymysql.connect(
-        host=host,
-        port=port,
-        user=user,
-        password=password,
-        database=database,
-        charset='utf8mb4',
-        cursorclass=pymysql.cursors.DictCursor,
-        connect_timeout=30,
-        read_timeout=60
-    )
+    # Função auxiliar para tentar conexão
+    def try_connect(target_port):
+        return pymysql.connect(
+            host=host,
+            port=target_port,
+            user=user,
+            password=password,
+            database=database,
+            charset='utf8mb4',
+            cursorclass=pymysql.cursors.DictCursor,
+            connect_timeout=10,  # Timeout menor para falhar rápido e tentar outra porta
+            read_timeout=60
+        )
+
+    # Tenta conectar na porta configurada
+    try:
+        app.logger.info(f"[MYSQL] Tentando conexão em {host}:{port}...")
+        return try_connect(port)
+    except pymysql.err.OperationalError as e:
+        # Se for erro de conexão (2003) e a porta for 3307 ou 3306, tenta a outra
+        if e.args[0] == 2003:
+            alt_port = 3306 if port == 3307 else 3307
+            app.logger.warning(f"[MYSQL] Falha na porta {port}. Tentando porta alternativa {alt_port}...")
+            try:
+                return try_connect(alt_port)
+            except Exception as e_alt:
+                # Se falhar na alternativa, lança o erro original
+                app.logger.error(f"[MYSQL] Falha também na porta alternativa {alt_port}: {e_alt}")
+                raise e
+        raise e
 
 
 def execute_rpa(rpa_id: int) -> dict:
@@ -4048,6 +4073,24 @@ def get_auditoria_fiscal():
     
     try:
         brudam_conn = get_brudam_db()
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "error": "Credenciais MySQL não configuradas. Configure as variáveis MYSQL_AZ_* no .env"
+        }), 503
+    except Exception as e:
+        error_msg = str(e)
+        if "10061" in error_msg or "Can't connect" in error_msg:
+            return jsonify({
+                "success": False,
+                "error": "Não foi possível conectar ao servidor MySQL Brudam. Verifique se o ZeroTier está conectado e o servidor está acessível."
+            }), 503
+        return jsonify({
+            "success": False,
+            "error": f"Erro de conexão MySQL: {error_msg}"
+        }), 503
+    
+    try:
         brudam_cursor = brudam_conn.cursor()
         
         # Query principal com JOINs para resolver IDs
@@ -4166,6 +4209,24 @@ def get_operadores_auditoria():
     """API para listar operadores disponíveis para filtro."""
     try:
         brudam_conn = get_brudam_db()
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "error": "Credenciais MySQL não configuradas. Configure as variáveis MYSQL_AZ_* no .env"
+        }), 503
+    except Exception as e:
+        error_msg = str(e)
+        if "10061" in error_msg or "Can't connect" in error_msg:
+            return jsonify({
+                "success": False,
+                "error": "Não foi possível conectar ao servidor MySQL Brudam. Verifique se o ZeroTier está conectado e o servidor está acessível."
+            }), 503
+        return jsonify({
+            "success": False,
+            "error": f"Erro de conexão MySQL: {error_msg}"
+        }), 503
+    
+    try:
         brudam_cursor = brudam_conn.cursor()
         
         query = """
