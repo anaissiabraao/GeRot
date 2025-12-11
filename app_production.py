@@ -4083,200 +4083,162 @@ def test_brudam_connection():
         }), 500
 
 
-@app.route("/api/agent/auditoria-fiscal", methods=["GET"])
+@app.route("/api/agent/auditoria-fiscal/request", methods=["POST"])
 @login_required
-def get_auditoria_fiscal():
-    """API para buscar dados de manifesto do Brudam para auditoria fiscal."""
-    data_inicio = request.args.get('data_inicio', '')
-    data_fim = request.args.get('data_fim', '')
-    operador_id = request.args.get('operador_id', '')
+def request_auditoria_fiscal():
+    """Cria uma solicitação de auditoria fiscal para o agente local executar."""
+    data = request.get_json()
+    data_inicio = data.get('data_inicio')
+    data_fim = data.get('data_fim')
+    operador_id = data.get('operador_id')
     
     if not data_inicio or not data_fim:
         return jsonify({"error": "Datas de início e fim são obrigatórias"}), 400
     
-    try:
-        brudam_conn = get_brudam_db()
-    except ValueError as e:
-        return jsonify({
-            "success": False,
-            "error": "Credenciais MySQL não configuradas. Configure as variáveis MYSQL_AZ_* no .env"
-        }), 503
-    except Exception as e:
-        error_msg = str(e)
-        if "10061" in error_msg or "Can't connect" in error_msg:
-            return jsonify({
-                "success": False,
-                "error": "Não foi possível conectar ao servidor MySQL Brudam. Verifique se o ZeroTier está conectado e o servidor está acessível."
-            }), 503
-        return jsonify({
-            "success": False,
-            "error": f"Erro de conexão MySQL: {error_msg}"
-        }), 503
+    # Construir a query SQL para o agente executar
+    query = f"""
+        SELECT 
+            m.id_manifesto,
+            m.data_emissao,
+            mt.tipo as tipo_nome,
+            f.fantasia as agente_nome,
+            m.prev_saida_data,
+            m.prev_saida_hora,
+            m.prev_chegada_hora,
+            func.nome as motorista_nome,
+            u.primeiro_nome as operador_nome,
+            m.operador as operador_id,
+            v.placa as veiculo_placa,
+            v.modelo as veiculo_modelo,
+            m.obs,
+            m.custo_motorista,
+            m.custo_motorista_extra,
+            m.adiantamento,
+            m.pedagio,
+            m.picking,
+            m.km_inicial,
+            m.km_final,
+            m.km_rodado,
+            m.fatura,
+            m.total_nf_valor
+        FROM azportoex.manifesto m
+        LEFT JOIN azportoex.manifesto_tipo mt ON m.tipo = mt.id_tipo
+        LEFT JOIN azportoex.fornecedores f ON m.id_agente = f.id_local
+        LEFT JOIN azportoex.funcionario func ON m.motorista = func.id_funcionario
+        LEFT JOIN azportoex.usuarios u ON m.operador = u.id_usuarios
+        LEFT JOIN azportoex.veiculos v ON m.veiculo = v.id_veiculo
+        WHERE m.data_emissao BETWEEN '{data_inicio}' AND '{data_fim}'
+    """
+    
+    if operador_id:
+        query += f" AND m.operador = {operador_id}"
+    
+    query += " ORDER BY m.data_emissao DESC, m.id_manifesto DESC"
+    
+    conn = get_db()
+    cursor = conn.cursor()
     
     try:
-        brudam_cursor = brudam_conn.cursor()
+        # Criar solicitação na tabela de dashboards (reusando a estrutura)
+        # category='auditoria' para identificar
+        cursor.execute("""
+            INSERT INTO agent_dashboard_requests 
+            (title, description, category, chart_types, filters, created_by, status, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, 'pending', NOW())
+            RETURNING id
+        """, (
+            f"Auditoria {data_inicio} a {data_fim}",
+            "Auditoria Fiscal de Manifestos",
+            "auditoria",
+            ["table"],
+            psycopg2.extras.Json({"query": query, "limit": 2000}),
+            session['user_id']
+        ))
         
-        # Query principal com JOINs para resolver IDs
-        query = """
-            SELECT 
-                m.id_manifesto,
-                m.data_emissao,
-                mt.tipo as tipo_nome,
-                f.fantasia as agente_nome,
-                m.prev_saida_data,
-                m.prev_saida_hora,
-                m.prev_chegada_hora,
-                func.nome as motorista_nome,
-                u.primeiro_nome as operador_nome,
-                m.operador as operador_id,
-                v.placa as veiculo_placa,
-                v.modelo as veiculo_modelo,
-                m.obs,
-                m.custo_motorista,
-                m.custo_motorista_extra,
-                m.adiantamento,
-                m.pedagio,
-                m.picking,
-                m.km_inicial,
-                m.km_final,
-                m.km_rodado,
-                m.fatura,
-                m.total_nf_valor
-            FROM azportoex.manifesto m
-            LEFT JOIN azportoex.manifesto_tipo mt ON m.tipo = mt.id_tipo
-            LEFT JOIN azportoex.fornecedores f ON m.id_agente = f.id_local
-            LEFT JOIN azportoex.funcionario func ON m.motorista = func.id_funcionario
-            LEFT JOIN azportoex.usuarios u ON m.operador = u.id_usuarios
-            LEFT JOIN azportoex.veiculos v ON m.veiculo = v.id_veiculo
-            WHERE m.data_emissao BETWEEN %s AND %s
-        """
-        
-        params = [data_inicio, data_fim]
-        
-        if operador_id:
-            query += " AND m.operador = %s"
-            params.append(operador_id)
-        
-        query += " ORDER BY m.data_emissao DESC, m.id_manifesto DESC"
-        
-        brudam_cursor.execute(query, params)
-        manifestos = brudam_cursor.fetchall()
-        
-        # Converter datas para string
-        for m in manifestos:
-            if m.get('data_emissao'):
-                m['data_emissao'] = str(m['data_emissao'])
-            if m.get('prev_saida_data'):
-                m['prev_saida_data'] = str(m['prev_saida_data'])
-            if m.get('prev_saida_hora'):
-                m['prev_saida_hora'] = str(m['prev_saida_hora'])
-            if m.get('prev_chegada_hora'):
-                m['prev_chegada_hora'] = str(m['prev_chegada_hora'])
-            # Converter Decimal para float
-            for key in ['custo_motorista', 'custo_motorista_extra', 'adiantamento', 'pedagio', 'picking', 'total_nf_valor']:
-                if m.get(key) is not None:
-                    m[key] = float(m[key])
-        
-        # Query para estatísticas por operador
-        stats_query = """
-            SELECT 
-                m.operador as operador_id,
-                u.primeiro_nome as operador_nome,
-                COUNT(*) as total_manifestos,
-                SUM(COALESCE(m.total_nf_valor, 0)) as valor_total,
-                SUM(COALESCE(m.km_rodado, 0)) as km_total,
-                MIN(m.data_emissao) as primeira_emissao,
-                MAX(m.data_emissao) as ultima_emissao
-            FROM azportoex.manifesto m
-            LEFT JOIN azportoex.usuarios u ON m.operador = u.id_usuarios
-            WHERE m.data_emissao BETWEEN %s AND %s
-            GROUP BY m.operador, u.primeiro_nome
-            ORDER BY total_manifestos DESC
-        """
-        
-        brudam_cursor.execute(stats_query, [data_inicio, data_fim])
-        stats_operadores = brudam_cursor.fetchall()
-        
-        # Converter valores para serialização
-        for s in stats_operadores:
-            if s.get('valor_total') is not None:
-                s['valor_total'] = float(s['valor_total'])
-            if s.get('km_total') is not None:
-                s['km_total'] = float(s['km_total'])
-            if s.get('primeira_emissao'):
-                s['primeira_emissao'] = str(s['primeira_emissao'])
-            if s.get('ultima_emissao'):
-                s['ultima_emissao'] = str(s['ultima_emissao'])
-        
-        brudam_cursor.close()
-        brudam_conn.close()
+        request_id = cursor.fetchone()[0]
+        conn.commit()
         
         return jsonify({
             "success": True,
-            "manifestos": manifestos,
-            "stats_operadores": stats_operadores,
-            "total_registros": len(manifestos)
+            "request_id": request_id,
+            "message": "Solicitação enviada para o Agente Local"
         }), 200
         
     except Exception as e:
-        app.logger.error(f"[AUDITORIA] Erro ao buscar dados: {e}")
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        conn.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/auditoria-fiscal/status/<int:request_id>", methods=["GET"])
+@login_required
+def check_auditoria_status(request_id):
+    """Verifica o status da solicitação de auditoria."""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT status, result_data, error_message, updated_at
+            FROM agent_dashboard_requests
+            WHERE id = %s AND created_by = %s
+        """, (request_id, session['user_id']))
+        
+        row = cursor.fetchone()
+        
+        if not row:
+            return jsonify({"error": "Solicitação não encontrada"}), 404
+            
+        data = dict(row)
+        
+        # Se concluído, processar estatísticas no backend para aliviar o frontend
+        if data['status'] == 'completed' and data.get('result_data'):
+            result = data['result_data']
+            manifestos = result.get('data', [])
+            
+            # Calcular estatísticas aqui se necessário, ou mandar tudo pro front
+            # Vamos mandar tudo pro front processar por enquanto
+            return jsonify({
+                "success": True,
+                "status": "completed",
+                "manifestos": manifestos,
+                "total_registros": len(manifestos)
+            }), 200
+            
+        elif data['status'] == 'failed':
+            return jsonify({
+                "success": False,
+                "status": "failed",
+                "error": data.get('error_message')
+            }), 200
+            
+        else:
+            return jsonify({
+                "success": True,
+                "status": data['status']
+            }), 200
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 @app.route("/api/agent/auditoria-fiscal/operadores", methods=["GET"])
 @login_required
 def get_operadores_auditoria():
-    """API para listar operadores disponíveis para filtro."""
-    try:
-        brudam_conn = get_brudam_db()
-    except ValueError as e:
-        return jsonify({
-            "success": False,
-            "error": "Credenciais MySQL não configuradas. Configure as variáveis MYSQL_AZ_* no .env"
-        }), 503
-    except Exception as e:
-        error_msg = str(e)
-        if "10061" in error_msg or "Can't connect" in error_msg:
-            return jsonify({
-                "success": False,
-                "error": "Não foi possível conectar ao servidor MySQL Brudam. Verifique se o ZeroTier está conectado e o servidor está acessível."
-            }), 503
-        return jsonify({
-            "success": False,
-            "error": f"Erro de conexão MySQL: {error_msg}"
-        }), 503
-    
-    try:
-        brudam_cursor = brudam_conn.cursor()
-        
-        query = """
-            SELECT DISTINCT u.id_usuarios, u.primeiro_nome
-            FROM azportoex.usuarios u
-            INNER JOIN azportoex.manifesto m ON u.id_usuarios = m.operador
-            WHERE u.primeiro_nome IS NOT NULL AND u.primeiro_nome != ''
-            ORDER BY u.primeiro_nome
-        """
-        
-        brudam_cursor.execute(query)
-        operadores = brudam_cursor.fetchall()
-        
-        brudam_cursor.close()
-        brudam_conn.close()
-        
-        return jsonify({
-            "success": True,
-            "operadores": operadores
-        }), 200
-        
-    except Exception as e:
-        app.logger.error(f"[AUDITORIA] Erro ao buscar operadores: {e}")
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+    """
+    API para listar operadores.
+    NOTA: Como o servidor não tem acesso ao banco, esta API vai tentar 
+    buscar de um cache local ou retornar lista vazia para o usuário digitar o ID.
+    Futuramente pode ser implementado via request assíncrono.
+    """
+    return jsonify({
+        "success": True,
+        "operadores": [],
+        "message": "Lista dinâmica indisponível offline. Digite o ID se souber."
+    }), 200
 
 
 @app.route("/api/agent/brudam/query", methods=["POST"])

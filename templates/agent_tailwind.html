@@ -767,7 +767,7 @@
                 <!-- Loading State -->
                 <div id="audit-loading" class="hidden text-center py-12">
                     <i class="fas fa-spinner fa-spin text-4xl text-primary mb-4"></i>
-                    <p class="text-muted-foreground">Carregando dados...</p>
+                    <p id="audit-loading-text" class="text-muted-foreground">Carregando dados...</p>
                 </div>
 
                 <!-- Resultados -->
@@ -1257,11 +1257,14 @@ function formatNumber(value) {
 }
 
 async function carregarOperadores() {
+    // Nesta versão assíncrona, a lista de operadores dinâmica depende do agente local.
+    // Para simplificar, vamos permitir que o usuário digite o ID ou buscaríamos de um cache.
+    // Por enquanto, deixamos vazio ou com uma mensagem.
     try {
         const response = await fetch('/api/agent/auditoria-fiscal/operadores');
         const data = await response.json();
         
-        if (data.success && data.operadores) {
+        if (data.success && data.operadores && data.operadores.length > 0) {
             const select = document.getElementById('audit-operador');
             data.operadores.forEach(op => {
                 const option = document.createElement('option');
@@ -1269,14 +1272,13 @@ async function carregarOperadores() {
                 option.textContent = op.primeiro_nome;
                 select.appendChild(option);
             });
-        } else if (!data.success) {
-            // Erro de conexão - não exibe nada, usuário verá o erro ao buscar
-            console.warn('Não foi possível carregar operadores:', data.error);
         }
     } catch (error) {
-        console.warn('Erro ao carregar operadores (servidor pode estar inacessível):', error);
+        console.warn('Operadores offline (esperado se servidor não tem acesso ao DB)');
     }
 }
+
+let pollingInterval = null;
 
 async function buscarAuditoria() {
     const dataInicio = document.getElementById('audit-data-inicio').value;
@@ -1288,67 +1290,132 @@ async function buscarAuditoria() {
         return;
     }
     
-    // Mostrar loading e esconder outros estados
+    // UI: Mostrar loading
     document.getElementById('audit-loading').classList.remove('hidden');
+    document.getElementById('audit-loading-text').textContent = 'Solicitando dados ao Agente Local...';
     document.getElementById('audit-results').classList.add('hidden');
     document.getElementById('audit-empty').classList.add('hidden');
     document.getElementById('audit-connection-error').classList.add('hidden');
     document.getElementById('audit-manifestos-detail').classList.add('hidden');
     
     try {
-        let url = `/api/agent/auditoria-fiscal?data_inicio=${dataInicio}&data_fim=${dataFim}`;
-        if (operadorId) {
-            url += `&operador_id=${operadorId}`;
-        }
+        // 1. Criar solicitação
+        const response = await fetch('/api/agent/auditoria-fiscal/request', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                data_inicio: dataInicio,
+                data_fim: dataFim,
+                operador_id: operadorId
+            })
+        });
         
-        const response = await fetch(url);
         const data = await response.json();
         
-        document.getElementById('audit-loading').classList.add('hidden');
-        
         if (!data.success) {
-            // Verifica se é erro de conexão
-            const errorMsg = data.error || 'Erro desconhecido';
-            if (errorMsg.includes('conectar') || errorMsg.includes('MySQL') || errorMsg.includes('ZeroTier') || response.status === 503) {
-                document.getElementById('audit-error-message').textContent = errorMsg;
-                document.getElementById('audit-connection-error').classList.remove('hidden');
-            } else {
-                alert('Erro ao buscar dados: ' + errorMsg);
-                document.getElementById('audit-empty').classList.remove('hidden');
+            throw new Error(data.error || 'Erro ao criar solicitação');
+        }
+        
+        const requestId = data.request_id;
+        document.getElementById('audit-loading-text').textContent = 'Aguardando processamento do Agente Local...';
+        
+        // 2. Polling para verificar status
+        if (pollingInterval) clearInterval(pollingInterval);
+        
+        let attempts = 0;
+        pollingInterval = setInterval(async () => {
+            attempts++;
+            if (attempts > 60) { // Timeout de 2 minutos (60 * 2s)
+                clearInterval(pollingInterval);
+                mostrarErro('Tempo limite excedido. Verifique se o Agente Local está rodando no seu PC.');
+                return;
             }
-            return;
-        }
-        
-        auditManifestos = data.manifestos || [];
-        auditStatsOperadores = data.stats_operadores || [];
-        
-        if (auditManifestos.length === 0) {
-            document.getElementById('audit-empty').classList.remove('hidden');
-            return;
-        }
-        
-        // Atualizar resumo
-        const totalManifestos = auditManifestos.length;
-        const totalOperadores = auditStatsOperadores.length;
-        const valorTotal = auditStatsOperadores.reduce((acc, op) => acc + (op.valor_total || 0), 0);
-        const kmTotal = auditStatsOperadores.reduce((acc, op) => acc + (op.km_total || 0), 0);
-        
-        document.getElementById('audit-total-manifestos').textContent = formatNumber(totalManifestos);
-        document.getElementById('audit-total-operadores').textContent = formatNumber(totalOperadores);
-        document.getElementById('audit-valor-total').textContent = formatCurrency(valorTotal);
-        document.getElementById('audit-km-total').textContent = formatNumber(kmTotal) + ' km';
-        
-        // Renderizar lista de operadores
-        renderizarOperadores();
-        
-        document.getElementById('audit-results').classList.remove('hidden');
+            
+            try {
+                const statusResp = await fetch(`/api/agent/auditoria-fiscal/status/${requestId}`);
+                const statusData = await statusResp.json();
+                
+                if (statusData.status === 'completed') {
+                    clearInterval(pollingInterval);
+                    processarResultados(statusData);
+                } else if (statusData.status === 'failed') {
+                    clearInterval(pollingInterval);
+                    mostrarErro('Falha na execução: ' + statusData.error);
+                }
+                // Se pending ou processing, continua esperando
+                
+            } catch (e) {
+                console.error('Erro no polling:', e);
+            }
+        }, 2000); // Checa a cada 2 segundos
         
     } catch (error) {
-        document.getElementById('audit-loading').classList.add('hidden');
-        document.getElementById('audit-error-message').textContent = 'Erro de comunicação: ' + error.message;
-        document.getElementById('audit-connection-error').classList.remove('hidden');
+        mostrarErro(error.message);
     }
 }
+
+function mostrarErro(msg) {
+    document.getElementById('audit-loading').classList.add('hidden');
+    document.getElementById('audit-error-message').textContent = msg;
+    document.getElementById('audit-connection-error').classList.remove('hidden');
+}
+
+function processarResultados(data) {
+    document.getElementById('audit-loading').classList.add('hidden');
+    
+    auditManifestos = data.manifestos || [];
+    
+    if (auditManifestos.length === 0) {
+        document.getElementById('audit-empty').classList.remove('hidden');
+        return;
+    }
+    
+    // Calcular estatísticas no frontend
+    auditStatsOperadores = calcularEstatisticas(auditManifestos);
+    
+    // Atualizar resumo
+    const totalManifestos = auditManifestos.length;
+    const totalOperadores = auditStatsOperadores.length;
+    const valorTotal = auditManifestos.reduce((acc, m) => acc + (m.total_nf_valor || 0), 0);
+    const kmTotal = auditManifestos.reduce((acc, m) => acc + (m.km_rodado || 0), 0);
+    
+    document.getElementById('audit-total-manifestos').textContent = formatNumber(totalManifestos);
+    document.getElementById('audit-total-operadores').textContent = formatNumber(totalOperadores);
+    document.getElementById('audit-valor-total').textContent = formatCurrency(valorTotal);
+    document.getElementById('audit-km-total').textContent = formatNumber(kmTotal) + ' km';
+    
+    renderizarOperadores();
+    document.getElementById('audit-results').classList.remove('hidden');
+}
+
+function calcularEstatisticas(manifestos) {
+    const stats = {};
+    
+    manifestos.forEach(m => {
+        const opId = m.operador_id || 'unknown';
+        if (!stats[opId]) {
+            stats[opId] = {
+                operador_id: opId,
+                operador_nome: m.operador_nome,
+                total_manifestos: 0,
+                valor_total: 0,
+                km_total: 0,
+                primeira_emissao: m.data_emissao,
+                ultima_emissao: m.data_emissao
+            };
+        }
+        
+        stats[opId].total_manifestos++;
+        stats[opId].valor_total += (m.total_nf_valor || 0);
+        stats[opId].km_total += (m.km_rodado || 0);
+        
+        if (m.data_emissao < stats[opId].primeira_emissao) stats[opId].primeira_emissao = m.data_emissao;
+        if (m.data_emissao > stats[opId].ultima_emissao) stats[opId].ultima_emissao = m.data_emissao;
+    });
+    
+    return Object.values(stats).sort((a, b) => b.total_manifestos - a.total_manifestos);
+}
+
 
 function renderizarOperadores() {
     const container = document.getElementById('audit-operadores-list');
