@@ -30,6 +30,18 @@ Thumbs.db
 *.xlsx
 ~$*.xlsx
 
+# Agent Local Data (Generated)
+agent_local/data/db_schema.json
+agent_local/data/knowledge_dump.json
+data/db_schema.json
+
+# Temporary Migration/Debug Scripts
+db/migrate_roles.py
+db/migrate_roles_v2.py
+db/debug_connection.py
+db/manual_update.sql
+apply_migration.py
+
 # Render / deployment artifacts
 /terminals/
 
