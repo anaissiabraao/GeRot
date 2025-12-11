@@ -4154,7 +4154,7 @@ def request_auditoria_fiscal():
             session['user_id']
         ))
         
-        request_id = cursor.fetchone()[0]
+        request_id = cursor.fetchone()['id']
         conn.commit()
         
         return jsonify({
