@@ -4771,14 +4771,15 @@ def send_chat_message():
         ai_response = ""
         
         # --- COMANDO DE IMAGEM ---
+        openai_key = os.getenv("OPENAI_API_KEY")
         if user_message.lower().startswith('/imagem ') or user_message.lower().startswith('/img '):
-            if not OPENAI_API_KEY:
+            if not openai_key:
                 return jsonify({"error": "OpenAI API Key necessária para gerar imagens."}), 503
                 
             prompt = user_message.replace('/imagem ', '').replace('/img ', '')
             
             try:
-                client = openai.OpenAI(api_key=OPENAI_API_KEY)
+                client = openai.OpenAI(api_key=openai_key)
                 response = client.images.generate(
                     model="dall-e-3",
                     prompt=prompt,
@@ -4836,14 +4837,15 @@ def send_chat_message():
             
             # Tentar OpenAI primeiro
             try:
-                if not OPENAI_API_KEY:
+                openai_key = os.getenv("OPENAI_API_KEY")
+                if not openai_key:
                     raise Exception("OpenAI Key missing")
                     
                 messages = [{"role": "system", "content": system_prompt}]
                 for msg in history:
                     messages.append({"role": msg['role'], "content": msg['content']})
                 
-                client = openai.OpenAI(api_key=OPENAI_API_KEY)
+                client = openai.OpenAI(api_key=openai_key)
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=messages,
@@ -4856,8 +4858,10 @@ def send_chat_message():
                 app.logger.warning(f"Falha na OpenAI ({openai_error}). Tentando Gemini...")
                 
                 # Fallback para Gemini
-                if GOOGLE_API_KEY:
+                google_key = os.getenv("GOOGLE_API_KEY")
+                if google_key:
                     try:
+                        genai.configure(api_key=google_key)
                         model = genai.GenerativeModel('gemini-pro')
                         
                         # Construir chat session para Gemini
@@ -4928,6 +4932,10 @@ def list_knowledge():
 @login_required
 def add_knowledge():
     """Adiciona um novo item à base de conhecimento."""
+    # Restrição de permissão
+    if session.get("role") != "admin":
+        return jsonify({"error": "Apenas administradores podem adicionar conhecimento"}), 403
+
     data = request.get_json()
     question = data.get('question')
     answer = data.get('answer')
@@ -4958,6 +4966,10 @@ def add_knowledge():
 @login_required
 def delete_knowledge(item_id):
     """Remove um item da base de conhecimento."""
+    # Restrição de permissão
+    if session.get("role") != "admin":
+        return jsonify({"error": "Apenas administradores podem remover conhecimento"}), 403
+
     conn = get_db()
     cursor = conn.cursor()
     try:

@@ -218,6 +218,150 @@
 </div>
 
 <script>
+// --- CHAT WIDGET LOGIC ---
+let currentConversationId = null;
+
+function toggleChat() {
+    const window = document.getElementById('chat-window');
+    const chatIcon = document.getElementById('chat-icon');
+    const closeIcon = document.getElementById('close-icon');
+    
+    if (window.classList.contains('hidden')) {
+        window.classList.remove('hidden');
+        window.classList.add('flex', 'flex-col');
+        chatIcon.classList.add('hidden');
+        closeIcon.classList.remove('hidden');
+        document.getElementById('chat-input').focus();
+    } else {
+        window.classList.add('hidden');
+        window.classList.remove('flex', 'flex-col');
+        chatIcon.classList.remove('hidden');
+        closeIcon.classList.add('hidden');
+    }
+}
+
+async function sendMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    const btn = document.getElementById('send-btn');
+    
+    if (!message) return;
+    
+    // UI Updates
+    input.value = '';
+    appendMessage('user', message);
+    scrollToBottom();
+    
+    // Disable input while loading
+    input.disabled = true;
+    btn.disabled = true;
+    
+    // Show typing
+    const typingId = 'typing-' + Date.now();
+    appendTypingIndicator(typingId);
+    scrollToBottom();
+    
+    try {
+        const response = await fetch('/api/agent/chat/message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                conversation_id: currentConversationId,
+                message: message
+            })
+        });
+        
+        const data = await response.json();
+        document.getElementById(typingId).remove();
+        
+        if (data.error) {
+            appendMessage('system', 'Erro: ' + data.error);
+        } else {
+            if (data.conversation_id) {
+                currentConversationId = data.conversation_id;
+            }
+            appendMessage('assistant', data.response);
+        }
+        
+    } catch (error) {
+        document.getElementById(typingId)?.remove();
+        appendMessage('system', 'Erro de conexão.');
+    } finally {
+        input.disabled = false;
+        btn.disabled = false;
+        input.focus();
+        scrollToBottom();
+    }
+}
+
+function appendMessage(role, content) {
+    const container = document.getElementById('chat-messages');
+    const isUser = role === 'user';
+    const isSystem = role === 'system';
+    
+    let html = '';
+    
+    if (isSystem) {
+        html = `<div class="flex justify-center my-2"><span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">${content}</span></div>`;
+    } else {
+        const avatarHtml = isUser 
+            ? `<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 text-white shadow-sm"><i class="fas fa-user text-xs"></i></div>`
+            : `<div class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm p-1">
+                 <img src="{{ url_for('static', filename='avatar-bot.png') }}" alt="AI" class="w-full h-full object-contain">
+               </div>`;
+
+        html = `
+            <div class="flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''} animate-in fade-in slide-in-from-bottom-2 duration-300">
+                ${avatarHtml}
+                <div class="rounded-2xl p-3 text-sm max-w-[85%] ${isUser ? 'bg-primary text-white rounded-tr-sm' : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm shadow-sm'}">
+                    <div class="prose prose-sm ${isUser ? 'text-white' : 'text-gray-800'} max-w-none break-words">
+                        ${formatMessageContent(content)}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function appendTypingIndicator(id) {
+    const container = document.getElementById('chat-messages');
+    const html = `
+        <div id="${id}" class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm p-1">
+                 <img src="{{ url_for('static', filename='avatar-bot.png') }}" alt="AI" class="w-full h-full object-contain">
+            </div>
+            <div class="rounded-2xl bg-white border border-gray-100 p-3 text-sm rounded-tl-sm shadow-sm">
+                <div class="flex gap-1">
+                    <div class="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce"></div>
+                    <div class="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce delay-100"></div>
+                    <div class="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce delay-200"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function formatMessageContent(text) {
+    let safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    safe = safe.replace(/```([\s\S]*?)```/g, '<pre class="bg-black/80 text-white p-2 rounded my-2 overflow-x-auto text-xs"><code>$1</code></pre>');
+    safe = safe.replace(/`([^`]+)`/g, '<code class="bg-black/10 px-1 rounded font-mono text-xs">$1</code>');
+    safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    safe = safe.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    safe = safe.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<div class="my-2"><img src="$2" alt="$1" class="max-w-full h-auto rounded-lg shadow-md border" loading="lazy"></div>');
+    safe = safe.replace(/\n/g, '<br>');
+    return safe;
+}
+
+function scrollToBottom() {
+    const container = document.getElementById('chat-messages');
+    container.scrollTop = container.scrollHeight;
+}
+
+// --- DASHBOARD LOGIC ---
 function openDashboard(url, title) {
     const modal = document.getElementById('dashboardModal');
     const iframe = document.getElementById('dashboardFrame');
