@@ -18,8 +18,13 @@ from flask import (
 from flask_cors import CORS
 from flask_compress import Compress
 from flask_restful import Api, Resource
+from dotenv import load_dotenv
 import os
 import time
+
+# Carregar variáveis de ambiente do arquivo .env
+load_dotenv()
+
 import secrets
 import re
 from pathlib import Path
@@ -4862,7 +4867,8 @@ def send_chat_message():
                 if google_key:
                     try:
                         genai.configure(api_key=google_key)
-                        model = genai.GenerativeModel('gemini-pro')
+                        # Usando modelo mais recente e rápido
+                        model = genai.GenerativeModel('gemini-2.0-flash')
                         
                         # Construir chat session para Gemini
                         # Gemini tem estrutura diferente (history list)
