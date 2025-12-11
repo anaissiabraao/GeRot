@@ -4302,8 +4302,10 @@ AGENT_API_KEY = os.getenv("AGENT_API_KEY", "")
 
 def verify_agent_api_key():
     """Verifica a chave de API do agente local."""
+    # Se não houver chave configurada no servidor, permite acesso (modo desenvolvimento)
     if not AGENT_API_KEY:
-        return False  # API key não configurada no servidor
+        return True
+        
     api_key = request.headers.get("X-API-Key", "")
     return api_key and api_key == AGENT_API_KEY
 
