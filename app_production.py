@@ -324,22 +324,37 @@ def debug_time():
     })
 
 
+# Classe Wrapper para interceptar o close() sem modificar o objeto C do psycopg2
+class ConnectionWrapper:
+    def __init__(self, conn, from_pool=True):
+        self._conn = conn
+        self._from_pool = from_pool
+    
+    def close(self):
+        # Ignora chamadas explícitas de close() no código legado
+        pass
+    
+    def real_close(self):
+        # Fecha de verdade (usado para conexões fora do pool)
+        self._conn.close()
+        
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
 def get_db():
     """Obtém conexão do pool ou cria nova se necessário."""
-    if 'db' not in g:
+    if 'db_wrapper' not in g:
+        # Tentar pegar do Pool
         if db_pool:
             try:
-                g.db = db_pool.getconn()
-                # Monkey-patch close() para evitar fechamento acidental pelo código legado
-                # A conexão será devolvida ao pool no teardown_appcontext
-                if not hasattr(g.db, 'original_close'):
-                    g.db.original_close = g.db.close
-                    g.db.close = lambda: None
-                return g.db
+                conn = db_pool.getconn()
+                g.db_wrapper = ConnectionWrapper(conn, from_pool=True)
+                return g.db_wrapper
             except Exception as e:
-                app.logger.error(f"[DB] Erro ao pegar do pool: {e}. Tentando fallback.")
+                app.logger.error(f"[DB] Erro ao pegar do pool: {e}")
         
-        # Fallback: conexão direta (código antigo)
+        # Fallback: conexão direta (sem pool)
         database_url = app.config["DATABASE_URL"]
         if "?" in database_url:
             url_parts = database_url.split("?")
@@ -353,40 +368,38 @@ def get_db():
         last_error = None
         for attempt in range(max_retries):
             try:
-                g.db = psycopg2.connect(
+                conn = psycopg2.connect(
                     database_url,
                     cursor_factory=psycopg2.extras.RealDictCursor,
                     keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5
                 )
-                return g.db
+                g.db_wrapper = ConnectionWrapper(conn, from_pool=False)
+                return g.db_wrapper
             except psycopg2.OperationalError as e:
                 last_error = e
                 time.sleep(1 * (attempt + 1))
         raise last_error
 
-    return g.db
+    return g.db_wrapper
 
 
 @app.teardown_appcontext
 def close_db(error):
-    """Devolve a conexão ao pool ao final da requisição."""
-    db = g.pop('db', None)
-    if db is not None:
-        if db_pool:
-            # Restaurar close original antes de devolver (boa prática)
-            if hasattr(db, 'original_close'):
-                db.close = db.original_close
-                del db.original_close # Limpar atributo
+    """Devolve a conexão ao pool ou fecha ao final da requisição."""
+    wrapper = g.pop('db_wrapper', None)
+    if wrapper is not None:
+        conn = wrapper._conn
+        if wrapper._from_pool and db_pool:
             try:
-                db_pool.putconn(db)
+                db_pool.putconn(conn)
             except Exception as e:
                 app.logger.error(f"[DB] Erro ao devolver ao pool: {e}")
         else:
-            # Se não tem pool, fecha de verdade
-            if hasattr(db, 'original_close'):
-                db.close = db.original_close
-            else:
-                db.close()
+            # Se não veio do pool, fecha de verdade
+            try:
+                conn.close()
+            except:
+                pass
 
 
 def ensure_schema() -> None:
