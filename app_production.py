@@ -4758,20 +4758,21 @@ def send_chat_message():
         """, (conversation_id, user_message))
         
         # 3. RAG: Buscar contexto relevante na base de conhecimento
-        # Por enquanto busca simples por texto (futuramente vector search)
+        # Busca por texto completo em pergunta e resposta
         cursor.execute("""
-            SELECT question, answer 
+            SELECT question, answer, category 
             FROM agent_knowledge_base 
-            WHERE to_tsvector('portuguese', question) @@ plainto_tsquery('portuguese', %s)
-            LIMIT 3
+            WHERE to_tsvector('portuguese', question || ' ' || answer) @@ plainto_tsquery('portuguese', %s)
+            ORDER BY created_at DESC
+            LIMIT 5
         """, (user_message,))
         
         knowledge_items = cursor.fetchall()
         context_text = ""
         if knowledge_items:
-            context_text = "\n\nContexto relevante encontrado na base de conhecimento:\n"
+            context_text = "\n\n📚 CONTEXTO DA BASE DE CONHECIMENTO (Use estas informações se relevantes):\n"
             for item in knowledge_items:
-                context_text += f"- Q: {item['question']}\n  A: {item['answer']}\n"
+                context_text += f"--- [{item['category'] or 'Geral'}] ---\nQ: {item['question']}\nA: {item['answer']}\n"
         
         # 4. Preparar prompt para OpenAI
         # Buscar histórico recente para contexto (últimas 10 mensagens)
@@ -4785,16 +4786,13 @@ def send_chat_message():
         history = [dict(row) for row in cursor.fetchall()][::-1] # Inverter para ordem cronológica
         
         messages = [
-            {"role": "system", "content": f"""Você é o assistente virtual inteligente do sistema GeRot (Gestão de Rotas e Dashboards).
-            Seu objetivo é ajudar os usuários a navegar no sistema, entender os dados dos dashboards e realizar automações.
-            
-            O usuário atual é: {session.get('nome_completo')} (Cargo: {session.get('role')}).
+            {"role": "system", "content": f"""Você é o assistente virtual inteligente do sistema GeRot.
+            O usuário é: {session.get('nome_completo')} ({session.get('role')}).
             
             DIRETRIZES:
-            1. Seja direto, profissional e útil.
-            2. Se a pergunta for sobre dados específicos que você não tem acesso, explique como o usuário pode encontrar no dashboard.
-            3. Se encontrar informações no contexto abaixo, use-as para responder.
-            4. Se o usuário perguntar algo que possa ser útil para outros, sugira adicionar à base de conhecimento.
+            1. Use o CONTEXTO DA BASE DE CONHECIMENTO abaixo para responder, se aplicável. 
+            2. Se o contexto contiver dados do Brudam ou regras de negócio, priorize-os.
+            3. Se não souber a resposta, sugira que o usuário adicione essa informação à Base de Conhecimento.
             
             {context_text}
             """}
@@ -4803,16 +4801,10 @@ def send_chat_message():
         for msg in history:
             messages.append({"role": msg['role'], "content": msg['content']})
             
-        # Adicionar mensagem atual (já está no history se salvamos antes? Sim, mas history limitou a 10. Garantir que a atual esteja lá)
-        # Como salvamos antes e buscamos do banco, ela já deve estar no history se o limit permitir.
-        # Mas para garantir o fluxo correto na API da OpenAI, vamos montar assim:
-        # System -> History (sem a última user msg se ela já foi pega) -> User Msg (se não foi pega)
-        # Simplificando: A query buscou a mensagem recém inserida. Então 'history' já contém a user_message atual no final.
-        
         # 5. Chamar OpenAI
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
         response = client.chat.completions.create(
-            model="gpt-4o-mini", # Ou gpt-3.5-turbo se preferir custo menor
+            model="gpt-4o-mini",
             messages=messages,
             temperature=0.7,
             max_tokens=1000
@@ -4826,16 +4818,6 @@ def send_chat_message():
             VALUES (%s, 'assistant', %s)
         """, (conversation_id, ai_response))
         
-        # 7. Auto-aprendizado (Opcional/Futuro): 
-        # Se a resposta foi gerada com base em contexto, ou se o usuário marcou como útil, poderíamos reforçar.
-        # Por enquanto, vamos apenas salvar se o usuário pedir explicitamente para "lembrar" algo.
-        if "lembre-se que" in user_message.lower() or "adicione ao conhecimento" in user_message.lower():
-            # Tentar extrair o conhecimento (bem rudimentar)
-            cursor.execute("""
-                INSERT INTO agent_knowledge_base (question, answer, created_by)
-                VALUES (%s, %s, %s)
-            """, ("Conhecimento extraído do chat", f"Usuário disse: {user_message}\nIA respondeu: {ai_response}", session['user_id']))
-        
         conn.commit()
         
         return jsonify({
@@ -4847,6 +4829,73 @@ def send_chat_message():
         conn.rollback()
         app.logger.error(f"Erro no chat IA: {e}")
         return jsonify({"error": f"Erro ao processar mensagem: {str(e)}"}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/knowledge", methods=["GET"])
+@login_required
+def list_knowledge():
+    """Lista itens da base de conhecimento."""
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT id, question, answer, category, created_at 
+            FROM agent_knowledge_base 
+            ORDER BY created_at DESC
+        """)
+        items = [dict(row) for row in cursor.fetchall()]
+        return jsonify({"items": items})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/knowledge", methods=["POST"])
+@login_required
+def add_knowledge():
+    """Adiciona um novo item à base de conhecimento."""
+    data = request.get_json()
+    question = data.get('question')
+    answer = data.get('answer')
+    category = data.get('category', 'Geral')
+    
+    if not question or not answer:
+        return jsonify({"error": "Pergunta e resposta são obrigatórias"}), 400
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO agent_knowledge_base (question, answer, category, created_by)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
+        """, (question, answer, category, session['user_id']))
+        new_id = cursor.fetchone()['id']
+        conn.commit()
+        return jsonify({"success": True, "id": new_id})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/agent/knowledge/<int:item_id>", methods=["DELETE"])
+@login_required
+def delete_knowledge(item_id):
+    """Remove um item da base de conhecimento."""
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM agent_knowledge_base WHERE id = %s", (item_id,))
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 

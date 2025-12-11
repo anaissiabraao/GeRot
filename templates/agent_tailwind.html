@@ -92,6 +92,10 @@
                             class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground">
                         <i class="fas fa-comments mr-2"></i>Chat IA
                     </button>
+                    <button onclick="switchTab('knowledge')" id="tab-knowledge" 
+                            class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground">
+                        <i class="fas fa-book mr-2"></i>Base de Conhecimento
+                    </button>
                     <button onclick="switchTab('dashboard')" id="tab-dashboard" 
                             class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground">
                         <i class="fas fa-chart-pie mr-2"></i>Gerar Dashboard
@@ -402,6 +406,136 @@
                                 <button type="submit" id="send-btn"
                                         class="h-[44px] w-[44px] rounded-md bg-primary text-white hover:bg-primary/90 transition-colors flex items-center justify-center flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
                                     <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Conteúdo da Tab Base de Conhecimento -->
+        <div id="content-knowledge" class="tab-content hidden h-[calc(100vh-250px)] min-h-[500px]">
+            <div class="grid h-full grid-cols-1 gap-6 lg:grid-cols-3">
+                <!-- Lista de Conhecimento -->
+                <div class="lg:col-span-2 flex flex-col rounded-lg border bg-card shadow-sm overflow-hidden">
+                    <div class="border-b px-6 py-4 flex justify-between items-center">
+                        <h3 class="font-semibold flex items-center gap-2">
+                            <i class="fas fa-book text-primary"></i>
+                            Itens de Conhecimento
+                        </h3>
+                        <div class="relative">
+                            <input type="text" id="knowledge-search" onkeyup="filterKnowledge()" placeholder="Buscar..." 
+                                   class="pl-8 pr-3 py-1 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary w-48">
+                            <i class="fas fa-search absolute left-2.5 top-2 text-xs text-muted-foreground"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-4 space-y-3" id="knowledge-list">
+                        <div class="text-center py-8 text-muted-foreground">Carregando...</div>
+                    </div>
+                </div>
+
+                <!-- Formulário de Adição -->
+                <div class="rounded-lg border bg-card shadow-sm h-fit">
+                    <div class="border-b px-6 py-4">
+                        <h3 class="font-semibold flex items-center gap-2">
+                            <i class="fas fa-plus text-primary"></i>
+                            Adicionar Conhecimento
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <form id="knowledgeForm" onsubmit="addKnowledge(event)">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground mb-1">Pergunta / Tópico *</label>
+                                    <input type="text" name="question" required
+                                           class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                           placeholder="Ex: Como o Brudam calcula frete?">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground mb-1">Categoria</label>
+                                    <select name="category" 
+                                            class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                                        <option value="Geral">Geral</option>
+                                        <option value="Brudam">Brudam</option>
+                                        <option value="Fiscal">Fiscal</option>
+                                        <option value="Operacional">Operacional</option>
+                                        <option value="Sistema">Sistema</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground mb-1">Resposta / Conteúdo *</label>
+                                    <textarea name="answer" rows="6" required
+                                              class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                              placeholder="Explique detalhadamente..."></textarea>
+                                </div>
+                                <button type="submit" class="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+                                    <i class="fas fa-save mr-2"></i>Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Conteúdo da Tab Base de Conhecimento -->
+        <div id="content-knowledge" class="tab-content hidden h-[calc(100vh-250px)] min-h-[500px]">
+            <div class="grid h-full grid-cols-1 gap-6 lg:grid-cols-3">
+                <!-- Lista de Conhecimento -->
+                <div class="lg:col-span-2 flex flex-col rounded-lg border bg-card shadow-sm overflow-hidden">
+                    <div class="border-b px-6 py-4 flex justify-between items-center">
+                        <h3 class="font-semibold flex items-center gap-2">
+                            <i class="fas fa-book text-primary"></i>
+                            Itens de Conhecimento
+                        </h3>
+                        <div class="relative">
+                            <input type="text" id="knowledge-search" onkeyup="filterKnowledge()" placeholder="Buscar..." 
+                                   class="pl-8 pr-3 py-1 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary w-48">
+                            <i class="fas fa-search absolute left-2.5 top-2 text-xs text-muted-foreground"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-4 space-y-3" id="knowledge-list">
+                        <div class="text-center py-8 text-muted-foreground">Carregando...</div>
+                    </div>
+                </div>
+
+                <!-- Formulário de Adição -->
+                <div class="rounded-lg border bg-card shadow-sm h-fit">
+                    <div class="border-b px-6 py-4">
+                        <h3 class="font-semibold flex items-center gap-2">
+                            <i class="fas fa-plus text-primary"></i>
+                            Adicionar Conhecimento
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <form id="knowledgeForm" onsubmit="addKnowledge(event)">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground mb-1">Pergunta / Tópico *</label>
+                                    <input type="text" name="question" required
+                                           class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                           placeholder="Ex: Como o Brudam calcula frete?">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground mb-1">Categoria</label>
+                                    <select name="category" 
+                                            class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                                        <option value="Geral">Geral</option>
+                                        <option value="Brudam">Brudam</option>
+                                        <option value="Fiscal">Fiscal</option>
+                                        <option value="Operacional">Operacional</option>
+                                        <option value="Sistema">Sistema</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground mb-1">Resposta / Conteúdo *</label>
+                                    <textarea name="answer" rows="6" required
+                                              class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                              placeholder="Explique detalhadamente..."></textarea>
+                                </div>
+                                <button type="submit" class="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+                                    <i class="fas fa-save mr-2"></i>Salvar
                                 </button>
                             </div>
                         </form>
@@ -1474,21 +1608,79 @@ function appendMessage(role, content, animate = true) {
             </div>
         `;
     } else {
+        // Actions for AI messages
+        let actionsHtml = '';
+        if (!isUser) {
+            // Encode content for safe passing
+            const encoded = btoa(unescape(encodeURIComponent(content)));
+            actionsHtml = `
+                <div class="mt-2 flex gap-3 border-t border-white/10 pt-2">
+                    <button onclick="addToKnowledgeFromChat('${encoded}')" class="text-xs opacity-70 hover:opacity-100 flex items-center gap-1 transition-opacity" title="Salvar na Base de Conhecimento">
+                        <i class="fas fa-book-medical"></i> Salvar
+                    </button>
+                    <button onclick="copyChatText(this, '${encoded}')" class="text-xs opacity-70 hover:opacity-100 flex items-center gap-1 transition-opacity" title="Copiar texto">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            `;
+        }
+
         html = `
             <div class="flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''} ${animate ? 'animate-in fade-in slide-in-from-bottom-2 duration-300' : ''}">
                 <div class="w-8 h-8 rounded-full ${isUser ? 'bg-primary text-white' : 'bg-primary/10 text-primary'} flex items-center justify-center flex-shrink-0">
                     <i class="fas ${isUser ? 'fa-user' : 'fa-robot'} text-sm"></i>
                 </div>
-                <div class="rounded-lg p-3 text-sm max-w-[85%] ${isUser ? 'bg-primary text-white' : 'bg-muted text-foreground'}">
+                <div class="rounded-lg p-3 text-sm max-w-[85%] ${isUser ? 'bg-primary text-white' : 'bg-muted text-foreground'} shadow-sm">
                     <div class="prose prose-sm ${isUser ? 'text-white' : 'dark:prose-invert'} max-w-none">
                         ${formatMessageContent(content)}
                     </div>
+                    ${actionsHtml}
                 </div>
             </div>
         `;
     }
     
     container.insertAdjacentHTML('beforeend', html);
+}
+
+function addToKnowledgeFromChat(encodedContent) {
+    try {
+        const content = decodeURIComponent(escape(window.atob(encodedContent)));
+        switchTab('knowledge');
+        
+        // Pre-fill form
+        const form = document.getElementById('knowledgeForm');
+        if (form) {
+            const answerField = form.querySelector('textarea[name="answer"]');
+            const questionField = form.querySelector('input[name="question"]');
+            
+            if (answerField) answerField.value = content;
+            if (questionField) {
+                questionField.value = "Sobre: " + content.substring(0, 30) + "...";
+                questionField.focus();
+                questionField.select();
+            }
+            
+            // Highlight form
+            form.classList.add('ring-2', 'ring-primary');
+            setTimeout(() => form.classList.remove('ring-2', 'ring-primary'), 2000);
+        }
+    } catch (e) {
+        console.error("Erro ao decodificar mensagem:", e);
+    }
+}
+
+function copyChatText(btn, encodedContent) {
+    try {
+        const content = decodeURIComponent(escape(window.atob(encodedContent)));
+        navigator.clipboard.writeText(content).then(() => {
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => btn.innerHTML = original, 1500);
+        });
+    } catch (e) {
+        console.error("Erro ao copiar:", e);
+    }
 }
 
 function appendTypingIndicator(id) {
@@ -1547,6 +1739,134 @@ document.getElementById('chat-input')?.addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = (this.scrollHeight) + 'px';
 });
+
+// ============================================================
+// FUNÇÕES DA BASE DE CONHECIMENTO
+// ============================================================
+
+let allKnowledgeItems = [];
+
+async function loadKnowledge() {
+    try {
+        const response = await fetch('/api/agent/knowledge');
+        const data = await response.json();
+        
+        if (data.items) {
+            allKnowledgeItems = data.items;
+            renderKnowledgeList(allKnowledgeItems);
+        }
+    } catch (error) {
+        console.error('Erro ao carregar conhecimento:', error);
+        document.getElementById('knowledge-list').innerHTML = '<div class="text-center text-red-500">Erro ao carregar dados.</div>';
+    }
+}
+
+function renderKnowledgeList(items) {
+    const container = document.getElementById('knowledge-list');
+    container.innerHTML = '';
+    
+    if (items.length === 0) {
+        container.innerHTML = '<div class="text-center py-8 text-muted-foreground">Nenhum item encontrado.</div>';
+        return;
+    }
+    
+    items.forEach(item => {
+        const html = `
+            <div class="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-colors group">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary text-primary-foreground hover:bg-primary/80">
+                        ${item.category || 'Geral'}
+                    </span>
+                    <button onclick="deleteKnowledge(${item.id})" class="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" title="Excluir">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+                <h4 class="font-semibold mb-1">${item.question}</h4>
+                <p class="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3">${item.answer}</p>
+            </div>
+        `;
+        container.innerHTML += html;
+    });
+}
+
+function filterKnowledge() {
+    const term = document.getElementById('knowledge-search').value.toLowerCase();
+    const filtered = allKnowledgeItems.filter(item => 
+        item.question.toLowerCase().includes(term) || 
+        item.answer.toLowerCase().includes(term) ||
+        (item.category && item.category.toLowerCase().includes(term))
+    );
+    renderKnowledgeList(filtered);
+}
+
+async function addKnowledge(event) {
+    event.preventDefault();
+    const form = event.target;
+    const btn = form.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+    
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    
+    try {
+        const response = await fetch('/api/agent/knowledge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            form.reset();
+            loadKnowledge();
+            // Mostrar feedback visual simples
+            const btnClass = btn.className;
+            btn.className = "w-full rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors";
+            btn.innerHTML = '<i class="fas fa-check mr-2"></i>Salvo!';
+            setTimeout(() => {
+                btn.className = btnClass;
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }, 2000);
+        } else {
+            alert('Erro ao salvar: ' + result.error);
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    } catch (error) {
+        alert('Erro ao salvar: ' + error.message);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+async function deleteKnowledge(id) {
+    if (!confirm('Tem certeza que deseja remover este item?')) return;
+    
+    try {
+        const response = await fetch(`/api/agent/knowledge/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+            loadKnowledge();
+        } else {
+            alert('Erro ao excluir item.');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+    }
+}
+
+// Hook into switchTab to load knowledge when tab is opened
+const originalSwitchTab = window.switchTab;
+window.switchTab = function(tabName) {
+    originalSwitchTab(tabName);
+    if (tabName === 'knowledge') {
+        loadKnowledge();
+    }
+};
 
 // ============================================================
 // FUNÇÕES DE AUDITORIA FISCAL
