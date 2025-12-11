@@ -41,7 +41,20 @@ from utils.planner_client import PlannerClient, PlannerIntegrationError
 
 app = Flask(__name__)
 CORS(app)
+Compress(app)  # Habilita compressão Gzip
 api = Api(app)
+
+# Otimização: Cache de arquivos estáticos por 1 ano
+@app.after_request
+def add_header(response):
+    if 'Cache-Control' not in response.headers:
+        # Cache para arquivos estáticos (static/...)
+        if request.path.startswith('/static/'):
+            response.headers['Cache-Control'] = 'public, max-age=31536000'
+        # Não cachear API ou HTML dinâmico para evitar dados velhos
+        else:
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
 
 # --------------------------------------------------------------------------- #
 # Configuração base
