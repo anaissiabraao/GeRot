@@ -4208,7 +4208,11 @@ def request_auditoria_fiscal():
             m.km_final,
             m.km_rodado,
             m.fatura,
-            m.total_nf_valor
+            m.total_nf_valor,
+            m.custo_motorista,
+            m.custo_motorista_extra,
+            m.adiantamento,
+            m.pedagio
         FROM azportoex.manifesto m
         LEFT JOIN azportoex.manifesto_tipo mt ON m.tipo = mt.id_tipo
         LEFT JOIN azportoex.fornecedores f ON m.id_agente = f.id_local
