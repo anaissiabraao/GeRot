@@ -1391,11 +1391,12 @@ function calcularEstatisticas(manifestos) {
     const stats = {};
     
     manifestos.forEach(m => {
-        const opId = m.operador_id || 'unknown';
+        // Usa m.operador (do banco) ou 'unknown'
+        const opId = m.operador || 'unknown';
         if (!stats[opId]) {
             stats[opId] = {
                 operador_id: opId,
-                operador_nome: m.operador_nome,
+                operador_nome: m.operador_nome || 'Sistema/Desconhecido',
                 total_manifestos: 0,
                 valor_total: 0,
                 km_total: 0,
@@ -1425,15 +1426,16 @@ function renderizarOperadores() {
             ? Math.round((op.total_manifestos / auditManifestos.length) * 100) 
             : 0;
         
+        // Aspas no ID para evitar erro se for string 'unknown'
         const html = `
-            <div class="p-4 hover:bg-muted/30 cursor-pointer transition-colors" onclick="mostrarManifestosOperador(${op.operador_id}, '${op.operador_nome || 'Sem nome'}')">
+            <div class="p-4 hover:bg-muted/30 cursor-pointer transition-colors" onclick="mostrarManifestosOperador('${op.operador_id}', '${op.operador_nome}')">
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                             <i class="fas fa-user text-primary"></i>
                         </div>
                         <div>
-                            <p class="font-semibold">${op.operador_nome || 'Operador #' + op.operador_id}</p>
+                            <p class="font-semibold">${op.operador_nome}</p>
                             <p class="text-xs text-muted-foreground">
                                 ${formatDateBR(op.primeira_emissao)} - ${formatDateBR(op.ultima_emissao)}
                             </p>
@@ -1464,7 +1466,8 @@ function renderizarOperadores() {
 }
 
 function mostrarManifestosOperador(operadorId, operadorNome) {
-    const manifestosOperador = auditManifestos.filter(m => m.operador_id == operadorId);
+    // Filtra comparando string para garantir (== converte tipos se necessário, mas operadorId vem como string agora)
+    const manifestosOperador = auditManifestos.filter(m => (m.operador || 'unknown') == operadorId);
     
     document.getElementById('audit-detail-title').textContent = 
         `Manifestos de ${operadorNome} (${manifestosOperador.length})`;

@@ -63,7 +63,7 @@ logger = logging.getLogger(__name__)
 # Configurações
 GEROT_API_URL = os.getenv("GEROT_API_URL", "https://gerot.onrender.com")
 AGENT_API_KEY = os.getenv("AGENT_API_KEY", "")
-POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "30"))  # segundos
+POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "3"))  # segundos (mais rápido)
 
 # MySQL Brudam - credenciais devem estar no .env
 MYSQL_CONFIG = {
@@ -73,7 +73,7 @@ MYSQL_CONFIG = {
     "password": os.getenv("MYSQL_AZ_PASSWORD", ""),
     "database": os.getenv("MYSQL_AZ_DB", ""),
     "charset": "utf8mb4",
-    "connect_timeout": 30,
+    "connect_timeout": 10,  # Timeout menor para falhar rápido
     "read_timeout": 120
 }
 
@@ -326,7 +326,7 @@ def send_dashboard_result(dash_id: int, result: dict):
             f"{GEROT_API_URL}/api/agent/dashboard/{dash_id}/result",
             headers=headers,
             json=result,
-            timeout=60
+            timeout=120
         )
         
         if response.status_code == 200:
@@ -356,10 +356,13 @@ def run_agent():
     
     while True:
         try:
+            has_work = False
+            
             # Buscar RPAs pendentes
             rpas = fetch_pending_rpas()
             
             if rpas:
+                has_work = True
                 logger.info(f"[INFO] {len(rpas)} RPA(s) pendente(s)")
                 
                 for rpa in rpas:
@@ -383,6 +386,7 @@ def run_agent():
             dashboards = fetch_pending_dashboards()
             
             if dashboards:
+                has_work = True
                 logger.info(f"[INFO] {len(dashboards)} Dashboard(s) pendente(s)")
                 
                 for dash in dashboards:
@@ -402,8 +406,9 @@ def run_agent():
                     else:
                         logger.error(f"[ERRO] Dashboard #{dash_id} falhou: {result['error']}")
             
-            # Aguardar próximo polling
-            time.sleep(POLLING_INTERVAL)
+            # Aguardar próximo polling (adaptativo)
+            sleep_time = 1 if has_work else POLLING_INTERVAL
+            time.sleep(sleep_time)
             
         except KeyboardInterrupt:
             logger.info("[STOP] Agente interrompido pelo usuario")
