@@ -4427,6 +4427,63 @@ def verify_agent_api_key():
     return api_key and api_key == AGENT_API_KEY
 
 
+@app.route("/api/agent/sync/knowledge", methods=["POST"])
+def sync_knowledge():
+    """
+    API para o agente local enviar dados do Brudam para a Base de Conhecimento.
+    Usa X-API-Key para autenticação.
+    """
+    if not verify_agent_api_key():
+        return jsonify({"error": "API Key inválida"}), 401
+    
+    data = request.get_json()
+    items = data.get('items', []) # Lista de {question, answer, category}
+    
+    if not items:
+        return jsonify({"error": "Nenhum item fornecido"}), 400
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    count = 0
+    try:
+        for item in items:
+            question = item.get('question')
+            answer = item.get('answer')
+            category = item.get('category', 'Brudam Sync')
+            
+            if question and answer:
+                # Upsert (Insere ou Atualiza se a pergunta for idêntica)
+                cursor.execute("""
+                    SELECT id FROM agent_knowledge_base 
+                    WHERE question = %s AND category = %s
+                """, (question, category))
+                existing = cursor.fetchone()
+                
+                if existing:
+                    cursor.execute("""
+                        UPDATE agent_knowledge_base 
+                        SET answer = %s, updated_at = NOW()
+                        WHERE id = %s
+                    """, (answer, existing['id']))
+                else:
+                    cursor.execute("""
+                        INSERT INTO agent_knowledge_base (question, answer, category, created_by)
+                        VALUES (%s, %s, %s, 0)
+                    """, (question, answer, category))
+                count += 1
+        
+        conn.commit()
+        return jsonify({"success": True, "count": count}), 200
+        
+    except Exception as e:
+        conn.rollback()
+        app.logger.error(f"[AGENT-SYNC] Erro ao sincronizar conhecimento: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
 @app.route("/api/agent/rpas/pending", methods=["GET"])
 def get_pending_rpas():
     """API para o agente local buscar RPAs pendentes."""
@@ -4802,14 +4859,20 @@ def send_chat_message():
         else:
             # --- CHAT TEXTO (RAG + OpenAI/Gemini) ---
             
-            # 3. RAG: Buscar contexto
+            # 3. RAG: Buscar contexto (Com filtro de permissão)
+            user_role = session.get('role', 'user')
+            
+            # A query busca itens que:
+            # a) Não têm restrição de role (allowed_roles IS NULL)
+            # b) OU a role do usuário está na lista allowed_roles
             cursor.execute("""
                 SELECT question, answer, category 
                 FROM agent_knowledge_base 
                 WHERE to_tsvector('portuguese', question || ' ' || answer) @@ plainto_tsquery('portuguese', %s)
+                AND (allowed_roles IS NULL OR %s = ANY(allowed_roles))
                 ORDER BY created_at DESC
                 LIMIT 5
-            """, (user_message,))
+            """, (user_message, user_role))
             
             knowledge_items = cursor.fetchall()
             context_text = ""

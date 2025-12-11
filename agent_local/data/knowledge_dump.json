@@ -1,0 +1,48 @@
+[
+  {
+    "id": "faturamento_dia",
+    "question": "Qual o faturamento total hoje?",
+    "answer": "O faturamento total de hoje (11/12/2025) at\u00e9 agora \u00e9 de R$ 956.51.",
+    "category": "Vendas",
+    "allowed_roles": [
+      "admin",
+      "master",
+      "diretor"
+    ],
+    "synced_at": "2025-12-11T19:56:10.420592"
+  },
+  {
+    "id": "minutas_dia",
+    "question": "Quantas minutas foram emitidas hoje?",
+    "answer": "Foram emitidas 163 minutas hoje (11/12/2025).",
+    "category": "Operacional",
+    "allowed_roles": [
+      "admin",
+      "master",
+      "operador",
+      "lider"
+    ],
+    "synced_at": "2025-12-11T19:56:10.583747"
+  },
+  {
+    "id": "entregas_pendentes",
+    "question": "Quantas entregas est\u00e3o pendentes?",
+    "answer": "Existem 39913 entregas pendentes no sistema.",
+    "category": "Operacional",
+    "allowed_roles": [],
+    "synced_at": "2025-12-11T19:56:12.204363"
+  },
+  {
+    "id": "veiculos_saindo_hoje",
+    "question": "Quantos ve\u00edculos sa\u00edram hoje da base?",
+    "answer": "Hoje (11/12/2025), 6 ve\u00edculo(s) sa\u00edram da base.",
+    "category": "Operacional",
+    "allowed_roles": [
+      "admin",
+      "master",
+      "operador",
+      "lider"
+    ],
+    "synced_at": "2025-12-11T19:56:12.409384"
+  }
+]

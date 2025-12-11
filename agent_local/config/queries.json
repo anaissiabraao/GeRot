@@ -1,0 +1,33 @@
+[
+  {
+    "id": "faturamento_dia",
+    "category": "Vendas",
+    "question_template": "Qual o faturamento total hoje?",
+    "sql": "SELECT COALESCE(SUM(ctrc_valor), 0) as valor FROM minuta WHERE data = CURDATE()",
+    "answer_template": "O faturamento total de hoje ({date}) até agora é de R$ {valor:.2f}.",
+    "allowed_roles": ["admin", "master", "diretor"]
+  },
+  {
+    "id": "minutas_dia",
+    "category": "Operacional",
+    "question_template": "Quantas minutas foram emitidas hoje?",
+    "sql": "SELECT COUNT(*) as qtd FROM minuta WHERE data = CURDATE()",
+    "answer_template": "Foram emitidas {qtd} minutas hoje ({date}).",
+    "allowed_roles": ["admin", "master", "operador", "lider"]
+  },
+  {
+    "id": "entregas_pendentes",
+    "category": "Operacional",
+    "question_template": "Quantas entregas estão pendentes?",
+    "sql": "SELECT COUNT(*) as qtd FROM minuta WHERE data_entrega IS NULL",
+    "answer_template": "Existem {qtd} entregas pendentes no sistema."
+  },
+  {
+    "id": "veiculos_saindo_hoje",
+    "category": "Operacional",
+    "question_template": "Quantos veículos saíram hoje da base?",
+    "sql": "SELECT COUNT(*) as qtd FROM MDFe WHERE data_emissao = CURDATE() AND data_cancelamento IS NULL",
+    "answer_template": "Hoje ({date}), {qtd} veículo(s) saíram da base.",
+    "allowed_roles": ["admin", "master", "operador", "lider"]
+  }
+]
