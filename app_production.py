@@ -4035,6 +4035,166 @@ def test_brudam_connection():
         }), 500
 
 
+@app.route("/api/agent/auditoria-fiscal", methods=["GET"])
+@login_required
+def get_auditoria_fiscal():
+    """API para buscar dados de manifesto do Brudam para auditoria fiscal."""
+    data_inicio = request.args.get('data_inicio', '')
+    data_fim = request.args.get('data_fim', '')
+    operador_id = request.args.get('operador_id', '')
+    
+    if not data_inicio or not data_fim:
+        return jsonify({"error": "Datas de início e fim são obrigatórias"}), 400
+    
+    try:
+        brudam_conn = get_brudam_db()
+        brudam_cursor = brudam_conn.cursor()
+        
+        # Query principal com JOINs para resolver IDs
+        query = """
+            SELECT 
+                m.id_manifesto,
+                m.data_emissao,
+                mt.tipo as tipo_nome,
+                f.fantasia as agente_nome,
+                m.prev_saida_data,
+                m.prev_saida_hora,
+                m.prev_chegada_hora,
+                func.nome as motorista_nome,
+                u.primeiro_nome as operador_nome,
+                m.operador as operador_id,
+                v.placa as veiculo_placa,
+                v.modelo as veiculo_modelo,
+                m.obs,
+                m.custo_motorista,
+                m.custo_motorista_extra,
+                m.adiantamento,
+                m.pedagio,
+                m.picking,
+                m.km_inicial,
+                m.km_final,
+                m.km_rodado,
+                m.fatura,
+                m.total_nf_valor
+            FROM azportoex.manifesto m
+            LEFT JOIN azportoex.manifesto_tipo mt ON m.tipo = mt.id_tipo
+            LEFT JOIN azportoex.fornecedores f ON m.id_agente = f.id_local
+            LEFT JOIN azportoex.funcionario func ON m.motorista = func.id_funcionario
+            LEFT JOIN azportoex.usuarios u ON m.operador = u.id_usuarios
+            LEFT JOIN azportoex.veiculos v ON m.veiculo = v.id_veiculo
+            WHERE m.data_emissao BETWEEN %s AND %s
+        """
+        
+        params = [data_inicio, data_fim]
+        
+        if operador_id:
+            query += " AND m.operador = %s"
+            params.append(operador_id)
+        
+        query += " ORDER BY m.data_emissao DESC, m.id_manifesto DESC"
+        
+        brudam_cursor.execute(query, params)
+        manifestos = brudam_cursor.fetchall()
+        
+        # Converter datas para string
+        for m in manifestos:
+            if m.get('data_emissao'):
+                m['data_emissao'] = str(m['data_emissao'])
+            if m.get('prev_saida_data'):
+                m['prev_saida_data'] = str(m['prev_saida_data'])
+            if m.get('prev_saida_hora'):
+                m['prev_saida_hora'] = str(m['prev_saida_hora'])
+            if m.get('prev_chegada_hora'):
+                m['prev_chegada_hora'] = str(m['prev_chegada_hora'])
+            # Converter Decimal para float
+            for key in ['custo_motorista', 'custo_motorista_extra', 'adiantamento', 'pedagio', 'picking', 'total_nf_valor']:
+                if m.get(key) is not None:
+                    m[key] = float(m[key])
+        
+        # Query para estatísticas por operador
+        stats_query = """
+            SELECT 
+                m.operador as operador_id,
+                u.primeiro_nome as operador_nome,
+                COUNT(*) as total_manifestos,
+                SUM(COALESCE(m.total_nf_valor, 0)) as valor_total,
+                SUM(COALESCE(m.km_rodado, 0)) as km_total,
+                MIN(m.data_emissao) as primeira_emissao,
+                MAX(m.data_emissao) as ultima_emissao
+            FROM azportoex.manifesto m
+            LEFT JOIN azportoex.usuarios u ON m.operador = u.id_usuarios
+            WHERE m.data_emissao BETWEEN %s AND %s
+            GROUP BY m.operador, u.primeiro_nome
+            ORDER BY total_manifestos DESC
+        """
+        
+        brudam_cursor.execute(stats_query, [data_inicio, data_fim])
+        stats_operadores = brudam_cursor.fetchall()
+        
+        # Converter valores para serialização
+        for s in stats_operadores:
+            if s.get('valor_total') is not None:
+                s['valor_total'] = float(s['valor_total'])
+            if s.get('km_total') is not None:
+                s['km_total'] = float(s['km_total'])
+            if s.get('primeira_emissao'):
+                s['primeira_emissao'] = str(s['primeira_emissao'])
+            if s.get('ultima_emissao'):
+                s['ultima_emissao'] = str(s['ultima_emissao'])
+        
+        brudam_cursor.close()
+        brudam_conn.close()
+        
+        return jsonify({
+            "success": True,
+            "manifestos": manifestos,
+            "stats_operadores": stats_operadores,
+            "total_registros": len(manifestos)
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"[AUDITORIA] Erro ao buscar dados: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route("/api/agent/auditoria-fiscal/operadores", methods=["GET"])
+@login_required
+def get_operadores_auditoria():
+    """API para listar operadores disponíveis para filtro."""
+    try:
+        brudam_conn = get_brudam_db()
+        brudam_cursor = brudam_conn.cursor()
+        
+        query = """
+            SELECT DISTINCT u.id_usuarios, u.primeiro_nome
+            FROM azportoex.usuarios u
+            INNER JOIN azportoex.manifesto m ON u.id_usuarios = m.operador
+            WHERE u.primeiro_nome IS NOT NULL AND u.primeiro_nome != ''
+            ORDER BY u.primeiro_nome
+        """
+        
+        brudam_cursor.execute(query)
+        operadores = brudam_cursor.fetchall()
+        
+        brudam_cursor.close()
+        brudam_conn.close()
+        
+        return jsonify({
+            "success": True,
+            "operadores": operadores
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"[AUDITORIA] Erro ao buscar operadores: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
 @app.route("/api/agent/brudam/query", methods=["POST"])
 @login_required
 @admin_required

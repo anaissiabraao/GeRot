@@ -80,7 +80,7 @@
             <div class="border-b border-border">
                 <nav class="flex flex-wrap gap-2 sm:gap-0 sm:space-x-8" aria-label="Tabs">
                     <button onclick="switchTab('rpa')" id="tab-rpa" 
-                            class="tab-button border-b-2 border-primary py-4 px-1 text-sm font-medium text-primary">
+                            class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground">
                         <i class="fas fa-cogs mr-2"></i>RPA - Automação
                     </button>
                     <button onclick="switchTab('dashboard')" id="tab-dashboard" 
@@ -95,12 +95,16 @@
                             class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground">
                         <i class="fas fa-play-circle mr-2"></i>Executáveis
                     </button>
+                    <button onclick="switchTab('auditoria')" id="tab-auditoria" 
+                            class="tab-button border-b-2 border-primary py-4 px-1 text-sm font-medium text-primary">
+                        <i class="fas fa-search-dollar mr-2"></i>Auditoria Fiscal
+                    </button>
                 </nav>
             </div>
         </div>
 
         <!-- Conteúdo da Tab RPA -->
-        <div id="content-rpa" class="tab-content">
+        <div id="content-rpa" class="tab-content hidden">
             <div class="grid gap-6 lg:grid-cols-3">
                 <!-- Formulário de Criação de RPA -->
                 <div class="lg:col-span-2">
@@ -698,10 +702,178 @@
                 </div>
             </div>
         </div>
+
+        <!-- Conteúdo da Tab Auditoria Fiscal -->
+        <div id="content-auditoria" class="tab-content">
+            <div class="space-y-6" style="display: block;">
+                <!-- Header com Filtros -->
+                <div class="rounded-lg border bg-card shadow-sm">
+                    <div class="border-b px-6 py-4">
+                        <h3 class="flex items-center gap-2 text-lg font-semibold">
+                            <i class="fas fa-filter text-primary"></i>
+                            Filtros de Busca
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid gap-4 md:grid-cols-4">
+                            <div>
+                                <label class="block text-sm font-medium text-foreground mb-1">
+                                    Data Início *
+                                </label>
+                                <input type="date" id="audit-data-inicio"
+                                       class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-foreground mb-1">
+                                    Data Fim *
+                                </label>
+                                <input type="date" id="audit-data-fim"
+                                       class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-foreground mb-1">
+                                    Operador (opcional)
+                                </label>
+                                <select id="audit-operador"
+                                        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <option value="">Todos os operadores</option>
+                                </select>
+                            </div>
+                            <div class="flex items-end">
+                                <button onclick="buscarAuditoria()" 
+                                        class="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+                                    <i class="fas fa-search mr-2"></i>
+                                    Buscar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            <button onclick="setDateRange('hoje')" class="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-accent transition-colors">
+                                Hoje
+                            </button>
+                            <button onclick="setDateRange('semana')" class="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-accent transition-colors">
+                                Última Semana
+                            </button>
+                            <button onclick="setDateRange('mes')" class="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-accent transition-colors">
+                                Último Mês
+                            </button>
+                            <button onclick="setDateRange('trimestre')" class="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-accent transition-colors">
+                                Último Trimestre
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="audit-loading" class="hidden text-center py-12">
+                    <i class="fas fa-spinner fa-spin text-4xl text-primary mb-4"></i>
+                    <p class="text-muted-foreground">Carregando dados...</p>
+                </div>
+
+                <!-- Resultados -->
+                <div id="audit-results" class="hidden space-y-6">
+                    <!-- Resumo Geral -->
+                    <div class="grid gap-4 md:grid-cols-4">
+                        <div class="rounded-lg border bg-card p-4 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-muted-foreground">Total de Manifestos</span>
+                                <i class="fas fa-file-alt text-primary"></i>
+                            </div>
+                            <p id="audit-total-manifestos" class="text-2xl font-bold mt-2">0</p>
+                        </div>
+                        <div class="rounded-lg border bg-card p-4 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-muted-foreground">Operadores Ativos</span>
+                                <i class="fas fa-users text-blue-500"></i>
+                            </div>
+                            <p id="audit-total-operadores" class="text-2xl font-bold mt-2">0</p>
+                        </div>
+                        <div class="rounded-lg border bg-card p-4 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-muted-foreground">Valor Total NF</span>
+                                <i class="fas fa-dollar-sign text-green-500"></i>
+                            </div>
+                            <p id="audit-valor-total" class="text-2xl font-bold mt-2">R$ 0</p>
+                        </div>
+                        <div class="rounded-lg border bg-card p-4 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-muted-foreground">KM Total Rodado</span>
+                                <i class="fas fa-road text-amber-500"></i>
+                            </div>
+                            <p id="audit-km-total" class="text-2xl font-bold mt-2">0 km</p>
+                        </div>
+                    </div>
+
+                    <!-- Resumo por Operador -->
+                    <div class="rounded-lg border bg-card shadow-sm">
+                        <div class="border-b px-6 py-4 flex items-center justify-between">
+                            <h3 class="flex items-center gap-2 text-lg font-semibold">
+                                <i class="fas fa-user-tie text-primary"></i>
+                                Manifestos por Operador
+                            </h3>
+                            <span class="text-sm text-muted-foreground">
+                                Clique em um operador para ver detalhes
+                            </span>
+                        </div>
+                        <div id="audit-operadores-list" class="divide-y divide-border">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Tabela de Manifestos (expandida ao clicar no operador) -->
+                    <div id="audit-manifestos-detail" class="hidden rounded-lg border bg-card shadow-sm">
+                        <div class="border-b px-6 py-4 flex items-center justify-between">
+                            <h3 class="flex items-center gap-2 text-lg font-semibold">
+                                <i class="fas fa-list text-primary"></i>
+                                <span id="audit-detail-title">Manifestos</span>
+                            </h3>
+                            <button onclick="hideManifestosDetail()" class="text-muted-foreground hover:text-foreground">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-muted/50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">ID</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Data</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Tipo</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Agente</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Motorista</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Veículo</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">KM Rodado</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Valor NF</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Custos</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-manifestos-tbody" class="divide-y divide-border">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estado Vazio -->
+                <div id="audit-empty" class="text-center py-12">
+                    <div class="rounded-full bg-muted w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-search-dollar text-2xl text-muted-foreground"></i>
+                    </div>
+                    <h4 class="font-semibold mb-2">Auditoria de Manifestos</h4>
+                    <p class="text-sm text-muted-foreground mb-4">
+                        Selecione um período e clique em "Buscar" para visualizar os manifestos emitidos.
+                    </p>
+                </div>
+            </div>
+        </div>
     </main>
 </div>
 
 <script>
+// Variáveis globais para auditoria
+let auditManifestos = [];
+let auditStatsOperadores = [];
+
 function switchTab(tabName) {
     // Esconde todos os conteúdos
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -995,6 +1167,305 @@ function deleteDashboardTemplate(id) {
                 }
             });
     }
+}
+
+// ============================================================
+// FUNÇÕES DE AUDITORIA FISCAL
+// ============================================================
+
+// Inicializar quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    carregarOperadores();
+    // Define datas padrão (último mês)
+    setDateRange('mes');
+});
+
+function setDateRange(range) {
+    const hoje = new Date();
+    let dataInicio = new Date();
+    let dataFim = new Date();
+    
+    switch(range) {
+        case 'hoje':
+            dataInicio = hoje;
+            dataFim = hoje;
+            break;
+        case 'semana':
+            dataInicio.setDate(hoje.getDate() - 7);
+            break;
+        case 'mes':
+            dataInicio.setMonth(hoje.getMonth() - 1);
+            break;
+        case 'trimestre':
+            dataInicio.setMonth(hoje.getMonth() - 3);
+            break;
+    }
+    
+    document.getElementById('audit-data-inicio').value = formatDateInput(dataInicio);
+    document.getElementById('audit-data-fim').value = formatDateInput(dataFim);
+}
+
+function formatDateInput(date) {
+    return date.toISOString().split('T')[0];
+}
+
+function formatDateBR(dateStr) {
+    if (!dateStr) return '-';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+}
+
+function formatCurrency(value) {
+    if (value === null || value === undefined) return 'R$ 0,00';
+    return new Intl.NumberFormat('pt-BR', { 
+        style: 'currency', 
+        currency: 'BRL' 
+    }).format(value);
+}
+
+function formatNumber(value) {
+    if (value === null || value === undefined) return '0';
+    return new Intl.NumberFormat('pt-BR').format(value);
+}
+
+async function carregarOperadores() {
+    try {
+        const response = await fetch('/api/agent/auditoria-fiscal/operadores');
+        const data = await response.json();
+        
+        if (data.success && data.operadores) {
+            const select = document.getElementById('audit-operador');
+            data.operadores.forEach(op => {
+                const option = document.createElement('option');
+                option.value = op.id_usuarios;
+                option.textContent = op.primeiro_nome;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao carregar operadores:', error);
+    }
+}
+
+async function buscarAuditoria() {
+    const dataInicio = document.getElementById('audit-data-inicio').value;
+    const dataFim = document.getElementById('audit-data-fim').value;
+    const operadorId = document.getElementById('audit-operador').value;
+    
+    if (!dataInicio || !dataFim) {
+        alert('Por favor, selecione as datas de início e fim.');
+        return;
+    }
+    
+    // Mostrar loading
+    document.getElementById('audit-loading').classList.remove('hidden');
+    document.getElementById('audit-results').classList.add('hidden');
+    document.getElementById('audit-empty').classList.add('hidden');
+    document.getElementById('audit-manifestos-detail').classList.add('hidden');
+    
+    try {
+        let url = `/api/agent/auditoria-fiscal?data_inicio=${dataInicio}&data_fim=${dataFim}`;
+        if (operadorId) {
+            url += `&operador_id=${operadorId}`;
+        }
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        document.getElementById('audit-loading').classList.add('hidden');
+        
+        if (!data.success) {
+            alert('Erro ao buscar dados: ' + (data.error || 'Erro desconhecido'));
+            document.getElementById('audit-empty').classList.remove('hidden');
+            return;
+        }
+        
+        auditManifestos = data.manifestos || [];
+        auditStatsOperadores = data.stats_operadores || [];
+        
+        if (auditManifestos.length === 0) {
+            document.getElementById('audit-empty').classList.remove('hidden');
+            return;
+        }
+        
+        // Atualizar resumo
+        const totalManifestos = auditManifestos.length;
+        const totalOperadores = auditStatsOperadores.length;
+        const valorTotal = auditStatsOperadores.reduce((acc, op) => acc + (op.valor_total || 0), 0);
+        const kmTotal = auditStatsOperadores.reduce((acc, op) => acc + (op.km_total || 0), 0);
+        
+        document.getElementById('audit-total-manifestos').textContent = formatNumber(totalManifestos);
+        document.getElementById('audit-total-operadores').textContent = formatNumber(totalOperadores);
+        document.getElementById('audit-valor-total').textContent = formatCurrency(valorTotal);
+        document.getElementById('audit-km-total').textContent = formatNumber(kmTotal) + ' km';
+        
+        // Renderizar lista de operadores
+        renderizarOperadores();
+        
+        document.getElementById('audit-results').classList.remove('hidden');
+        
+    } catch (error) {
+        document.getElementById('audit-loading').classList.add('hidden');
+        document.getElementById('audit-empty').classList.remove('hidden');
+        alert('Erro ao buscar dados: ' + error.message);
+    }
+}
+
+function renderizarOperadores() {
+    const container = document.getElementById('audit-operadores-list');
+    container.innerHTML = '';
+    
+    auditStatsOperadores.forEach((op, index) => {
+        const percent = auditManifestos.length > 0 
+            ? Math.round((op.total_manifestos / auditManifestos.length) * 100) 
+            : 0;
+        
+        const html = `
+            <div class="p-4 hover:bg-muted/30 cursor-pointer transition-colors" onclick="mostrarManifestosOperador(${op.operador_id}, '${op.operador_nome || 'Sem nome'}')">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <i class="fas fa-user text-primary"></i>
+                        </div>
+                        <div>
+                            <p class="font-semibold">${op.operador_nome || 'Operador #' + op.operador_id}</p>
+                            <p class="text-xs text-muted-foreground">
+                                ${formatDateBR(op.primeira_emissao)} - ${formatDateBR(op.ultima_emissao)}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-lg font-bold text-primary">${op.total_manifestos}</p>
+                        <p class="text-xs text-muted-foreground">manifestos</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4 text-sm mt-3">
+                    <div>
+                        <p class="text-muted-foreground">Valor NF</p>
+                        <p class="font-medium">${formatCurrency(op.valor_total)}</p>
+                    </div>
+                    <div>
+                        <p class="text-muted-foreground">KM Total</p>
+                        <p class="font-medium">${formatNumber(op.km_total)} km</p>
+                    </div>
+                    <div>
+                        <p class="text-muted-foreground">% do Total</p>
+                        <p class="font-medium">${percent}%</p>
+                    </div>
+                </div>
+                <div class="mt-3 h-2 bg-muted rounded-full overflow-hidden">
+                    <div class="h-full bg-primary rounded-full transition-all" style="width: ${percent}%"></div>
+                </div>
+            </div>
+        `;
+        container.innerHTML += html;
+    });
+}
+
+function mostrarManifestosOperador(operadorId, operadorNome) {
+    const manifestosOperador = auditManifestos.filter(m => m.operador_id == operadorId);
+    
+    document.getElementById('audit-detail-title').textContent = 
+        `Manifestos de ${operadorNome} (${manifestosOperador.length})`;
+    
+    const tbody = document.getElementById('audit-manifestos-tbody');
+    tbody.innerHTML = '';
+    
+    manifestosOperador.forEach(m => {
+        const custoTotal = (m.custo_motorista || 0) + (m.custo_motorista_extra || 0) + 
+                          (m.adiantamento || 0) + (m.pedagio || 0) + (m.picking || 0);
+        
+        const row = `
+            <tr class="hover:bg-muted/30">
+                <td class="px-4 py-3 text-sm font-medium">${m.id_manifesto}</td>
+                <td class="px-4 py-3 text-sm">${formatDateBR(m.data_emissao)}</td>
+                <td class="px-4 py-3 text-sm">
+                    <span class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                        ${m.tipo_nome || '-'}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-sm">${m.agente_nome || '-'}</td>
+                <td class="px-4 py-3 text-sm">${m.motorista_nome || '-'}</td>
+                <td class="px-4 py-3 text-sm">
+                    ${m.veiculo_placa ? `<span class="font-mono">${m.veiculo_placa}</span><br><span class="text-xs text-muted-foreground">${m.veiculo_modelo || ''}</span>` : '-'}
+                </td>
+                <td class="px-4 py-3 text-sm">${formatNumber(m.km_rodado)} km</td>
+                <td class="px-4 py-3 text-sm font-medium text-green-600">${formatCurrency(m.total_nf_valor)}</td>
+                <td class="px-4 py-3 text-sm">
+                    <button onclick="mostrarCustosManifesto(${m.id_manifesto})" class="text-blue-500 hover:underline text-xs">
+                        ${formatCurrency(custoTotal)}
+                    </button>
+                </td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+    
+    document.getElementById('audit-manifestos-detail').classList.remove('hidden');
+    document.getElementById('audit-manifestos-detail').scrollIntoView({ behavior: 'smooth' });
+}
+
+function hideManifestosDetail() {
+    document.getElementById('audit-manifestos-detail').classList.add('hidden');
+}
+
+function mostrarCustosManifesto(manifestoId) {
+    const manifesto = auditManifestos.find(m => m.id_manifesto == manifestoId);
+    if (!manifesto) return;
+    
+    const content = `
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm text-muted-foreground">Custo Motorista</p>
+                    <p class="font-medium">${formatCurrency(manifesto.custo_motorista)}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-muted-foreground">Custo Extra</p>
+                    <p class="font-medium">${formatCurrency(manifesto.custo_motorista_extra)}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-muted-foreground">Adiantamento</p>
+                    <p class="font-medium">${formatCurrency(manifesto.adiantamento)}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-muted-foreground">Pedágio</p>
+                    <p class="font-medium">${formatCurrency(manifesto.pedagio)}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-muted-foreground">Picking</p>
+                    <p class="font-medium">${formatCurrency(manifesto.picking)}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-muted-foreground">Fatura</p>
+                    <p class="font-medium">${manifesto.fatura || '-'}</p>
+                </div>
+            </div>
+            <div class="border-t pt-4">
+                <p class="text-sm text-muted-foreground">Observações</p>
+                <p class="text-sm">${manifesto.obs || 'Nenhuma observação'}</p>
+            </div>
+            <div class="grid grid-cols-3 gap-4 border-t pt-4">
+                <div>
+                    <p class="text-sm text-muted-foreground">KM Inicial</p>
+                    <p class="font-medium">${formatNumber(manifesto.km_inicial)}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-muted-foreground">KM Final</p>
+                    <p class="font-medium">${formatNumber(manifesto.km_final)}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-muted-foreground">KM Rodado</p>
+                    <p class="font-medium">${formatNumber(manifesto.km_rodado)} km</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    showModal(`Detalhes do Manifesto #${manifestoId}`, content);
 }
 </script>
 {% endblock %}
