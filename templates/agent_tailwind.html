@@ -746,17 +746,17 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="mt-3 flex gap-2">
-                            <button onclick="setDateRange('hoje')" class="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-accent transition-colors">
+                        <div class="mt-3 flex gap-2 flex-wrap">
+                            <button onclick="setDateRange('hoje')" class="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-accent transition-colors flex-1 md:flex-none">
                                 Hoje
                             </button>
-                            <button onclick="setDateRange('semana')" class="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-accent transition-colors">
+                            <button onclick="setDateRange('semana')" class="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-accent transition-colors flex-1 md:flex-none">
                                 Última Semana
                             </button>
-                            <button onclick="setDateRange('mes')" class="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-accent transition-colors">
+                            <button onclick="setDateRange('mes')" class="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-accent transition-colors flex-1 md:flex-none">
                                 Último Mês
                             </button>
-                            <button onclick="setDateRange('trimestre')" class="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-accent transition-colors">
+                            <button onclick="setDateRange('trimestre')" class="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-accent transition-colors flex-1 md:flex-none">
                                 Último Trimestre
                             </button>
                         </div>
@@ -772,7 +772,7 @@
                 <!-- Resultados -->
                 <div id="audit-results" class="hidden space-y-6">
                     <!-- Resumo Geral -->
-                    <div class="grid gap-4 md:grid-cols-4">
+                    <div class="grid gap-4 grid-cols-2 md:grid-cols-4">
                         <div class="rounded-lg border bg-card p-4 shadow-sm">
                             <div class="flex items-center justify-between">
                                 <span class="text-sm text-muted-foreground">Total de Manifestos</span>
@@ -845,21 +845,21 @@
                                         <th onclick="ordenarPor('data_emissao')" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:bg-muted transition-colors group">
                                             Data <i class="fas fa-sort ml-1 text-muted-foreground/30 group-hover:text-muted-foreground"></i>
                                         </th>
-                                        <th onclick="ordenarPor('tipo_descricao')" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:bg-muted transition-colors group">
+                                        <th onclick="ordenarPor('tipo_descricao')" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:bg-muted transition-colors group hidden md:table-cell">
                                             Tipo <i class="fas fa-sort ml-1 text-muted-foreground/30 group-hover:text-muted-foreground"></i>
                                         </th>
-                                        <th onclick="ordenarPor('agente_nome')" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:bg-muted transition-colors group">
+                                        <th onclick="ordenarPor('agente_nome')" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:bg-muted transition-colors group hidden md:table-cell">
                                             Agente <i class="fas fa-sort ml-1 text-muted-foreground/30 group-hover:text-muted-foreground"></i>
                                         </th>
                                         <th onclick="ordenarPor('motorista_nome')" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:bg-muted transition-colors group">
                                             Motorista <i class="fas fa-sort ml-1 text-muted-foreground/30 group-hover:text-muted-foreground"></i>
                                         </th>
-                                        <th onclick="ordenarPor('veiculo_placa')" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:bg-muted transition-colors group">
+                                        <th onclick="ordenarPor('veiculo_placa')" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:bg-muted transition-colors group hidden md:table-cell">
                                             Veículo <i class="fas fa-sort ml-1 text-muted-foreground/30 group-hover:text-muted-foreground"></i>
                                         </th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">KM Inicial</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">KM Final</th>
-                                        <th onclick="ordenarPor('km_rodado')" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:bg-muted transition-colors group">
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground hidden md:table-cell">KM Inicial</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground hidden md:table-cell">KM Final</th>
+                                        <th onclick="ordenarPor('km_rodado')" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:bg-muted transition-colors group hidden md:table-cell">
                                             KM Rodado <i class="fas fa-sort ml-1 text-muted-foreground/30 group-hover:text-muted-foreground"></i>
                                         </th>
                                         <th onclick="ordenarPor('total_nf_valor')" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:bg-muted transition-colors group">
@@ -1547,19 +1547,19 @@ function renderizarTabelaManifestos() {
             <tr class="hover:bg-muted/30">
                 <td class="px-4 py-3 text-sm font-medium">${m.id_manifesto}</td>
                 <td class="px-4 py-3 text-sm" onclick="ordenarPor('data_emissao')">${formatDateBR(m.data_emissao)}</td>
-                <td class="px-4 py-3 text-sm" onclick="ordenarPor('tipo')">
+                <td class="px-4 py-3 text-sm hidden md:table-cell" onclick="ordenarPor('tipo')">
                     <span class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                         ${m.tipo_descricao || m.tipo || '-'}
                     </span>
                 </td>
-                <td class="px-4 py-3 text-sm" onclick="ordenarPor('agente_nome')">${m.agente_nome || '-'}</td>
+                <td class="px-4 py-3 text-sm hidden md:table-cell" onclick="ordenarPor('agente_nome')">${m.agente_nome || '-'}</td>
                 <td class="px-4 py-3 text-sm" onclick="ordenarPor('motorista_nome')">${m.motorista_nome || '-'}</td>
-                <td class="px-4 py-3 text-sm">
+                <td class="px-4 py-3 text-sm hidden md:table-cell">
                     ${m.veiculo_placa ? `<span class="font-mono">${m.veiculo_placa}</span><br><span class="text-xs text-muted-foreground">${m.veiculo_modelo || ''}</span>` : '-'}
                 </td>
-                <td class="px-4 py-3 text-sm text-muted-foreground" onclick="ordenarPor('km_inicial')">${formatNumber(m.km_inicial)}</td>
-                <td class="px-4 py-3 text-sm text-muted-foreground" onclick="ordenarPor('km_final')">${formatNumber(m.km_final)}</td>
-                <td class="px-4 py-3 text-sm font-medium" onclick="ordenarPor('km_rodado')">${formatNumber(m.km_rodado)} km</td>
+                <td class="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell" onclick="ordenarPor('km_inicial')">${formatNumber(m.km_inicial)}</td>
+                <td class="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell" onclick="ordenarPor('km_final')">${formatNumber(m.km_final)}</td>
+                <td class="px-4 py-3 text-sm font-medium hidden md:table-cell" onclick="ordenarPor('km_rodado')">${formatNumber(m.km_rodado)} km</td>
                 <td class="px-4 py-3 text-sm font-medium text-green-600" onclick="ordenarPor('total_nf_valor')">${formatCurrency(m.total_nf_valor)}</td>
                 <td class="px-4 py-3 text-sm">
                     <button onclick="mostrarCustosManifesto(${m.id_manifesto})" class="text-blue-500 hover:underline text-xs">
@@ -1578,6 +1578,22 @@ function mostrarCustosManifesto(manifestoId) {
     
     const content = `
         <div class="space-y-4">
+            <!-- Dados Principais (Mobile) -->
+            <div class="grid grid-cols-2 gap-4 md:hidden border-b pb-4">
+                <div>
+                    <p class="text-sm text-muted-foreground">Agente</p>
+                    <p class="font-medium text-sm">${manifesto.agente_nome || '-'}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-muted-foreground">Veículo</p>
+                    <p class="font-medium text-sm">${manifesto.veiculo_placa || '-'}</p>
+                </div>
+                 <div>
+                    <p class="text-sm text-muted-foreground">Tipo</p>
+                    <p class="font-medium text-sm">${manifesto.tipo_descricao || '-'}</p>
+                </div>
+            </div>
+
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <p class="text-sm text-muted-foreground">Custo Motorista</p>
