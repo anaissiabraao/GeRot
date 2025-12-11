@@ -4193,7 +4193,7 @@ def request_auditoria_fiscal():
             m.id_manifesto,
             m.data_emissao,
             m.tipo,
-            mt.nome as tipo_descricao,
+            mt.tipo as tipo_descricao,
             m.id_agente,
             f.nome_fantasia as agente_nome,
             m.motorista,
