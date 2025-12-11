@@ -4125,7 +4125,7 @@ def request_auditoria_fiscal():
         LEFT JOIN azportoex.manifesto_tipo mt ON m.tipo = mt.id_tipo
         LEFT JOIN azportoex.fornecedores f ON m.id_agente = f.id_local
         LEFT JOIN azportoex.funcionario func ON m.motorista = func.id_funcionario
-        LEFT JOIN azportoex.usuarios u ON m.operador = u.id_usuarios
+        LEFT JOIN azportoex.usuarios u ON m.operador = u.id_usuario
         LEFT JOIN azportoex.veiculos v ON m.veiculo = v.id_veiculo
         WHERE m.data_emissao BETWEEN '{data_inicio}' AND '{data_fim}'
     """
@@ -4143,13 +4143,14 @@ def request_auditoria_fiscal():
         # category='auditoria' para identificar
         cursor.execute("""
             INSERT INTO agent_dashboard_requests 
-            (title, description, category, filters, created_by, status, created_at)
-            VALUES (%s, %s, %s, %s, %s, 'pending', NOW())
+            (title, description, category, chart_types, filters, created_by, status, created_at)
+            VALUES (%s, %s, %s, %s::text[], %s, %s, 'pending', NOW())
             RETURNING id
         """, (
             f"Auditoria {data_inicio} a {data_fim}",
             "Auditoria Fiscal de Manifestos",
             "auditoria",
+            ["table"],
             psycopg2.extras.Json({"query": query, "limit": 2000}),
             session['user_id']
         ))
