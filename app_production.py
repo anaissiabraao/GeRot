@@ -13,6 +13,7 @@ from flask import (
     request,
     flash,
     send_from_directory,
+    g,
 )
 from flask_cors import CORS
 from flask_restful import Api, Resource
@@ -31,6 +32,7 @@ from typing import Dict, List, Tuple
 import requests
 import mimetypes
 from werkzeug.utils import secure_filename
+from psycopg2 import pool
 
 from openpyxl import load_workbook
 
@@ -48,6 +50,7 @@ app.config["SECRET_KEY"] = os.getenv(
     "SECRET_KEY", "gerot-production-2025-super-secret"
 )
 app.config["DEBUG"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)  # Sessões persistem por 7 dias
 
 DATABASE_URL = (
     os.getenv("DATABASE_URL")
@@ -61,6 +64,26 @@ if not DATABASE_URL:
     )
 
 app.config["DATABASE_URL"] = DATABASE_URL
+
+# Configuração do Pool de Conexões
+# Min: 1, Max: 20 conexões simultâneas
+try:
+    db_pool = psycopg2.pool.ThreadedConnectionPool(
+        minconn=1,
+        maxconn=20,
+        dsn=DATABASE_URL,
+        cursor_factory=psycopg2.extras.RealDictCursor,
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=5
+    )
+    print("✅ Pool de conexões criado com sucesso (1-20 conexões)")
+except Exception as e:
+    print(f"❌ Erro fatal ao criar pool de conexões: {e}")
+    # Fallback ou exit? Vamos deixar passar e tentar reconectar no get_db se falhar
+    db_pool = None
+
 
 BASE_DIR = Path(__file__).resolve().parent
 PLANILHA_USUARIOS = BASE_DIR / "dados.xlsx"
@@ -274,44 +297,68 @@ def debug_time():
 
 
 def get_db():
-    # Remove parâmetros não suportados pelo psycopg2 (como pgbouncer)
-    database_url = app.config["DATABASE_URL"]
-    # Remove o parâmetro pgbouncer da query string se existir
-    if "?" in database_url:
-        url_parts = database_url.split("?")
-        base_url = url_parts[0]
-        if len(url_parts) > 1:
-            query_params = url_parts[1]
-            # Remove parâmetros pgbouncer
-            params = [p for p in query_params.split("&") if not p.startswith("pgbouncer=")]
-            if params:
-                database_url = f"{base_url}?{'&'.join(params)}"
+    """Obtém conexão do pool ou cria nova se necessário."""
+    if 'db' not in g:
+        if db_pool:
+            try:
+                g.db = db_pool.getconn()
+                # Monkey-patch close() para evitar fechamento acidental pelo código legado
+                # A conexão será devolvida ao pool no teardown_appcontext
+                if not hasattr(g.db, 'original_close'):
+                    g.db.original_close = g.db.close
+                    g.db.close = lambda: None
+                return g.db
+            except Exception as e:
+                app.logger.error(f"[DB] Erro ao pegar do pool: {e}. Tentando fallback.")
+        
+        # Fallback: conexão direta (código antigo)
+        database_url = app.config["DATABASE_URL"]
+        if "?" in database_url:
+            url_parts = database_url.split("?")
+            base_url = url_parts[0]
+            if len(url_parts) > 1:
+                query_params = url_parts[1]
+                params = [p for p in query_params.split("&") if not p.startswith("pgbouncer=")]
+                database_url = f"{base_url}?{'&'.join(params)}" if params else base_url
+        
+        max_retries = 3
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                g.db = psycopg2.connect(
+                    database_url,
+                    cursor_factory=psycopg2.extras.RealDictCursor,
+                    keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5
+                )
+                return g.db
+            except psycopg2.OperationalError as e:
+                last_error = e
+                time.sleep(1 * (attempt + 1))
+        raise last_error
+
+    return g.db
+
+
+@app.teardown_appcontext
+def close_db(error):
+    """Devolve a conexão ao pool ao final da requisição."""
+    db = g.pop('db', None)
+    if db is not None:
+        if db_pool:
+            # Restaurar close original antes de devolver (boa prática)
+            if hasattr(db, 'original_close'):
+                db.close = db.original_close
+                del db.original_close # Limpar atributo
+            try:
+                db_pool.putconn(db)
+            except Exception as e:
+                app.logger.error(f"[DB] Erro ao devolver ao pool: {e}")
+        else:
+            # Se não tem pool, fecha de verdade
+            if hasattr(db, 'original_close'):
+                db.close = db.original_close
             else:
-                database_url = base_url
-    
-    # Tentativa de conexão com retry para lidar com falhas transitórias de SSL/Network
-    max_retries = 3
-    last_error = None
-    
-    for attempt in range(max_retries):
-        try:
-            return psycopg2.connect(
-                database_url,
-                cursor_factory=psycopg2.extras.RealDictCursor,
-                keepalives=1,
-                keepalives_idle=30,
-                keepalives_interval=10,
-                keepalives_count=5
-            )
-        except psycopg2.OperationalError as e:
-            last_error = e
-            app.logger.warning(f"[DB] Tentativa de conexão {attempt + 1}/{max_retries} falhou: {e}")
-            if attempt < max_retries - 1:
-                time.sleep(1 * (attempt + 1))  # Backoff simples
-                continue
-            
-    # Se falhar todas as tentativas, relança o último erro
-    raise last_error
+                db.close()
 
 
 def ensure_schema() -> None:
