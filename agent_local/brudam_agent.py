@@ -67,7 +67,7 @@ POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "30"))  # segundos
 
 # MySQL Brudam - credenciais devem estar no .env
 MYSQL_CONFIG = {
-    "host": os.getenv("MYSQL_AZ_HOST", ""),
+    "host": os.getenv("MYSQL_AZ_HOST", "portoex.db.brudam.com.br"),
     "port": int(os.getenv("MYSQL_AZ_PORT", "3306")),
     "user": os.getenv("MYSQL_AZ_USER", ""),
     "password": os.getenv("MYSQL_AZ_PASSWORD", ""),

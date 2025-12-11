@@ -3756,8 +3756,10 @@ def get_brudam_db():
     """Conecta ao banco MySQL Brudam (azportoex). Credenciais via .env"""
     import pymysql
     
-    host = os.getenv("MYSQL_AZ_HOST", "")
-    # Tenta pegar porta do env, se falhar usa 3306 como padrão (mais comum)
+    # Host atualizado conforme Workbench
+    host = os.getenv("MYSQL_AZ_HOST", "portoex.db.brudam.com.br")
+    
+    # Tenta pegar porta do env, se falhar usa 3306 como padrão
     env_port = os.getenv("MYSQL_AZ_PORT", "3306")
     try:
         port = int(env_port)
@@ -3768,38 +3770,59 @@ def get_brudam_db():
     password = os.getenv("MYSQL_AZ_PASSWORD", "")
     database = os.getenv("MYSQL_AZ_DB", "")
     
+    if not all([user, password, database]):
+        # Se faltar credenciais, tenta usar valores hardcoded de emergência (baseado nas memórias)
+        if not user: user = "consulta_portoex"
+        if not database: database = "azportoex"
+        # A senha não deve ficar no código, mas se necessário para teste local:
+        # if not password: password = "..." 
+        
     if not all([host, user, password, database]):
         raise ValueError("Credenciais MySQL Brudam não configuradas no .env")
     
     # Função auxiliar para tentar conexão
-    def try_connect(target_port):
+    def try_connect(target_host, target_port):
         return pymysql.connect(
-            host=host,
+            host=target_host,
             port=target_port,
             user=user,
             password=password,
             database=database,
             charset='utf8mb4',
             cursorclass=pymysql.cursors.DictCursor,
-            connect_timeout=10,  # Timeout menor para falhar rápido e tentar outra porta
+            connect_timeout=10,
             read_timeout=60
         )
 
-    # Tenta conectar na porta configurada
+    # Lógica de tentativa:
+    # 1. Tenta host/porta configurados
+    # 2. Se falhar e for IP, tenta o DNS
+    # 3. Se falhar e for DNS, tenta o IP antigo (fallback)
+    
     try:
         app.logger.info(f"[MYSQL] Tentando conexão em {host}:{port}...")
-        return try_connect(port)
+        return try_connect(host, port)
     except pymysql.err.OperationalError as e:
-        # Se for erro de conexão (2003) e a porta for 3307 ou 3306, tenta a outra
-        if e.args[0] == 2003:
-            alt_port = 3306 if port == 3307 else 3307
-            app.logger.warning(f"[MYSQL] Falha na porta {port}. Tentando porta alternativa {alt_port}...")
+        app.logger.warning(f"[MYSQL] Falha na conexão principal: {e}")
+        
+        # Se falhou e estamos usando o DNS, tenta o IP antigo como fallback
+        if "portoex.db.brudam.com.br" in host:
+            fallback_ip = "10.147.17.88"
+            app.logger.info(f"[MYSQL] Tentando fallback para IP {fallback_ip}...")
             try:
-                return try_connect(alt_port)
-            except Exception as e_alt:
-                # Se falhar na alternativa, lança o erro original
-                app.logger.error(f"[MYSQL] Falha também na porta alternativa {alt_port}: {e_alt}")
-                raise e
+                return try_connect(fallback_ip, port)
+            except Exception:
+                pass # Ignora erro do fallback para lançar o original
+        
+        # Se falhou e estamos usando IP, tenta o DNS
+        elif "10." in host:
+            fallback_host = "portoex.db.brudam.com.br"
+            app.logger.info(f"[MYSQL] Tentando fallback para DNS {fallback_host}...")
+            try:
+                return try_connect(fallback_host, port)
+            except Exception:
+                pass
+                
         raise e
 
 

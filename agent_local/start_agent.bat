@@ -62,14 +62,14 @@ if errorlevel 1 (
 :: Testar conexão MySQL antes de iniciar
 echo.
 echo 🔍 Testando conexão MySQL...
-python -c "from dotenv import load_dotenv; load_dotenv(); import os; import pymysql; c=pymysql.connect(host=os.getenv('MYSQL_AZ_HOST'),port=int(os.getenv('MYSQL_AZ_PORT','3307')),user=os.getenv('MYSQL_AZ_USER'),password=os.getenv('MYSQL_AZ_PASSWORD'),database=os.getenv('MYSQL_AZ_DB')); print('✅ Conexão MySQL OK'); c.close()" 2>&1
+python -c "from dotenv import load_dotenv; load_dotenv(); import os; import pymysql; host=os.getenv('MYSQL_AZ_HOST', 'portoex.db.brudam.com.br'); port=int(os.getenv('MYSQL_AZ_PORT','3306')); print(f'   Host: {host}:{port}'); c=pymysql.connect(host=host,port=port,user=os.getenv('MYSQL_AZ_USER'),password=os.getenv('MYSQL_AZ_PASSWORD'),database=os.getenv('MYSQL_AZ_DB')); print('✅ Conexão MySQL OK'); c.close()" 2>&1
 if errorlevel 1 (
     echo.
     echo ❌ Falha na conexão MySQL!
     echo Verifique:
     echo    • ZeroTier está conectado?
     echo    • Credenciais no .env estão corretas?
-    echo    • IP 10.147.17.88 está acessível?
+    echo    • Host portoex.db.brudam.com.br está acessível?
     echo.
     pause
     exit /b 1
