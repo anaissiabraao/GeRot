@@ -16,6 +16,7 @@ from flask import (
     g,
 )
 from flask_cors import CORS
+from flask_compress import Compress
 from flask_restful import Api, Resource
 import os
 import time
