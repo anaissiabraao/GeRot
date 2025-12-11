@@ -4143,14 +4143,13 @@ def request_auditoria_fiscal():
         # category='auditoria' para identificar
         cursor.execute("""
             INSERT INTO agent_dashboard_requests 
-            (title, description, category, chart_types, filters, created_by, status, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, 'pending', NOW())
+            (title, description, category, filters, created_by, status, created_at)
+            VALUES (%s, %s, %s, %s, %s, 'pending', NOW())
             RETURNING id
         """, (
             f"Auditoria {data_inicio} a {data_fim}",
             "Auditoria Fiscal de Manifestos",
             "auditoria",
-            ["table"],
             psycopg2.extras.Json({"query": query, "limit": 2000}),
             session['user_id']
         ))
@@ -4166,7 +4165,10 @@ def request_auditoria_fiscal():
         
     except Exception as e:
         conn.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
+        import traceback
+        error_details = traceback.format_exc()
+        app.logger.error(f"Erro ao criar solicitação de auditoria: {error_details}")
+        return jsonify({"success": False, "error": str(e), "details": error_details}), 500
     finally:
         conn.close()
 

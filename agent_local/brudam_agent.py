@@ -13,7 +13,7 @@ Uso:
 
 Variáveis de ambiente necessárias:
     GEROT_API_URL - URL base do GeRot (ex: https://gerot.onrender.com)
-    GEROT_API_KEY - Chave de API para autenticação
+    AGENT_API_KEY - Chave de API para autenticação
     MYSQL_AZ_HOST - Host do MySQL Brudam (default: 10.147.17.88)
     MYSQL_AZ_PORT - Porta do MySQL (default: 3306)
     MYSQL_AZ_USER - Usuário do MySQL
@@ -62,7 +62,7 @@ logger = logging.getLogger(__name__)
 
 # Configurações
 GEROT_API_URL = os.getenv("GEROT_API_URL", "https://gerot.onrender.com")
-GEROT_API_KEY = os.getenv("GEROT_API_KEY", "")
+AGENT_API_KEY = os.getenv("AGENT_API_KEY", "")
 POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "30"))  # segundos
 
 # MySQL Brudam - credenciais devem estar no .env
@@ -113,7 +113,7 @@ def test_mysql_connection():
 def fetch_pending_rpas():
     """Busca RPAs pendentes no GeRot."""
     try:
-        headers = {"X-API-Key": GEROT_API_KEY} if GEROT_API_KEY else {}
+        headers = {"X-API-Key": AGENT_API_KEY} if AGENT_API_KEY else {}
         response = requests.get(
             f"{GEROT_API_URL}/api/agent/rpas/pending",
             headers=headers,
@@ -126,7 +126,7 @@ def fetch_pending_rpas():
             # Endpoint ainda não existe, retornar vazio
             return []
         else:
-            logger.warning(f"Erro ao buscar RPAs: {response.status_code}")
+            logger.warning(f"Erro ao buscar RPAs: {response.status_code} - {response.text}")
             return []
     except Exception as e:
         logger.error(f"Erro ao conectar ao GeRot: {e}")
@@ -205,8 +205,8 @@ def send_result(rpa_id: int, result: dict):
     try:
         headers = {
             "Content-Type": "application/json",
-            "X-API-Key": GEROT_API_KEY
-        } if GEROT_API_KEY else {"Content-Type": "application/json"}
+            "X-API-Key": AGENT_API_KEY
+        } if AGENT_API_KEY else {"Content-Type": "application/json"}
         
         response = requests.post(
             f"{GEROT_API_URL}/api/agent/rpa/{rpa_id}/result",
@@ -229,7 +229,7 @@ def send_result(rpa_id: int, result: dict):
 def fetch_pending_dashboards():
     """Busca solicitações de dashboard pendentes no GeRot."""
     try:
-        headers = {"X-API-Key": GEROT_API_KEY} if GEROT_API_KEY else {}
+        headers = {"X-API-Key": AGENT_API_KEY} if AGENT_API_KEY else {}
         response = requests.get(
             f"{GEROT_API_URL}/api/agent/dashboards/pending",
             headers=headers,
@@ -241,7 +241,7 @@ def fetch_pending_dashboards():
         elif response.status_code == 404:
             return []
         else:
-            logger.warning(f"Erro ao buscar dashboards: {response.status_code}")
+            logger.warning(f"Erro ao buscar dashboards: {response.status_code} - {response.text}")
             return []
     except Exception as e:
         logger.error(f"Erro ao conectar ao GeRot: {e}")
@@ -319,8 +319,8 @@ def send_dashboard_result(dash_id: int, result: dict):
     try:
         headers = {
             "Content-Type": "application/json",
-            "X-API-Key": GEROT_API_KEY
-        } if GEROT_API_KEY else {"Content-Type": "application/json"}
+            "X-API-Key": AGENT_API_KEY
+        } if AGENT_API_KEY else {"Content-Type": "application/json"}
         
         response = requests.post(
             f"{GEROT_API_URL}/api/agent/dashboard/{dash_id}/result",
