@@ -401,7 +401,23 @@
                         </div>
                     </div>
 
-                    <!-- Input Area -->
+                    <!-- Ações Rápidas -->
+                    <div class="px-4 py-2 border-t bg-muted/20 flex gap-2 overflow-x-auto">
+                        <button type="button" onclick="insertCommand('/solicitar ')" 
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium hover:bg-blue-200 transition-colors whitespace-nowrap">
+                            <i class="fas fa-database"></i> Solicitar Dados
+                        </button>
+                        <button type="button" onclick="insertCommand('/imagem ')" 
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium hover:bg-purple-200 transition-colors whitespace-nowrap">
+                            <i class="fas fa-image"></i> Gerar Imagem
+                        </button>
+                        <button type="button" onclick="exportChatToExcel()" 
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-xs font-medium hover:bg-green-200 transition-colors whitespace-nowrap">
+                            <i class="fas fa-file-excel"></i> Exportar Chat
+                        </button>
+                    </div>
+
+                    <!-- Input -->
                     <div class="border-t p-4 bg-background">
                         <form id="chatForm" onsubmit="sendMessage(event)" class="relative">
                             <div class="relative flex items-end gap-2">
@@ -2369,6 +2385,54 @@ function exportarExcel() {
 
     // Download
     XLSX.writeFile(wb, fileName);
+}
+
+function insertCommand(command) {
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) {
+        chatInput.value = command;
+        chatInput.focus();
+    }
+}
+
+function exportChatToExcel() {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (!messagesContainer) return;
+    
+    const messageDivs = messagesContainer.querySelectorAll('.flex.items-start');
+    if (messageDivs.length === 0) {
+        alert('Não há mensagens para exportar.');
+        return;
+    }
+
+    const data = [];
+    messageDivs.forEach(msg => {
+        // Tenta identificar se é bot ou usuário pelo avatar ou classes
+        const isBot = msg.querySelector('img[alt="AI"]') !== null || msg.querySelector('.fa-robot') !== null;
+        const role = isBot ? 'Assistente' : 'Usuário';
+        
+        // Pega o texto
+        const textElement = msg.querySelector('.rounded-2xl, .rounded-lg');
+        let content = textElement ? textElement.innerText.trim() : '';
+        
+        // Limpa quebras de linha excessivas
+        content = content.replace(/\n+/g, '\n');
+
+        data.push({
+            "Papel": role,
+            "Mensagem": content,
+            "Data Exportação": new Date().toLocaleString()
+        });
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Chat Histórico");
+    
+    // Ajustar colunas
+    ws['!cols'] = [{ wch: 15 }, { wch: 80 }, { wch: 20 }];
+    
+    XLSX.writeFile(wb, `GeRot_Chat_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 </script>
 {% endblock %}
