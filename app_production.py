@@ -4948,7 +4948,7 @@ def send_chat_message():
                         full_prompt += f"Usuário (Atual): {user_message}"
                         
                         response = model.generate_content(full_prompt)
-                        ai_response = response.text + "\n\n*(Gerado via Gemini - Fallback)*"
+                        ai_response = response.text
                         
                     except Exception as gemini_error:
                         app.logger.error(f"Erro Gemini: {gemini_error}")
