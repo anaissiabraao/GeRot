@@ -48,7 +48,7 @@
         <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-foreground">Meu Perfil</h1>
-                <p class="text-muted-foreground">Gerencie suas informações e credenciais</p>
+                <p class="text-muted-foreground">Atualize dados pessoais, credenciais e foto</p>
             </div>
             <a href="{{ url_for('team_dashboard') }}" class="inline-flex items-center rounded-md border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground">
                 <i class="fas fa-arrow-left mr-2"></i>
@@ -56,161 +56,184 @@
             </a>
         </div>
 
-        <div class="grid gap-6 md:grid-cols-3">
-            <!-- Coluna Esquerda: Avatar e Ações -->
-            <div class="space-y-6">
-                <div class="rounded-xl border bg-card p-6 shadow-sm animate-fade-in-up">
-                    <div class="flex flex-col items-center text-center">
-                        <div class="mb-4 flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-primary to-purple-600 text-5xl font-bold text-white shadow-lg border-4 border-background">
-                            {{ user.nome_completo[0].upper() }}
+        <form method="POST" enctype="multipart/form-data" class="space-y-8">
+            <div class="grid gap-6 lg:grid-cols-3">
+                <!-- Coluna Esquerda -->
+                <div class="space-y-6">
+                    <div class="rounded-xl border bg-card p-6 shadow-sm">
+                        <div class="flex flex-col items-center text-center">
+                            {% if user.avatar_url %}
+                                <img src="{{ user.avatar_url }}" alt="Avatar" class="mb-4 h-32 w-32 rounded-full object-cover border-4 border-background shadow-lg">
+                            {% else %}
+                                <div class="mb-4 flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-primary to-purple-600 text-5xl font-bold text-white shadow-lg border-4 border-background">
+                                    {{ user.nome_completo[0].upper() }}
+                                </div>
+                            {% endif %}
+                            <h2 class="text-xl font-bold text-foreground">{{ user.nome_completo }}</h2>
+                            <p class="text-sm text-muted-foreground">{{ user.username }}</p>
+                            
+                            <div class="mt-4">
+                                <span class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium {% if user.role == 'admin' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+                                    {% if user.role == 'admin' %}
+                                        <i class="fas fa-shield-alt mr-2"></i>Administrador
+                                    {% else %}
+                                        <i class="fas fa-user mr-2"></i>Usuário
+                                    {% endif %}
+                                </span>
+                            </div>
                         </div>
-                        <h2 class="text-xl font-bold text-foreground">{{ user.nome_completo }}</h2>
-                        <p class="text-sm text-muted-foreground">{{ user.username }}</p>
-                        
-                        <div class="mt-4">
-                            <span class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium {% if user.role == 'admin' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">
-                                {% if user.role == 'admin' %}
-                                    <i class="fas fa-shield-alt mr-2"></i>Administrador
-                                {% else %}
-                                    <i class="fas fa-user mr-2"></i>Usuário
-                                {% endif %}
-                            </span>
+                        <div class="mt-6 w-full space-y-3">
+                            <label class="flex flex-col gap-2 text-sm font-medium text-foreground">
+                                Nova Foto de Perfil
+                                <input type="file" name="avatar" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                                       class="w-full rounded-lg border border-dashed border-muted-foreground/40 bg-muted/20 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary hover:border-primary/50">
+                            </label>
+                            <p class="text-xs text-muted-foreground">
+                                Formatos aceitos: PNG, JPG, JPEG, WEBP ou GIF (máx. 5MB).
+                            </p>
                         </div>
                     </div>
 
-                    <div class="mt-8 space-y-3">
-                        <h3 class="font-semibold text-foreground flex items-center gap-2">
-                            <i class="fas fa-cog text-primary"></i> Ações
+                    <div class="rounded-xl border bg-card p-6 shadow-sm">
+                        <h3 class="mb-4 font-semibold text-foreground flex items-center gap-2">
+                            <i class="fas fa-server text-primary"></i> Informações do Sistema
                         </h3>
-                        
-                        <a href="{{ url_for('change_password') }}" class="flex items-center gap-3 rounded-lg border bg-muted/30 p-3 transition-all hover:bg-primary/5 hover:border-primary/30">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                                <i class="fas fa-lock"></i>
+                        <dl class="space-y-3 text-sm text-muted-foreground">
+                            <div class="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+                                <dt>Sistema</dt>
+                                <dd class="font-semibold text-foreground">GeRot v2.0</dd>
                             </div>
-                            <div>
-                                <h4 class="font-medium text-foreground">Alterar Senha</h4>
-                                <p class="text-xs text-muted-foreground">Atualizar credenciais</p>
+                            <div class="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+                                <dt>Empresa</dt>
+                                <dd class="font-semibold text-foreground">Portoex</dd>
                             </div>
-                        </a>
-                        
-                        <a href="{{ url_for('logout') }}" class="flex items-center gap-3 rounded-lg border border-red-100 bg-red-50/30 p-3 transition-all hover:bg-red-50 hover:border-red-200">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
-                                <i class="fas fa-sign-out-alt"></i>
+                            <div class="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+                                <dt>ID Usuário</dt>
+                                <dd class="font-semibold text-foreground">#{{ user.id }}</dd>
                             </div>
-                            <div>
-                                <h4 class="font-medium text-red-700">Sair do Sistema</h4>
-                                <p class="text-xs text-red-500">Encerrar sessão</p>
+                            <div class="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+                                <dt>Status</dt>
+                                <dd class="font-semibold {% if user.is_active %}text-green-500{% else %}text-red-500{% endif %}">
+                                    {{ 'Ativo' if user.is_active else 'Inativo' }}
+                                </dd>
                             </div>
-                        </a>
+                        </dl>
                     </div>
                 </div>
 
-                <!-- Card Sistema -->
-                <div class="rounded-xl border bg-card p-6 shadow-sm animate-fade-in-up" style="animation-delay: 100ms;">
-                    <h3 class="mb-4 font-semibold text-foreground flex items-center gap-2">
-                        <i class="fas fa-server text-primary"></i> Informações do Sistema
-                    </h3>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="rounded-lg bg-muted/30 p-3">
-                            <span class="text-xs font-medium text-muted-foreground uppercase">Sistema</span>
-                            <p class="font-semibold text-foreground">GeRot v2.0</p>
+                <!-- Coluna Direita -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Dados Pessoais -->
+                    <section class="rounded-xl border bg-card p-6 shadow-sm">
+                        <div class="flex items-center justify-between border-b pb-4">
+                            <div>
+                                <h3 class="text-lg font-semibold text-foreground">Informações Pessoais</h3>
+                                <p class="text-sm text-muted-foreground">Atualize seus dados profissionais de contato</p>
+                            </div>
                         </div>
-                        <div class="rounded-lg bg-muted/30 p-3">
-                            <span class="text-xs font-medium text-muted-foreground uppercase">Empresa</span>
-                            <p class="font-semibold text-foreground">Portoex</p>
+                        <div class="mt-6 grid gap-4 md:grid-cols-2">
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-foreground">Nome Completo</label>
+                                <input type="text" name="nome_completo" value="{{ user.nome_completo }}"
+                                       class="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" required>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-foreground">Email Corporativo</label>
+                                <input type="email" name="email" value="{{ user.email }}"
+                                       placeholder="exemplo@portoex.com.br"
+                                       class="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-foreground">Departamento</label>
+                                <input type="text" name="departamento" value="{{ user.departamento }}"
+                                       class="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-foreground">Cargo</label>
+                                <input type="text" name="cargo_original" value="{{ user.cargo_original }}"
+                                       class="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                            </div>
                         </div>
-                        <div class="rounded-lg bg-muted/30 p-3">
-                            <span class="text-xs font-medium text-muted-foreground uppercase">ID Usuário</span>
-                            <p class="font-semibold text-foreground">#{{ user.id }}</p>
+                    </section>
+
+                    <!-- Credenciais -->
+                    <section class="rounded-xl border bg-card p-6 shadow-sm">
+                        <div class="flex items-center justify-between border-b pb-4">
+                            <div>
+                                <h3 class="text-lg font-semibold text-foreground">Credenciais de Acesso</h3>
+                                <p class="text-sm text-muted-foreground">Gerencie seu usuário, apelido público e senha</p>
+                            </div>
                         </div>
-                        <div class="rounded-lg bg-muted/30 p-3">
-                            <span class="text-xs font-medium text-muted-foreground uppercase">Ambiente</span>
-                            <p class="font-semibold text-green-600">Produção</p>
+                        <div class="mt-6 grid gap-4 md:grid-cols-2">
+                            <div class="space-y-2 md:col-span-1">
+                                <label class="text-sm font-medium text-foreground">Usuário de Login</label>
+                                <input type="text" name="username" value="{{ user.username }}"
+                                       class="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" required>
+                                <p class="text-xs text-muted-foreground">Usado para autenticação no sistema.</p>
+                            </div>
+                            <div class="space-y-2 md:col-span-1">
+                                <label class="text-sm font-medium text-foreground">Usuário Público / @</label>
+                                <input type="text" name="nome_usuario" value="{{ user.nome_usuario }}"
+                                       class="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                                <p class="text-xs text-muted-foreground">Opcional. Visível em relatórios e interações.</p>
+                            </div>
+
+                            <div class="space-y-2 md:col-span-2 grid md:grid-cols-3 gap-4">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium text-foreground">Senha Atual</label>
+                                    <input type="password" name="current_password" autocomplete="current-password"
+                                           class="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium text-foreground">Nova Senha</label>
+                                    <input type="password" name="new_password" autocomplete="new-password"
+                                           class="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium text-foreground">Confirmar Nova Senha</label>
+                                    <input type="password" name="confirm_password" autocomplete="new-password"
+                                           class="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                        <p class="mt-3 text-xs text-muted-foreground">
+                            Para alterar a senha, informe sua senha atual e a nova senha (mínimo 6 caracteres).
+                        </p>
+                    </section>
                 </div>
             </div>
 
-            <!-- Coluna Direita: Informações Detalhadas -->
-            <div class="md:col-span-2 space-y-6">
-                <div class="rounded-xl border bg-card p-6 shadow-sm animate-fade-in-up" style="animation-delay: 200ms;">
-                    <h3 class="mb-6 font-semibold text-lg text-foreground flex items-center gap-2 border-b pb-4">
-                        <i class="fas fa-id-card text-primary"></i> Informações Profissionais
-                    </h3>
-
-                    <div class="grid gap-6 sm:grid-cols-2">
-                        <div class="space-y-1">
-                            <label class="text-xs font-medium text-muted-foreground uppercase">Nome Completo</label>
-                            <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium text-foreground">
-                                {{ user.nome_completo }}
-                            </div>
-                        </div>
-
-                        <div class="space-y-1">
-                            <label class="text-xs font-medium text-muted-foreground uppercase">Cargo</label>
-                            <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium text-foreground">
-                                {{ user.cargo_original }}
-                            </div>
-                        </div>
-
-                        <div class="space-y-1">
-                            <label class="text-xs font-medium text-muted-foreground uppercase">Departamento</label>
-                            <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium text-foreground">
-                                {{ user.departamento }}
-                            </div>
-                        </div>
-
-                        <div class="space-y-1">
-                            <label class="text-xs font-medium text-muted-foreground uppercase">Usuário</label>
-                            <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium text-foreground">
-                                {{ user.username }}
-                            </div>
-                        </div>
-
-                        {% if user.email %}
-                        <div class="space-y-1 sm:col-span-2">
-                            <label class="text-xs font-medium text-muted-foreground uppercase">Email</label>
-                            <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium text-foreground flex items-center gap-2">
-                                <i class="fas fa-envelope text-muted-foreground"></i>
-                                {{ user.email }}
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        <div class="space-y-1">
-                            <label class="text-xs font-medium text-muted-foreground uppercase">Status</label>
-                            <div class="flex items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3 font-medium">
-                                {% if user.is_active %}
-                                    <div class="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></div>
-                                    <span class="text-green-600">Ativo</span>
-                                {% else %}
-                                    <div class="h-2.5 w-2.5 rounded-full bg-red-500"></div>
-                                    <span class="text-red-600">Inativo</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Estatísticas -->
-                <div class="grid gap-4 sm:grid-cols-3 animate-fade-in-up" style="animation-delay: 300ms;">
-                    <div class="rounded-xl border bg-card p-6 text-center shadow-sm transition-all hover:shadow-md hover:-translate-y-1">
-                        <div class="mb-2 text-3xl font-bold text-primary">0</div>
-                        <div class="text-xs font-medium uppercase text-muted-foreground">Tarefas Concluídas</div>
-                    </div>
-                    <div class="rounded-xl border bg-card p-6 text-center shadow-sm transition-all hover:shadow-md hover:-translate-y-1">
-                        <div class="mb-2 text-3xl font-bold text-purple-600">0</div>
-                        <div class="text-xs font-medium uppercase text-muted-foreground">Projetos Ativos</div>
-                    </div>
-                    <div class="rounded-xl border bg-card p-6 text-center shadow-sm transition-all hover:shadow-md hover:-translate-y-1">
-                        <div class="mb-2 text-lg font-bold text-blue-600 truncate px-2">
-                            {{ 'Admin' if user.role == 'admin' else 'Usuário' }}
-                        </div>
-                        <div class="text-xs font-medium uppercase text-muted-foreground">Nível de Acesso</div>
-                    </div>
+            <div class="flex flex-col gap-3 border-t pt-4 md:flex-row md:items-center md:justify-between">
+                <p class="text-xs text-muted-foreground">
+                    Última atualização: {{ user.updated_at if user.updated_at else '—' }}
+                </p>
+                <div class="flex flex-col gap-2 sm:flex-row">
+                    <a href="{{ url_for('team_dashboard') }}" class="inline-flex items-center justify-center rounded-lg border border-muted-foreground/40 px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/30">
+                        Cancelar
+                    </a>
+                    <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90">
+                        <i class="fas fa-save mr-2"></i>Salvar Alterações
+                    </button>
                 </div>
             </div>
-        </div>
+        </form>
+
+        <section class="mt-10 grid gap-4 sm:grid-cols-3">
+            <div class="rounded-xl border bg-card p-6 text-center shadow-sm">
+                <div class="mb-2 text-3xl font-bold text-primary">0</div>
+                <div class="text-xs font-medium uppercase text-muted-foreground">Tarefas Concluídas</div>
+            </div>
+            <div class="rounded-xl border bg-card p-6 text-center shadow-sm">
+                <div class="mb-2 text-3xl font-bold text-purple-600">0</div>
+                <div class="text-xs font-medium uppercase text-muted-foreground">Projetos Ativos</div>
+            </div>
+            <div class="rounded-xl border bg-card p-6 text-center shadow-sm">
+                <div class="mb-2 text-lg font-bold text-blue-600 truncate px-2">
+                    {{ 'Admin' if user.role == 'admin' else 'Usuário' }}
+                </div>
+                <div class="text-xs font-medium uppercase text-muted-foreground">Nível de Acesso</div>
+            </div>
+        </section>
     </main>
 </div>
 {% endblock %}

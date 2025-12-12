@@ -37,6 +37,7 @@ from functools import wraps
 from typing import Dict, List, Tuple
 import requests
 import mimetypes
+from io import BytesIO
 from werkzeug.utils import secure_filename
 from psycopg2 import pool
 import openai
@@ -138,6 +139,8 @@ except Exception as e:
 BASE_DIR = Path(__file__).resolve().parent
 PLANILHA_USUARIOS = BASE_DIR / "dados.xlsx"
 ADMIN_CARGOS = {"CONSULTOR", "COORDENADOR", "DIRETOR"}
+ALLOWED_AVATAR_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif"}
+MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 # Configuração para usar o novo tema Tailwind (True) ou o tema antigo (False)
 USE_TAILWIND_THEME = os.getenv("USE_TAILWIND_THEME", "true").lower() == "true"
@@ -219,7 +222,7 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
-            flash("Você precisa estar logado para acessar esta página.", "error")
+            flash("Por favor, faça login.", "error")
             return redirect(url_for("login"))
         return f(*args, **kwargs)
 
@@ -260,6 +263,33 @@ def _as_bytes(value):
     if isinstance(value, str):
         return value.encode("utf-8")
     return value
+
+
+def _sanitize_optional(value: str | None):
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
+def is_allowed_avatar_file(filename: str) -> bool:
+    return bool(filename and "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_AVATAR_EXTENSIONS)
+
+
+def refresh_session_user_cache():
+    """Recarrega dados básicos do usuário na sessão após atualização."""
+    if "user_id" not in session:
+        return None
+    updated = get_user_by_id(session["user_id"])
+    if updated:
+        session["username"] = updated.get("username", session.get("username"))
+        session["nome_completo"] = updated.get("nome_completo", session.get("nome_completo"))
+        session["role"] = updated.get("role", session.get("role"))
+        if updated.get("departamento") is not None:
+            session["departamento"] = updated.get("departamento")
+        if updated.get("avatar_url"):
+            session["avatar_url"] = updated["avatar_url"]
+    return updated
 
 
 @app.before_request
@@ -465,6 +495,20 @@ def ensure_schema() -> None:
                 ALTER TABLE users_new ADD COLUMN nome_usuario TEXT;
                 CREATE UNIQUE INDEX IF NOT EXISTS users_new_nome_usuario_unique
                     ON users_new (LOWER(nome_usuario)) WHERE nome_usuario IS NOT NULL;
+            END IF;
+        END $$;
+        """
+    )
+
+    cursor.execute(
+        """
+        DO $$ 
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'users_new' AND column_name = 'avatar_url'
+            ) THEN
+                ALTER TABLE users_new ADD COLUMN avatar_url TEXT;
             END IF;
         END $$;
         """
@@ -1408,7 +1452,8 @@ def get_user_by_id(user_id: int):
         cursor.execute(
             """
             SELECT id, username, nome_completo, cargo_original,
-                   departamento, role, email, is_active
+                   departamento, role, email, is_active, nome_usuario,
+                   avatar_url
             FROM users_new
             WHERE id = %s
             """,
@@ -1553,13 +1598,179 @@ def logout():
     return redirect(url_for("login"))
 
 
-@app.route("/profile")
+@app.route("/profile", methods=["GET", "POST"])
 @login_required
 def profile():
     user = get_user_by_id(session["user_id"])
     if not user:
         flash("Não foi possível carregar seu perfil.", "error")
         return redirect(url_for("index"))
+
+    if request.method == "POST":
+        user_id = session["user_id"]
+        conn = get_db()
+        cursor = conn.cursor()
+
+        errors: List[str] = []
+        updates: List[str] = []
+        params: List = []
+        avatar_payload = None
+        avatar_meta = None
+
+        # Campos principais
+        nome_completo = request.form.get("nome_completo", "").strip()
+        if not nome_completo:
+            errors.append("Informe seu nome completo.")
+        elif nome_completo != user["nome_completo"]:
+            updates.append("nome_completo = %s")
+            params.append(nome_completo)
+
+        new_username = request.form.get("username", "").strip()
+        if not new_username:
+            errors.append("Informe um nome de usuário.")
+        elif new_username.lower() != user["username"].lower():
+            cursor.execute(
+                "SELECT id FROM users_new WHERE LOWER(username) = LOWER(%s) AND id <> %s",
+                (new_username, user_id),
+            )
+            if cursor.fetchone():
+                errors.append("Este nome de usuário já está em uso.")
+            else:
+                updates.append("username = %s")
+                params.append(new_username)
+
+        new_nome_usuario = _sanitize_optional(request.form.get("nome_usuario"))
+        current_nome_usuario = _sanitize_optional(user.get("nome_usuario"))
+        if new_nome_usuario != current_nome_usuario:
+            if new_nome_usuario:
+                cursor.execute(
+                    """
+                    SELECT id FROM users_new
+                    WHERE LOWER(nome_usuario) = LOWER(%s) AND id <> %s
+                    """,
+                    (new_nome_usuario, user_id),
+                )
+                if cursor.fetchone():
+                    errors.append("Este usuário público já está em uso.")
+                else:
+                    updates.append("nome_usuario = %s")
+                    params.append(new_nome_usuario)
+            else:
+                updates.append("nome_usuario = %s")
+                params.append(None)
+
+        new_email = _sanitize_optional(request.form.get("email"))
+        current_email = _sanitize_optional(user.get("email"))
+        if new_email != current_email:
+            if new_email:
+                if not re.match(r"[^@]+@[^@]+\.[^@]+", new_email):
+                    errors.append("Informe um email válido.")
+                else:
+                    cursor.execute(
+                        "SELECT id FROM users_new WHERE LOWER(email) = LOWER(%s) AND id <> %s",
+                        (new_email, user_id),
+                    )
+                    if cursor.fetchone():
+                        errors.append("Este email já está em uso.")
+                    else:
+                        updates.append("email = %s")
+                        params.append(new_email.lower())
+            else:
+                updates.append("email = %s")
+                params.append(None)
+
+        new_departamento = _sanitize_optional(request.form.get("departamento"))
+        if new_departamento != _sanitize_optional(user.get("departamento")):
+            updates.append("departamento = %s")
+            params.append(new_departamento)
+
+        new_cargo = _sanitize_optional(request.form.get("cargo_original"))
+        if new_cargo != _sanitize_optional(user.get("cargo_original")):
+            updates.append("cargo_original = %s")
+            params.append(new_cargo)
+
+        # Upload de avatar
+        avatar_file = request.files.get("avatar")
+        if avatar_file and avatar_file.filename:
+            if not is_allowed_avatar_file(avatar_file.filename):
+                errors.append("Formato de imagem não suportado. Use PNG, JPG, JPEG, WEBP ou GIF.")
+            else:
+                avatar_bytes = avatar_file.read()
+                if not avatar_bytes:
+                    errors.append("Não foi possível ler o arquivo da foto.")
+                elif len(avatar_bytes) > MAX_AVATAR_SIZE_BYTES:
+                    errors.append("A foto deve ter no máximo 5MB.")
+                else:
+                    ext = avatar_file.filename.rsplit(".", 1)[-1].lower()
+                    base_name = secure_filename(os.path.splitext(avatar_file.filename)[0]) or "avatar"
+                    unique_name = f"user_{user_id}_{int(time.time())}_{base_name}.{ext}"
+                    avatar_meta = (
+                        avatar_bytes,
+                        unique_name,
+                        avatar_file.mimetype
+                        or mimetypes.guess_type(avatar_file.filename)[0]
+                        or "application/octet-stream",
+                    )
+
+        # Alteração de senha
+        new_password = request.form.get("new_password", "").strip()
+        if new_password:
+            current_password = request.form.get("current_password", "").strip()
+            confirm_password = request.form.get("confirm_password", "").strip()
+            if not current_password:
+                errors.append("Informe sua senha atual para definir uma nova.")
+            elif len(new_password) < 6:
+                errors.append("A nova senha deve ter pelo menos 6 caracteres.")
+            elif new_password != confirm_password:
+                errors.append("A confirmação da nova senha não confere.")
+            else:
+                cursor.execute("SELECT password FROM users_new WHERE id = %s", (user_id,))
+                stored = cursor.fetchone()
+                if not stored or not bcrypt.checkpw(
+                    current_password.encode("utf-8"), _as_bytes(stored["password"])
+                ):
+                    errors.append("Senha atual incorreta.")
+                else:
+                    password_hash = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt())
+                    updates.append("password = %s")
+                    params.append(psycopg2.Binary(password_hash))
+                    updates.append("first_login = FALSE")
+
+        new_avatar_url = None
+        if not errors and avatar_meta:
+            try:
+                avatar_buffer = BytesIO(avatar_meta[0])
+                new_avatar_url, _ = upload_to_supabase(
+                    avatar_buffer, avatar_meta[1], avatar_meta[2], folder="avatars"
+                )
+                updates.append("avatar_url = %s")
+                params.append(new_avatar_url)
+            except Exception as avatar_exc:
+                app.logger.error(f"Erro ao enviar avatar: {avatar_exc}")
+                errors.append("Não foi possível salvar a nova foto de perfil. Tente novamente.")
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+        else:
+            if updates:
+                updates.append("updated_at = NOW()")
+                query = f"UPDATE users_new SET {', '.join(updates)} WHERE id = %s"
+                params.append(user_id)
+                try:
+                    cursor.execute(query, params)
+                    conn.commit()
+                    user = refresh_session_user_cache() or get_user_by_id(user_id)
+                    flash("Perfil atualizado com sucesso!", "success")
+                except Exception as exc:
+                    conn.rollback()
+                    app.logger.error(f"Erro ao atualizar perfil do usuário {user_id}: {exc}")
+                    flash("Erro ao atualizar perfil. Tente novamente.", "error")
+            else:
+                flash("Nenhuma alteração detectada.", "info")
+
+        cursor.close()
+
     return render_template(get_template("profile.html"), user=user)
 
 
@@ -2758,7 +2969,7 @@ def get_supabase_config():
     return url, key
 
 
-def upload_to_supabase(file_obj, filename, content_type):
+def upload_to_supabase(file_obj, filename, content_type, folder="environments"):
     """Realiza upload de arquivo para o Supabase Storage"""
     url, key = get_supabase_config()
     
@@ -2771,8 +2982,8 @@ def upload_to_supabase(file_obj, filename, content_type):
     url = url.rstrip('/')
     bucket = "environment-assets"
     
-    # Caminho no bucket: environments/filename
-    storage_path = f"environments/{filename}"
+    folder = folder.strip("/") if folder else "environments"
+    storage_path = f"{folder}/{filename}"
     
     # Endpoint da API de Storage
     # POST /storage/v1/object/{bucket}/{path}
