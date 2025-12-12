@@ -141,5 +141,35 @@ def send_to_gerot(items):
     except Exception as e:
         logger.error(f"❌ Falha de conexão com GeRot: {e}")
 
+def check_data_requests():
+    """Verifica se há novas solicitações de dados vindas do chat."""
+    url = f"{GEROT_API_URL}/api/agent/data-request/pending"
+    headers = {
+        "X-API-Key": AGENT_API_KEY
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            requests_list = data.get("requests", [])
+            
+            if requests_list:
+                logger.info(f"\n🔔 [NOVAS SOLICITAÇÕES] Encontradas {len(requests_list)} demandas de usuários:")
+                for req in requests_list:
+                    logger.info(f"   👤 {req['user_name']} ({req['user_role']}): {req['request_query']}")
+                    logger.info(f"      Data: {req['created_at']}")
+                logger.info("--------------------------------------------------\n")
+                
+                # Salvar em arquivo local para persistência
+                log_file = "requests_received.log"
+                with open(log_file, "a", encoding="utf-8") as f:
+                    for req in requests_list:
+                        f.write(f"[{datetime.now().isoformat()}] {req['user_name']}: {req['request_query']}\n")
+                        
+    except Exception as e:
+        logger.error(f"Erro ao buscar solicitações: {e}")
+
 if __name__ == "__main__":
     run_sync()
+    check_data_requests()
