@@ -132,12 +132,35 @@
                                 </span>
                                 <i class="fas fa-external-link-alt text-muted-foreground group-hover:text-primary transition-colors"></i>
                             </div>
-                            <h3 class="mb-2 text-lg font-semibold text-foreground">
+                            <h3 class="text-lg font-semibold text-foreground">
                                 {{ dashboard.title }}
                             </h3>
-                            <p class="mb-4 text-sm text-muted-foreground">
+                            <p class="text-sm text-muted-foreground">
                                 {{ dashboard.description }}
                             </p>
+                            <div class="my-4 rounded-lg border bg-muted/20 overflow-hidden shadow-inner">
+                                {% if dashboard.embed_url %}
+                                    <div class="relative">
+                                        <div class="absolute inset-0 bg-gradient-to-b from-transparent to-background/60 pointer-events-none"></div>
+                                        <iframe
+                                            src="{{ dashboard.embed_url }}"
+                                            title="Prévia de {{ dashboard.title }}"
+                                            loading="lazy"
+                                            class="h-48 w-full border-0 pointer-events-none"
+                                            allowfullscreen
+                                            referrerpolicy="no-referrer-when-downgrade">
+                                        </iframe>
+                                        <div class="absolute bottom-2 right-2 rounded-full bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow-md flex items-center gap-1">
+                                            <i class="fas fa-eye"></i>
+                                            Prévia
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="flex h-48 items-center justify-center text-sm text-muted-foreground">
+                                        Prévia indisponível
+                                    </div>
+                                {% endif %}
+                            </div>
                             <button onclick="openDashboard('{{ dashboard.embed_url }}', '{{ dashboard.title }}')"
                                class="inline-flex items-center justify-center w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors cursor-pointer">
                                 <i class="fas fa-chart-line mr-2"></i>
