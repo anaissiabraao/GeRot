@@ -5,6 +5,7 @@
 {% block scripts %}
 <!-- SheetJS para Exportação Excel -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -406,10 +407,6 @@
                         <button type="button" onclick="insertCommand('/solicitar ')" 
                                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium hover:bg-blue-200 transition-colors whitespace-nowrap">
                             <i class="fas fa-database"></i> Solicitar Dados
-                        </button>
-                        <button type="button" onclick="insertCommand('/imagem ')" 
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium hover:bg-purple-200 transition-colors whitespace-nowrap">
-                            <i class="fas fa-image"></i> Gerar Imagem
                         </button>
                         <button type="button" onclick="exportChatToExcel()" 
                                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-xs font-medium hover:bg-green-200 transition-colors whitespace-nowrap">
@@ -1725,10 +1722,16 @@ function appendTypingIndicator(id) {
 }
 
 function formatMessageContent(text) {
-    // Simples formatador de markdown para HTML
-    // Em produção, use uma lib como 'marked' ou 'markdown-it'
-    
-    // Escapar HTML
+    // Usando marked.js para renderizar Markdown completo (tabelas, listas, negrito, etc)
+    try {
+        if (typeof marked !== 'undefined') {
+            return marked.parse(text);
+        }
+    } catch (e) {
+        console.error('Erro ao renderizar markdown:', e);
+    }
+
+    // Fallback manual caso marked não carregue
     let safe = text.replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
@@ -1747,9 +1750,6 @@ function formatMessageContent(text) {
     
     // Images (Markdown style: ![alt](url))
     safe = safe.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<div class="my-2"><img src="$2" alt="$1" class="max-w-full h-auto rounded-lg shadow-md border" loading="lazy"></div>');
-    
-    // Newlines to <br>
-    safe = safe.replace(/\n/g, '<br>');
     
     return safe;
 }
