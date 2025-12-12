@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""Aplicação GeRot focada em visibilidade de dashboards e agenda diária."""
-
 from __future__ import annotations
 
 from flask import (
@@ -35,15 +33,11 @@ import psycopg2.errors
 from datetime import datetime, date, timedelta
 from functools import wraps
 from typing import Dict, List, Tuple
-import requests
 import mimetypes
 from io import BytesIO
 from werkzeug.utils import secure_filename
 from psycopg2 import pool
-import openai
 import google.generativeai as genai
-import google.generativeai as genai
-
 from openpyxl import load_workbook
 
 from utils.planner_client import PlannerClient, PlannerIntegrationError
@@ -87,13 +81,6 @@ if not DATABASE_URL:
     )
 
 app.config["DATABASE_URL"] = DATABASE_URL
-
-# Configuração OpenAI
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if OPENAI_API_KEY:
-    openai.api_key = OPENAI_API_KEY
-else:
-    print("⚠️ AVISO: OPENAI_API_KEY não configurada. O Chat IA não funcionará corretamente.")
 
 # Configuração Google Gemini
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -5024,7 +5011,7 @@ def get_chat_messages(conversation_id):
 @app.route("/api/agent/chat/message", methods=["POST"])
 @login_required
 def send_chat_message():
-    """Envia uma mensagem e obtém resposta da IA (OpenAI + Gemini Fallback + DALL-E)."""
+    """Envia uma mensagem e obtém resposta da IA (Google Gemini + Knowledge RAG)."""
     data = request.get_json()
     user_message = data.get('message')
     conversation_id = data.get('conversation_id')
@@ -5057,40 +5044,20 @@ def send_chat_message():
         """, (conversation_id, user_message))
         
         ai_response = ""
-        
-        # --- COMANDO DE IMAGEM ---
-        openai_key = os.getenv("OPENAI_API_KEY")
-        if user_message.lower().startswith('/imagem ') or user_message.lower().startswith('/img '):
-            if not openai_key:
-                return jsonify({"error": "OpenAI API Key necessária para gerar imagens."}), 503
-                
-            prompt = user_message.replace('/imagem ', '').replace('/img ', '')
-            
-            try:
-                client = openai.OpenAI(api_key=openai_key)
-                response = client.images.generate(
-                    model="dall-e-3",
-                    prompt=prompt,
-                    size="1024x1024",
-                    quality="standard",
-                    n=1,
-                )
-                image_url = response.data[0].url
-                ai_response = f"Aqui está a imagem gerada para: **{prompt}**\n\n![Imagem Gerada]({image_url})"
-                
-            except Exception as img_err:
-                app.logger.error(f"Erro DALL-E: {img_err}")
-                ai_response = f"Desculpe, não consegui gerar a imagem. Erro: {str(img_err)}"
-        
+
+        normalized_message = user_message.lower()
+        if normalized_message.startswith('/imagem ') or normalized_message.startswith('/img '):
+            ai_response = (
+                "No momento a geração de imagens depende apenas da OpenAI, "
+                "que foi desativada por falta de créditos. Posso ajudar com uma descrição detalhada?"
+            )
         else:
-            # --- CHAT TEXTO (RAG + OpenAI/Gemini) ---
-            
-            # 3. RAG: Buscar contexto (Com filtro de permissão)
+            # --- CHAT TEXTO (RAG + Gemini) ---
+            if not GOOGLE_API_KEY:
+                return jsonify({"error": "Google Gemini não configurado. Defina GOOGLE_API_KEY."}), 503
+
             user_role = session.get('role', 'user')
-            
-            # A query busca itens que:
-            # a) Não têm restrição de role (allowed_roles IS NULL)
-            # b) OU a role do usuário está na lista allowed_roles
+
             cursor.execute("""
                 SELECT question, answer, category 
                 FROM agent_knowledge_base 
@@ -5099,15 +5066,19 @@ def send_chat_message():
                 ORDER BY created_at DESC
                 LIMIT 5
             """, (user_message, user_role))
-            
+
             knowledge_items = cursor.fetchall()
             context_text = ""
             if knowledge_items:
-                context_text = "\n\n📚 CONTEXTO DA BASE DE CONHECIMENTO:\n"
+                context_blocks = []
                 for item in knowledge_items:
-                    context_text += f"--- [{item['category'] or 'Geral'}] ---\nQ: {item['question']}\nA: {item['answer']}\n"
-            
-            # 4. Preparar histórico
+                    context_blocks.append(
+                        f"Categoria: {item['category'] or 'Geral'}\n"
+                        f"Pergunta: {item['question']}\n"
+                        f"Resposta: {item['answer']}\n"
+                    )
+                context_text = "\n".join(context_blocks)
+
             cursor.execute("""
                 SELECT role, content 
                 FROM agent_messages 
@@ -5116,71 +5087,42 @@ def send_chat_message():
                 LIMIT 10
             """, (conversation_id,))
             history = [dict(row) for row in cursor.fetchall()][::-1]
-            
-            system_prompt = f"""Você é o assistente virtual inteligente do sistema GeRot.
-            O usuário é: {session.get('nome_completo')} ({session.get('role')}).
-            
-            DIRETRIZES:
-            1. Use o CONTEXTO DA BASE DE CONHECIMENTO abaixo para responder, se aplicável. 
-            2. Se o contexto contiver dados do Brudam ou regras de negócio, priorize-os.
-            3. Se não souber, sugira adicionar à Base de Conhecimento.
-            4. Para gerar imagens, peça para o usuário usar o comando '/imagem descrição'.
-            
-            {context_text}
-            """
-            
-            # Tentar OpenAI primeiro
-            try:
-                openai_key = os.getenv("OPENAI_API_KEY")
-                if not openai_key:
-                    raise Exception("OpenAI Key missing")
-                    
-                messages = [{"role": "system", "content": system_prompt}]
+
+            history_text = ""
+            if history:
+                history_lines = []
                 for msg in history:
-                    messages.append({"role": msg['role'], "content": msg['content']})
-                
-                client = openai.OpenAI(api_key=openai_key)
-                response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=messages,
-                    temperature=0.7,
-                    max_tokens=1000
-                )
-                ai_response = response.choices[0].message.content
-                
-            except Exception as openai_error:
-                app.logger.warning(f"Falha na OpenAI ({openai_error}). Tentando Gemini...")
-                
-                # Fallback para Gemini
-                google_key = os.getenv("GOOGLE_API_KEY")
-                if google_key:
-                    try:
-                        genai.configure(api_key=google_key)
-                        # Usando modelo compatível (gemini-flash-latest validado)
-                        model = genai.GenerativeModel('gemini-flash-latest')
-                        
-                        # Construir chat session para Gemini
-                        # Gemini tem estrutura diferente (history list)
-                        chat_history = []
-                        # Adicionar system prompt como primeira mensagem do usuário ou contexto
-                        # Gemini Pro via API não tem "system" role explícito no chat history da mesma forma,
-                        # mas podemos passar no start ou na primeira mensagem.
-                        
-                        # Simplificação para Gemini: Prompt único com contexto
-                        full_prompt = f"{system_prompt}\n\nHistórico da conversa:\n"
-                        for msg in history:
-                            role_label = "Usuário" if msg['role'] == 'user' else "Modelo"
-                            full_prompt += f"{role_label}: {msg['content']}\n"
-                        full_prompt += f"Usuário (Atual): {user_message}"
-                        
-                        response = model.generate_content(full_prompt)
-                        ai_response = response.text
-                        
-                    except Exception as gemini_error:
-                        app.logger.error(f"Erro Gemini: {gemini_error}")
-                        ai_response = "Desculpe, ambos os serviços de IA (OpenAI e Gemini) estão indisponíveis no momento."
-                else:
-                    ai_response = f"Serviço OpenAI indisponível e Gemini não configurado. Erro: {str(openai_error)}"
+                    role_label = "Usuário" if msg["role"] == "user" else "Assistente"
+                    history_lines.append(f"{role_label}: {msg['content']}")
+                history_text = "\n".join(history_lines)
+
+            system_prompt = f"""
+Você é o assistente virtual inteligente do sistema GeRot.
+Usuário autenticado: {session.get('nome_completo')} ({session.get('role')}).
+
+Instruções:
+- Responda SEMPRE em português brasileiro, objetivo e com referências ao contexto quando disponível.
+- Se usar algum item da base, cite explicitamente na resposta (por exemplo: "De acordo com a Base de Conhecimento (Categoria X)...").
+- Se não houver contexto suficiente, sugira que o usuário adicione conhecimento.
+- Jamais invente informações sensíveis.
+
+Contexto da Base de Conhecimento:
+{context_text or "Nenhum item relevante encontrado."}
+
+Histórico recente:
+{history_text or "Sem histórico anterior além desta mensagem."}
+
+Pergunta atual: {user_message}
+"""
+
+            try:
+                model_name = os.getenv("GOOGLE_GEMINI_MODEL", "gemini-1.5-flash")
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(system_prompt)
+                ai_response = getattr(response, "text", "") or "Desculpe, não consegui gerar uma resposta agora."
+            except Exception as gemini_error:
+                app.logger.error(f"Erro na chamada ao Gemini: {gemini_error}")
+                ai_response = "Desculpe, o serviço de IA está indisponível no momento. Tente novamente em instantes."
 
         # 6. Salvar resposta da IA
         cursor.execute("""
