@@ -5115,14 +5115,33 @@ Histórico recente:
 Pergunta atual: {user_message}
 """
 
-            try:
-                model_name = os.getenv("GOOGLE_GEMINI_MODEL", "gemini-1.5-flash")
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(system_prompt)
-                ai_response = getattr(response, "text", "") or "Desculpe, não consegui gerar uma resposta agora."
-            except Exception as gemini_error:
-                app.logger.error(f"Erro na chamada ao Gemini: {gemini_error}")
-                ai_response = "Desculpe, o serviço de IA está indisponível no momento. Tente novamente em instantes."
+            primary_model = os.getenv("GOOGLE_GEMINI_MODEL", "gemini-1.5-flash")
+            fallback_model = os.getenv("GOOGLE_GEMINI_FALLBACK_MODEL", "gemini-1.5-flash-8b")
+            model_chain = [primary_model]
+            if fallback_model and fallback_model not in model_chain:
+                model_chain.append(fallback_model)
+
+            response = None
+            last_error = None
+            for model_name in model_chain:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content(system_prompt)
+                    break
+                except Exception as model_error:
+                    last_error = model_error
+                    app.logger.warning(
+                        "[Gemini] Falha ao usar modelo %s: %s", model_name, model_error
+                    )
+
+            if response and getattr(response, "text", None):
+                ai_response = response.text
+            else:
+                err_detail = f" Último erro: {last_error}" if last_error else ""
+                ai_response = (
+                    "Desculpe, o serviço de IA está indisponível no momento. "
+                    "Tente novamente em instantes." + err_detail
+                )
 
         # 6. Salvar resposta da IA
         cursor.execute("""
