@@ -2929,6 +2929,7 @@ def delete_resource_api(resource_id):
 # --------------------------------------------------------------------------- #
 @app.route("/agent")
 @login_required
+@admin_required
 def agent_page():
     """Página principal do Agente IA."""
     conn = get_db()

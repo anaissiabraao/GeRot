@@ -60,6 +60,20 @@
 
     <!-- Conteúdo Principal -->
     <main class="container mx-auto px-4 py-8">
+        <!-- Tabs Navigation -->
+        <div class="mb-6 border-b">
+            <nav class="flex gap-4">
+                <button onclick="openTab('dashboards')" id="tab-btn-dashboards" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-primary text-primary transition-colors">
+                    <i class="fas fa-chart-bar mr-2"></i>Dashboards
+                </button>
+                <button onclick="openTab('chat')" id="tab-btn-chat" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors">
+                    <i class="fas fa-robot mr-2"></i>Chat IA
+                </button>
+            </nav>
+        </div>
+
+        <!-- Tab: Dashboards -->
+        <div id="tab-dashboards" class="tab-pane">
         <!-- Título e Descrição -->
         <div class="mb-8">
             <h2 class="text-3xl font-bold text-foreground">Dashboards da Equipe</h2>
@@ -145,37 +159,10 @@
             </div>
         {% endif %}
 
-        <!-- Card do Agente IA -->
-        <div class="mt-8 rounded-lg border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 p-6">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <div class="rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 p-4">
-                        <i class="fas fa-robot text-white text-2xl"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-bold text-foreground">Agente IA</h3>
-                        <p class="text-sm text-muted-foreground">
-                            Automação inteligente e geração de relatórios personalizados
-                        </p>
-                    </div>
-                </div>
-                <a href="{{ url_for('agent_page') }}" 
-                   class="inline-flex items-center justify-center rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3 text-sm font-medium text-white hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl">
-                    <i class="fas fa-magic mr-2"></i>
-                    Acessar Agente
-                </a>
-            </div>
-        </div>
-
         <!-- Ações Rápidas -->
         <div class="mt-8 rounded-lg border bg-card p-6">
             <h3 class="mb-4 text-lg font-semibold text-foreground">Ações Rápidas</h3>
-            <div class="grid gap-4 md:grid-cols-4">
-                <a href="{{ url_for('agent_page') }}" 
-                   class="flex items-center justify-center rounded-md border-2 border-purple-200 bg-purple-50 px-4 py-3 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-100">
-                    <i class="fas fa-robot mr-2"></i>
-                    Agente IA
-                </a>
+            <div class="grid gap-4 md:grid-cols-3">
                 <a href="{{ url_for('cd_booking') }}" 
                    class="flex items-center justify-center rounded-md border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground">
                     <i class="fas fa-calendar-alt mr-2"></i>
@@ -193,6 +180,64 @@
                 </a>
             </div>
         </div>
+        </div><!-- End tab-dashboards -->
+
+        <!-- Tab: Chat IA -->
+        <div id="tab-chat" class="tab-pane hidden">
+            <div class="mb-6">
+                <h2 class="text-3xl font-bold text-foreground">Chat IA</h2>
+                <p class="mt-2 text-muted-foreground">
+                    Converse com o assistente inteligente para obter informações e insights.
+                </p>
+            </div>
+            
+            <div id="chatContainer" class="rounded-lg border bg-card shadow-lg overflow-hidden flex flex-col" style="height: 70vh; min-height: 500px;">
+                <!-- Chat Header -->
+                <div class="flex items-center justify-between border-b bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                            <i class="fas fa-robot text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-white">Assistente GeRot</h3>
+                            <p class="text-xs text-white/70">IA integrada aos dados</p>
+                        </div>
+                    </div>
+                    <button onclick="toggleChatFullscreen()" class="rounded-md bg-white/20 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/30 transition-colors">
+                        <i id="chatExpandIcon" class="fas fa-expand mr-1"></i>
+                        <span id="chatExpandText">Expandir</span>
+                    </button>
+                </div>
+                
+                <!-- Chat Messages -->
+                <div id="fullChatMessages" class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm p-1">
+                            <img src="{{ url_for('static', filename='avatar-bot.png') }}" alt="AI" class="w-full h-full object-contain">
+                        </div>
+                        <div class="rounded-2xl bg-white border border-gray-100 p-3 text-sm rounded-tl-sm shadow-sm max-w-[85%]">
+                            <div class="prose prose-sm text-gray-800">
+                                Olá! Sou o assistente virtual do GeRot. Como posso ajudar você hoje com seus dados e relatórios?
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chat Input -->
+                <div class="border-t bg-white p-4">
+                    <form onsubmit="sendFullChatMessage(event)" class="flex gap-2">
+                        <textarea id="fullChatInput" rows="1" 
+                                  class="flex-1 min-h-[44px] max-h-[100px] rounded-md border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                                  placeholder="Digite sua mensagem..."
+                                  onkeydown="handleFullChatKey(event)"></textarea>
+                        <button type="submit" 
+                                class="h-[44px] w-[44px] rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 transition-all flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div><!-- End tab-chat -->
     </main>
 </div>
 
@@ -410,10 +455,170 @@ document.addEventListener('keydown', function(event) {
     if (event.key === "Escape") {
         if (document.fullscreenElement) {
             document.exitFullscreen();
+        } else if (chatIsFullscreen) {
+            toggleChatFullscreen();
         } else {
             closeDashboard();
         }
     }
 });
+
+// --- TAB SWITCHING ---
+function openTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden'));
+    // Reset all tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('border-primary', 'text-primary');
+        btn.classList.add('border-transparent', 'text-muted-foreground');
+    });
+    
+    // Show selected tab
+    document.getElementById('tab-' + tabName).classList.remove('hidden');
+    // Activate button
+    const activeBtn = document.getElementById('tab-btn-' + tabName);
+    activeBtn.classList.add('border-primary', 'text-primary');
+    activeBtn.classList.remove('border-transparent', 'text-muted-foreground');
+}
+
+// --- FULL CHAT LOGIC ---
+let fullChatConversationId = null;
+let chatIsFullscreen = false;
+
+function toggleChatFullscreen() {
+    const container = document.getElementById('chatContainer');
+    const icon = document.getElementById('chatExpandIcon');
+    const text = document.getElementById('chatExpandText');
+    
+    chatIsFullscreen = !chatIsFullscreen;
+    
+    if (chatIsFullscreen) {
+        container.classList.add('fixed', 'inset-0', 'z-50', 'rounded-none');
+        container.style.height = '100vh';
+        icon.classList.remove('fa-expand');
+        icon.classList.add('fa-compress');
+        text.textContent = 'Reduzir';
+        document.body.style.overflow = 'hidden';
+    } else {
+        container.classList.remove('fixed', 'inset-0', 'z-50', 'rounded-none');
+        container.style.height = '70vh';
+        icon.classList.remove('fa-compress');
+        icon.classList.add('fa-expand');
+        text.textContent = 'Expandir';
+        document.body.style.overflow = '';
+    }
+}
+
+function handleFullChatKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendFullChatMessage(e);
+    }
+}
+
+async function sendFullChatMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById('fullChatInput');
+    const message = input.value.trim();
+    const container = document.getElementById('fullChatMessages');
+    
+    if (!message) return;
+    
+    // Add user message
+    appendFullChatMessage('user', message);
+    input.value = '';
+    input.disabled = true;
+    scrollFullChatToBottom();
+    
+    // Show typing indicator
+    const typingId = 'full-typing-' + Date.now();
+    appendFullChatTypingIndicator(typingId);
+    scrollFullChatToBottom();
+    
+    try {
+        const response = await fetch('/api/agent/chat/message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                conversation_id: fullChatConversationId,
+                message: message
+            })
+        });
+        
+        const data = await response.json();
+        document.getElementById(typingId)?.remove();
+        
+        if (data.error) {
+            appendFullChatMessage('system', 'Erro: ' + data.error);
+        } else {
+            if (data.conversation_id) {
+                fullChatConversationId = data.conversation_id;
+            }
+            appendFullChatMessage('assistant', data.response);
+        }
+    } catch (error) {
+        document.getElementById(typingId)?.remove();
+        appendFullChatMessage('system', 'Erro de conexão. Tente novamente.');
+    } finally {
+        input.disabled = false;
+        input.focus();
+        scrollFullChatToBottom();
+    }
+}
+
+function appendFullChatMessage(role, content) {
+    const container = document.getElementById('fullChatMessages');
+    const isUser = role === 'user';
+    const isSystem = role === 'system';
+    
+    let html = '';
+    
+    if (isSystem) {
+        html = `<div class="flex justify-center my-2"><span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">${content}</span></div>`;
+    } else {
+        const avatarHtml = isUser 
+            ? `<div class="w-8 h-8 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0 text-white shadow-sm"><i class="fas fa-user text-xs"></i></div>`
+            : `<div class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm p-1">
+                 <img src="{{ url_for('static', filename='avatar-bot.png') }}" alt="AI" class="w-full h-full object-contain">
+               </div>`;
+
+        html = `
+            <div class="flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}">
+                ${avatarHtml}
+                <div class="rounded-2xl p-3 text-sm max-w-[85%] ${isUser ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-tr-sm' : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm shadow-sm'}">
+                    <div class="prose prose-sm ${isUser ? 'text-white' : 'text-gray-800'} max-w-none break-words">
+                        ${formatMessageContent(content)}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function appendFullChatTypingIndicator(id) {
+    const container = document.getElementById('fullChatMessages');
+    const html = `
+        <div id="${id}" class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm p-1">
+                 <img src="{{ url_for('static', filename='avatar-bot.png') }}" alt="AI" class="w-full h-full object-contain">
+            </div>
+            <div class="rounded-2xl bg-white border border-gray-100 p-3 text-sm rounded-tl-sm shadow-sm">
+                <div class="flex gap-1">
+                    <div class="w-1.5 h-1.5 bg-purple-600 rounded-full animate-bounce"></div>
+                    <div class="w-1.5 h-1.5 bg-purple-600 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                    <div class="w-1.5 h-1.5 bg-purple-600 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function scrollFullChatToBottom() {
+    const container = document.getElementById('fullChatMessages');
+    container.scrollTop = container.scrollHeight;
+}
 </script>
 {% endblock %}
