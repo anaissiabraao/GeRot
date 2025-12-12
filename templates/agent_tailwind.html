@@ -1738,10 +1738,23 @@ async function triggerDocumentIngestion(button) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-        const result = await response.json();
+        const contentType = response.headers.get('content-type') || '';
+        let result = null;
 
-        if (!response.ok || !result.success) {
-            throw new Error(result.error || 'Falha ao executar ingestão.');
+        if (contentType.includes('application/json')) {
+            result = await response.json();
+        } else {
+            const rawText = await response.text();
+            const preview = rawText.slice(0, 200).trim();
+            throw new Error(
+                `Resposta inesperada (${response.status || 'sem status'}).` +
+                ` Conteúdo recebido: ${preview || 'vazio'}`
+            );
+        }
+
+        if (!response.ok || !result?.success) {
+            const message = result?.error || `Falha ao executar ingestão (HTTP ${response.status}).`;
+            throw new Error(message);
         }
 
         const summary = result.summary || {};

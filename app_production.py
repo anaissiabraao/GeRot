@@ -5068,35 +5068,37 @@ def send_chat_message():
             """, (user_message, user_role))
 
             knowledge_items = cursor.fetchall()
-            context_text = ""
+            kb_blocks = []
             if knowledge_items:
-                context_blocks = []
-                for item in knowledge_items:
-                    context_blocks.append(
-                        f"Categoria: {item['category'] or 'Geral'}\n"
-                        f"Pergunta: {item['question']}\n"
-                        f"Resposta: {item['answer']}\n"
+                for idx, item in enumerate(knowledge_items, start=1):
+                    kb_blocks.append(
+                        f"{idx}. [{item['category'] or 'Geral'}] {item['question']}\n{item['answer']}"
                     )
-                context_text = "\n".join(context_blocks)
+                ai_response = (
+                    "📚 Base de Conhecimento encontrada:\n"
+                    + "\n\n".join(kb_blocks)
+                )
+            else:
+                context_text = ""
 
-            cursor.execute("""
-                SELECT role, content 
-                FROM agent_messages 
-                WHERE conversation_id = %s 
-                ORDER BY created_at DESC 
-                LIMIT 10
-            """, (conversation_id,))
-            history = [dict(row) for row in cursor.fetchall()][::-1]
+                cursor.execute("""
+                    SELECT role, content 
+                    FROM agent_messages 
+                    WHERE conversation_id = %s 
+                    ORDER BY created_at DESC 
+                    LIMIT 10
+                """, (conversation_id,))
+                history = [dict(row) for row in cursor.fetchall()][::-1]
 
-            history_text = ""
-            if history:
-                history_lines = []
-                for msg in history:
-                    role_label = "Usuário" if msg["role"] == "user" else "Assistente"
-                    history_lines.append(f"{role_label}: {msg['content']}")
-                history_text = "\n".join(history_lines)
+                history_text = ""
+                if history:
+                    history_lines = []
+                    for msg in history:
+                        role_label = "Usuário" if msg["role"] == "user" else "Assistente"
+                        history_lines.append(f"{role_label}: {msg['content']}")
+                    history_text = "\n".join(history_lines)
 
-            system_prompt = f"""
+                system_prompt = f"""
 Você é o assistente virtual inteligente do sistema GeRot.
 Usuário autenticado: {session.get('nome_completo')} ({session.get('role')}).
 
@@ -5115,33 +5117,43 @@ Histórico recente:
 Pergunta atual: {user_message}
 """
 
-            primary_model = os.getenv("GOOGLE_GEMINI_MODEL", "gemini-1.5-flash")
-            fallback_model = os.getenv("GOOGLE_GEMINI_FALLBACK_MODEL", "gemini-1.5-flash-8b")
-            model_chain = [primary_model]
-            if fallback_model and fallback_model not in model_chain:
-                model_chain.append(fallback_model)
-
-            response = None
-            last_error = None
-            for model_name in model_chain:
-                try:
-                    model = genai.GenerativeModel(model_name)
-                    response = model.generate_content(system_prompt)
-                    break
-                except Exception as model_error:
-                    last_error = model_error
-                    app.logger.warning(
-                        "[Gemini] Falha ao usar modelo %s: %s", model_name, model_error
+                primary_model = os.getenv("GOOGLE_GEMINI_MODEL", "gemini-1.5-flash")
+                if primary_model in {"gemini-flash-latest", "gemini-2.5-flash"}:
+                    app.logger.info(
+                        "Modelo %s bloqueado para evitar limite reduzido. Usando gemini-1.5-flash.",
+                        primary_model,
                     )
+                    primary_model = "gemini-1.5-flash"
 
-            if response and getattr(response, "text", None):
-                ai_response = response.text
-            else:
-                err_detail = f" Último erro: {last_error}" if last_error else ""
-                ai_response = (
-                    "Desculpe, o serviço de IA está indisponível no momento. "
-                    "Tente novamente em instantes." + err_detail
-                )
+                fallback_model = os.getenv("GOOGLE_GEMINI_FALLBACK_MODEL", "gemini-1.5-flash-8b")
+                if fallback_model in {"gemini-flash-latest", "gemini-2.5-flash"}:
+                    fallback_model = "gemini-1.5-flash-001"
+
+                model_chain = [primary_model]
+                if fallback_model and fallback_model not in model_chain:
+                    model_chain.append(fallback_model)
+
+                response = None
+                last_error = None
+                for model_name in model_chain:
+                    try:
+                        model = genai.GenerativeModel(model_name)
+                        response = model.generate_content(system_prompt)
+                        break
+                    except Exception as model_error:
+                        last_error = model_error
+                        app.logger.warning(
+                            "[Gemini] Falha ao usar modelo %s: %s", model_name, model_error
+                        )
+
+                if response and getattr(response, "text", None):
+                    ai_response = response.text
+                else:
+                    err_detail = f" Último erro: {last_error}" if last_error else ""
+                    ai_response = (
+                        "Desculpe, o serviço de IA está indisponível no momento. "
+                        "Tente novamente em instantes." + err_detail
+                    )
 
         # 6. Salvar resposta da IA
         cursor.execute("""
