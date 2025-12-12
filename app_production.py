@@ -47,15 +47,11 @@ import google.generativeai as genai
 from openpyxl import load_workbook
 
 from utils.planner_client import PlannerClient, PlannerIntegrationError
-from scripts.doc_ingest import ingest_documents
 
 
-app = Flask(__name__)
-CORS(app)
-Compress(app)  # Habilita compressão Gzip
-api = Api(app)
+def ingest_documents_route():
+    pass
 
-# Otimização: Cache de arquivos estáticos por 1 ano
 @app.after_request
 def add_header(response):
     if 'Cache-Control' not in response.headers:
@@ -73,7 +69,7 @@ def add_header(response):
 app.config["SECRET_KEY"] = os.getenv(
     "SECRET_KEY", "gerot-production-2025-super-secret"
 )
-app.config["DEBUG"] = True
+app.config["DEBUG"] = os.getenv("FLASK_DEBUG", "false").lower() == "true"
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)  # Sessões persistem por 7 dias
 
 DATABASE_URL = (
@@ -1932,6 +1928,7 @@ def ingest_documents_route():
         return jsonify({"error": "Apenas administradores podem executar a ingestão"}), 403
 
     try:
+        from scripts.doc_ingest import ingest_documents
         summary = ingest_documents()
         return jsonify({"success": True, "summary": summary})
     except Exception as e:

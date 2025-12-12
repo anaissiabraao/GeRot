@@ -2,6 +2,18 @@
 
 {% block title %}Agente{% endblock %}
 
+{% block head %}
+<style>
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+</style>
+{% endblock %}
+
 {% block scripts %}
 <!-- SheetJS para Exportação Excel -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
@@ -13,39 +25,39 @@
     <!-- Header com Navegação -->
     <header class="border-b bg-card shadow-sm">
         <div class="container mx-auto px-4">
-            <div class="flex h-16 items-center justify-between">
-                <div class="flex items-center space-x-4">
+            <div class="flex flex-col gap-4 lg:flex-row lg:h-16 lg:items-center lg:justify-between">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
                     <div class="flex items-center gap-2">
                         <img src="{{ url_for('static', filename='portoex-logo.png') }}" alt="PortoEx" class="h-8 w-auto">
                         <span class="text-xl font-bold text-primary border-l border-muted-foreground/30 pl-2 ml-2">GeRot</span>
                     </div>
-                    <nav class="flex flex-wrap space-x-1">
-                        <a href="{{ url_for('index') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                    <nav class="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar py-1">
+                        <a href="{{ url_for('index') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap">
                             <i class="fas fa-home mr-2"></i>Início
                         </a>
-                        <a href="{{ url_for('team_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                        <a href="{{ url_for('team_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap">
                             <i class="fas fa-chart-bar mr-2"></i>Dashboards
                         </a>
-                        <a href="{{ url_for('cd_booking') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                        <a href="{{ url_for('cd_booking') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap">
                             <i class="fas fa-calendar mr-2"></i>Agenda CD
                         </a>
                         {% if session.role == 'admin' %}
-                        <a href="{{ url_for('admin_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                        <a href="{{ url_for('admin_dashboard') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap">
                             <i class="fas fa-cog mr-2"></i>Admin
                         </a>
                         {% endif %}
                     </nav>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <span class="text-sm text-muted-foreground">
-                        Olá, {{ session.nome_completo }}
-                    </span>
-                    <a href="{{ url_for('profile') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
-                        <i class="fas fa-user-circle"></i>
-                    </a>
-                    <a href="{{ url_for('logout') }}" class="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Sair
-                    </a>
+                <div class="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                    <span>Olá, {{ session.nome_completo }}</span>
+                    <div class="flex items-center gap-2">
+                        <a href="{{ url_for('profile') }}" class="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                            <i class="fas fa-user-circle"></i>
+                        </a>
+                        <a href="{{ url_for('logout') }}" class="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors">
+                            <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -84,7 +96,7 @@
         <!-- Tabs de Navegação -->
         <div class="mb-6">
             <div class="border-b border-border">
-                <nav class="flex flex-wrap gap-2 sm:gap-0 sm:space-x-8" aria-label="Tabs">
+                <nav class="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar sm:gap-0 sm:space-x-8" aria-label="Tabs">
                     <button onclick="switchTab('rpa')" id="tab-rpa" 
                             class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground">
                         <i class="fas fa-cogs mr-2"></i>RPA - Automação
@@ -352,7 +364,7 @@
         </div>
 
         <!-- Conteúdo da Tab Chat IA -->
-        <div id="content-chat" class="tab-content hidden h-[calc(100vh-250px)] min-h-[500px]">
+        <div id="content-chat" class="tab-content hidden agent-tab-panel lg:h-[calc(100vh-250px)] min-h-[500px]">
             <div class="grid h-full grid-cols-1 gap-6 lg:grid-cols-4">
                 <!-- Sidebar Histórico -->
                 <div class="hidden lg:flex lg:flex-col rounded-lg border bg-card shadow-sm overflow-hidden">
@@ -403,7 +415,7 @@
                     </div>
 
                     <!-- Ações Rápidas -->
-                    <div class="px-4 py-2 border-t bg-muted/20 flex gap-2 overflow-x-auto">
+                    <div class="px-4 py-2 border-t bg-muted/20 flex flex-wrap gap-2 sm:flex-nowrap overflow-x-auto">
                         <button type="button" onclick="insertCommand('/solicitar ')" 
                                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium hover:bg-blue-200 transition-colors whitespace-nowrap">
                             <i class="fas fa-database"></i> Solicitar Dados
@@ -434,7 +446,7 @@
         </div>
 
         <!-- Conteúdo da Tab Base de Conhecimento -->
-        <div id="content-knowledge" class="tab-content hidden h-[calc(100vh-250px)] min-h-[500px]">
+        <div id="content-knowledge" class="tab-content hidden agent-tab-panel lg:h-[calc(100vh-250px)] min-h-[500px]">
             <div class="mb-4 flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <h4 class="text-base font-semibold flex items-center gap-2">
