@@ -435,6 +435,26 @@
 
         <!-- Conteúdo da Tab Base de Conhecimento -->
         <div id="content-knowledge" class="tab-content hidden h-[calc(100vh-250px)] min-h-[500px]">
+            <div class="mb-4 flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <h4 class="text-base font-semibold flex items-center gap-2">
+                        <i class="fas fa-file-import text-primary"></i>
+                        Ingestão automática de documentos
+                    </h4>
+                    <p class="text-sm text-muted-foreground">
+                        Leia arquivos recém-adicionados e envie novos conhecimentos para a IA.
+                    </p>
+                </div>
+                <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+                    <span id="ingest-status" class="text-xs text-muted-foreground"></span>
+                    <button id="ingest-button"
+                            onclick="triggerDocumentIngestion(this)"
+                            class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+                        <i class="fas fa-sync-alt"></i>
+                        Executar ingestão
+                    </button>
+                </div>
+            </div>
             <div class="grid h-full grid-cols-1 gap-6 lg:grid-cols-3">
                 <!-- Lista de Conhecimento -->
                 <div class="lg:col-span-2 flex flex-col rounded-lg border bg-card shadow-sm overflow-hidden">
@@ -1686,6 +1706,52 @@ function addToKnowledgeFromChat(encodedContent) {
         }
     } catch (e) {
         console.error("Erro ao decodificar mensagem:", e);
+    }
+}
+
+async function triggerDocumentIngestion(button) {
+    if (!button) return;
+
+    const statusEl = document.getElementById('ingest-status');
+    const originalHtml = button.innerHTML;
+
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...';
+    if (statusEl) {
+        statusEl.textContent = 'Executando ingestão de documentos...';
+    }
+
+    try {
+        const response = await fetch('/api/agent/knowledge/ingest-documents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Falha ao executar ingestão.');
+        }
+
+        const summary = result.summary || {};
+        const message = `Importados ${summary.documents_copied || 0} arquivo(s); convertidos ${summary.documents_converted || 0}; novos itens: ${summary.knowledge_synced || 0}.`;
+        if (statusEl) {
+            statusEl.textContent = message;
+            statusEl.classList.remove('text-muted-foreground', 'text-red-500');
+            statusEl.classList.add('text-green-600');
+        }
+        loadKnowledge();
+    } catch (error) {
+        console.error('[Ingestão] erro:', error);
+        if (statusEl) {
+            statusEl.textContent = `Erro: ${error.message}`;
+            statusEl.classList.remove('text-muted-foreground', 'text-green-600');
+            statusEl.classList.add('text-red-500');
+        } else {
+            alert(error.message);
+        }
+    } finally {
+        button.disabled = false;
+        button.innerHTML = originalHtml;
     }
 }
 

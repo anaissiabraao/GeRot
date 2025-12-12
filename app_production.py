@@ -47,6 +47,7 @@ import google.generativeai as genai
 from openpyxl import load_workbook
 
 from utils.planner_client import PlannerClient, PlannerIntegrationError
+from scripts.doc_ingest import ingest_documents
 
 
 app = Flask(__name__)
@@ -1923,6 +1924,19 @@ def admin_users():
     finally:
         conn.close()
 
+
+@app.route("/api/agent/knowledge/ingest-documents", methods=["POST"])
+@login_required
+def ingest_documents_route():
+    if session.get("role") != "admin":
+        return jsonify({"error": "Apenas administradores podem executar a ingestão"}), 403
+
+    try:
+        summary = ingest_documents()
+        return jsonify({"success": True, "summary": summary})
+    except Exception as e:
+        app.logger.error(f"[AGENT-KB] Erro na ingestão de documentos: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/admin/users/add", methods=["POST"])
 @login_required

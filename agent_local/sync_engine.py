@@ -5,7 +5,9 @@ import time
 import logging
 import requests
 import pymysql
+import re
 from datetime import datetime
+from pathlib import Path
 
 # Configuração de Log
 logging.basicConfig(
@@ -17,6 +19,24 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# Caminhos e integrações externas
+BASE_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_DOCLING_PATH = os.getenv("DOCLING_PATH", str(BASE_DIR / "docling-main"))
+if os.path.isdir(DEFAULT_DOCLING_PATH) and DEFAULT_DOCLING_PATH not in sys.path:
+    sys.path.append(DEFAULT_DOCLING_PATH)
+
+DOCLING_AVAILABLE = False
+try:
+    from docling.document_converter import DocumentConverter
+    from docling.datamodel.base_models import InputFormat
+
+    DOCLING_AVAILABLE = True
+except Exception as docling_error:  # noqa: F841
+    logger.warning(
+        "Docling não disponível (%s). Ingestão de PDFs/DOCX será ignorada.",
+        docling_error,
+    )
 
 # Carregar variáveis de ambiente
 try:
@@ -40,6 +60,18 @@ MYSQL_CONFIG = {
 
 QUERIES_FILE = os.path.join("config", "queries.json")
 DATA_FILE = os.path.join("data", "knowledge_dump.json")
+DOC_KNOWLEDGE_DIR = Path(os.getenv("KNOWLEDGE_DOCS_DIR", os.path.join("documents", "incoming")))
+DOC_DEFAULT_CATEGORY = os.getenv("KNOWLEDGE_DOC_CATEGORY", "Documentos")
+SUPPORTED_DOC_EXTENSIONS = {".pdf", ".docx", ".png", ".jpg", ".jpeg"}
+
+def _int_from_env(var_name: str, default: int) -> int:
+    try:
+        return int(os.getenv(var_name, default))
+    except (TypeError, ValueError):
+        return default
+
+DOC_SECTION_MAX_CHARS = _int_from_env("DOC_SECTION_MAX_CHARS", 1200)
+DOC_SECTIONS_LIMIT = _int_from_env("DOC_SECTIONS_LIMIT", 25)
 
 def get_mysql_connection():
     return pymysql.connect(**MYSQL_CONFIG, cursorclass=pymysql.cursors.DictCursor)
@@ -57,24 +89,50 @@ def load_queries():
 
 def run_sync():
     logger.info(">>> Iniciando motor de sincronização...")
-    
-    queries = load_queries()
-    if not queries:
-        logger.warning("Nenhuma query para processar.")
-        return
 
     knowledge_items = []
-    
+
+    query_items = collect_query_knowledge()
+    if query_items:
+        knowledge_items.extend(query_items)
+        logger.info("✓ Conhecimentos de consultas SQL: %s item(s)", len(query_items))
+
+    doc_items = collect_docling_knowledge()
+    if doc_items:
+        knowledge_items.extend(doc_items)
+        logger.info("✓ Conhecimentos extraídos de documentos: %s item(s)", len(doc_items))
+
+    if not knowledge_items:
+        logger.warning("Nenhum conhecimento gerado de queries ou documentos.")
+        return 0
+
+    os.makedirs("data", exist_ok=True)
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(knowledge_items, f, indent=2, default=str)
+    logger.info(f"Dump salvo em: {DATA_FILE}")
+
+    send_to_gerot(knowledge_items)
+    return len(knowledge_items)
+
+
+def collect_query_knowledge():
+    queries = load_queries()
+    if not queries:
+        logger.info("Nenhuma query SQL configurada para sincronização.")
+        return []
+
+    knowledge_items = []
+    conn = None
     try:
         conn = get_mysql_connection()
         cursor = conn.cursor()
-        
+
         for q in queries:
             try:
                 # Executar SQL
                 cursor.execute(q['sql'])
                 row = cursor.fetchone()
-                
+
                 if row:
                     # Preparar contexto para formatação
                     ctx = row.copy()
@@ -97,27 +155,131 @@ def run_sync():
                     logger.info(f"[OK] {q['id']}: {answer}")
                 else:
                     logger.warning(f"[VAZIO] {q['id']} retornou sem dados.")
-                    
+
             except Exception as e:
                 logger.error(f"[ERRO] Query '{q.get('id')}': {e}")
-        
-        cursor.close()
-        conn.close()
-        
-        # 1. Salvar JSON local (Dump de Conhecimento)
-        os.makedirs("data", exist_ok=True)
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(knowledge_items, f, indent=2, default=str)
-        logger.info(f"Dump salvo em: {DATA_FILE}")
 
-        # 2. Enviar para GeRot API
-        if knowledge_items:
-            send_to_gerot(knowledge_items)
-        else:
-            logger.warning("Nada para enviar ao GeRot.")
-            
+        cursor.close()
     except Exception as e:
         logger.error(f"Erro fatal na sincronização: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+    return knowledge_items
+
+
+def collect_docling_knowledge():
+    if not DOCLING_AVAILABLE:
+        return []
+
+    docs_dir = DOC_KNOWLEDGE_DIR
+    if not docs_dir.exists():
+        logger.info("Diretório de documentos %s não existe. Pulando ingestão de arquivos.", docs_dir)
+        return []
+
+    allowed_formats = [InputFormat.PDF, InputFormat.DOCX, InputFormat.IMAGE]
+    converter = DocumentConverter(allowed_formats=allowed_formats)
+    knowledge_items = []
+
+    for doc_path in sorted(docs_dir.glob("**/*")):
+        if doc_path.is_dir() or doc_path.suffix.lower() not in SUPPORTED_DOC_EXTENSIONS:
+            continue
+
+        logger.info("Processando documento: %s", doc_path.name)
+        try:
+            conv_result = converter.convert(doc_path)
+            markdown_text = conv_result.document.export_to_markdown()
+            metadata_title = getattr(conv_result.document, "metadata", None)
+            doc_title = getattr(metadata_title, "title", None) or doc_path.stem
+
+            sections = extract_markdown_sections(markdown_text, default_title=doc_title)
+            if not sections:
+                sections = [{"title": doc_title, "content": markdown_text}]
+
+            for idx, section in enumerate(sections[:DOC_SECTIONS_LIMIT], start=1):
+                chunks = chunk_section_text(section["content"])
+                for chunk_idx, chunk in enumerate(chunks, start=1):
+                    if len(chunk) < 80:
+                        continue
+
+                    section_title = section["title"]
+                    question = f"O que diz o documento '{doc_title}' sobre '{section_title}'?"
+                    section_slug = slugify(f"{doc_title}-{section_title}-{chunk_idx}")
+
+                    knowledge_items.append({
+                        "id": f"doc::{section_slug}",
+                        "question": question,
+                        "answer": chunk.strip(),
+                        "category": section.get("category", DOC_DEFAULT_CATEGORY),
+                        "synced_at": datetime.now().isoformat(),
+                        "source": doc_path.name,
+                    })
+        except Exception as doc_error:
+            logger.error("Falha ao converter %s: %s", doc_path.name, doc_error)
+
+    return knowledge_items
+
+
+def extract_markdown_sections(markdown_text: str, default_title: str = "Resumo"):
+    sections = []
+    current_title = default_title or "Resumo"
+    buffer: list[str] = []
+
+    for line in markdown_text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            if buffer:
+                content = "\n".join(buffer).strip()
+                if content:
+                    sections.append({"title": current_title, "content": content})
+            current_title = stripped.lstrip("#").strip() or current_title
+            buffer = []
+            continue
+        buffer.append(line)
+
+    if buffer:
+        content = "\n".join(buffer).strip()
+        if content:
+            sections.append({"title": current_title, "content": content})
+
+    return sections
+
+
+def chunk_section_text(text: str):
+    text = text.strip()
+    if not text:
+        return []
+
+    chunks = []
+    current = []
+    current_len = 0
+
+    for paragraph in text.split("\n\n"):
+        paragraph = paragraph.strip()
+        if not paragraph:
+            continue
+        paragraph_len = len(paragraph)
+        potential_len = current_len + paragraph_len + 2
+
+        if potential_len > DOC_SECTION_MAX_CHARS and current:
+            chunks.append("\n\n".join(current).strip())
+            current = [paragraph]
+            current_len = paragraph_len
+        else:
+            current.append(paragraph)
+            current_len = potential_len
+
+    if current:
+        chunks.append("\n\n".join(current).strip())
+
+    return chunks
+
+
+def slugify(text: str):
+    slug = re.sub(r"[^a-z0-9]+", "-", text.lower())
+    slug = re.sub(r"-{2,}", "-", slug)
+    return slug.strip("-") or "sec"
 
 def send_to_gerot(items):
     url = f"{GEROT_API_URL}/api/agent/sync/knowledge"
