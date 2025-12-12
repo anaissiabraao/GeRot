@@ -49,8 +49,11 @@ from openpyxl import load_workbook
 from utils.planner_client import PlannerClient, PlannerIntegrationError
 
 
-def ingest_documents_route():
-    pass
+app = Flask(__name__)
+CORS(app)
+Compress(app)  # Habilita compressão Gzip
+api = Api(app)
+
 
 @app.after_request
 def add_header(response):
