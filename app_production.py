@@ -89,6 +89,82 @@ if GOOGLE_API_KEY:
 else:
     print("⚠️ AVISO: GOOGLE_API_KEY não configurada. Fallback para Gemini inativo.")
 
+GEMINI_PRIMARY_ALIAS = {
+    "gemini-flash-latest": "gemini-1.5-flash",
+    "gemini-2.5-flash": "gemini-1.5-flash",
+}
+
+GEMINI_FALLBACK_ALIAS = {
+    "gemini-flash-latest": "gemini-1.5-flash-001",
+    "gemini-2.5-flash": "gemini-1.5-flash-001",
+}
+
+
+def normalize_gemini_model_name(raw_name: str | None, *, alias_map=None, label: str = "") -> str | None:
+    """Normaliza nomes de modelos para o formato aceito pelo Google AI SDK."""
+    if not raw_name:
+        return None
+
+    candidate = raw_name.strip()
+    candidate_no_prefix = candidate.split("/", 1)[1] if candidate.startswith("models/") else candidate
+
+    if alias_map and candidate_no_prefix in alias_map:
+        replacement = alias_map[candidate_no_prefix]
+        app.logger.info(
+            "Modelo Gemini %s '%s' substituído por '%s'",
+            label or "",
+            raw_name,
+            replacement,
+        )
+        candidate = replacement
+
+    if "/" not in candidate:
+        candidate = f"models/{candidate}"
+
+    return candidate
+
+
+def expand_model_variants(model_identifier: str | None) -> list[str]:
+    """Gera variações compatíveis do nome do modelo (com e sem prefixo)."""
+    if not model_identifier:
+        return []
+
+    variants: list[str] = [model_identifier]
+
+    if model_identifier.startswith("models/"):
+        variants.append(model_identifier.split("/", 1)[1])
+    elif not model_identifier.startswith(("tunedModels/", "cachedContents/")):
+        variants.append(f"models/{model_identifier}")
+
+    deduped: list[str] = []
+    for value in variants:
+        if value and value not in deduped:
+            deduped.append(value)
+    return deduped
+
+
+def get_gemini_model_chain() -> list[str]:
+    """Retorna a cadeia de modelos (principal + fallback) normalizados e deduplicados."""
+    primary_raw = os.getenv("GOOGLE_GEMINI_MODEL", "gemini-1.5-flash")
+    fallback_raw = os.getenv("GOOGLE_GEMINI_FALLBACK_MODEL", "gemini-1.5-flash-8b")
+
+    primary_model = normalize_gemini_model_name(
+        primary_raw,
+        alias_map=GEMINI_PRIMARY_ALIAS,
+        label="principal",
+    )
+    fallback_model = normalize_gemini_model_name(
+        fallback_raw,
+        alias_map=GEMINI_FALLBACK_ALIAS,
+        label="fallback",
+    )
+
+    model_chain: list[str] = []
+    for model in (primary_model, fallback_model):
+        if model and model not in model_chain:
+            model_chain.append(model)
+    return model_chain
+
 # Limpar URL para o Pool (remover pgbouncer e outros params incompatíveis)
 pool_dsn = DATABASE_URL
 if "?" in pool_dsn:
@@ -5117,25 +5193,19 @@ Histórico recente:
 Pergunta atual: {user_message}
 """
 
-                primary_model = os.getenv("GOOGLE_GEMINI_MODEL", "gemini-1.5-flash")
-                if primary_model in {"gemini-flash-latest", "gemini-2.5-flash"}:
-                    app.logger.info(
-                        "Modelo %s bloqueado para evitar limite reduzido. Usando gemini-1.5-flash.",
-                        primary_model,
-                    )
-                    primary_model = "gemini-1.5-flash"
+                model_chain = get_gemini_model_chain()
+                variant_chain: list[str] = []
+                for model in model_chain:
+                    variant_chain.extend(expand_model_variants(model))
 
-                fallback_model = os.getenv("GOOGLE_GEMINI_FALLBACK_MODEL", "gemini-1.5-flash-8b")
-                if fallback_model in {"gemini-flash-latest", "gemini-2.5-flash"}:
-                    fallback_model = "gemini-1.5-flash-001"
-
-                model_chain = [primary_model]
-                if fallback_model and fallback_model not in model_chain:
-                    model_chain.append(fallback_model)
+                if not variant_chain:
+                    return jsonify({
+                        "error": "Nenhum modelo Gemini configurado. Verifique variáveis GOOGLE_GEMINI_MODEL e fallback."
+                    }), 503
 
                 response = None
                 last_error = None
-                for model_name in model_chain:
+                for model_name in variant_chain:
                     try:
                         model = genai.GenerativeModel(model_name)
                         response = model.generate_content(system_prompt)
